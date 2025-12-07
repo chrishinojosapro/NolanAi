@@ -1,426 +1,350 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nolan AI</title>
 
-<title>Nolan Ai</title>
+  <!-- iOS / PWA support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="https://i.imgur.com/8Qp4R0K.png">
 
-<!-- iOS PWA Support -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="https://i.imgur.com/8Qp4R0K.png">
+  <style>
+    :root {
+      --bg: #000;
+      --glass: rgba(25,25,25,0.8);
+      --glass-border: rgba(255,255,255,0.14);
+      --text: #fff;
+      --muted: #999;
+      --accent: linear-gradient(135deg, #0A84FF, #BF5AF2);
+      --ai: linear-gradient(135deg, #34C759, #30B0C7);
+      --radius: 22px;
+      --pill: 50px;
+      --blur: 40px;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial;
+    }
 
-<style>
-/* -------------------------------------------- */
-/* THEME */
-/* -------------------------------------------- */
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-:root {
-  --bg:#000;
-  --glass:rgba(25,25,25,0.8);
-  --glass-border:rgba(255,255,255,0.12);
-  --text:#fff;
-  --muted:#9a9a9a;
-  --accent:linear-gradient(135deg,#0A84FF,#BF5AF2);
-  --ai:linear-gradient(135deg,#34C759,#30B0C7);
-  --radius:22px;
-  --pill:50px;
-  --blur:40px;
-  --font:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial;
-}
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
 
-* {
-  box-sizing:border-box;
-  -webkit-tap-highlight-color:transparent;
-}
+    .frost {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(var(--blur)) saturate(140%);
+      -webkit-backdrop-filter: blur(var(--blur)) saturate(140%);
+    }
 
-body {
-  margin:0;
-  background:var(--bg);
-  font-family:var(--font);
-  color:var(--text);
-  height:100vh;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-}
+    .app {
+      max-width: 900px;
+      width: 100%;
+      height: 100%;
+      padding: 14px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+    }
 
-/* Frosted glass */
-.frost {
-  background:var(--glass);
-  border:1px solid var(--glass-border);
-  backdrop-filter:blur(var(--blur)) saturate(150%);
-  -webkit-backdrop-filter:blur(var(--blur)) saturate(150%);
-}
+    .topbar {
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
 
-/* -------------------------------------------- */
-/* LAYOUT */
-/* -------------------------------------------- */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
 
-.app {
-  max-width:900px;
-  width:100%;
-  height:100%;
-  padding:14px;
-  margin:auto;
-  display:flex;
-  flex-direction:column;
-}
+    .brand-icon,
+    .avatar {
+      height: 42px;
+      width: 42px;
+      min-height: 42px;
+      min-width: 42px;
+      border-radius: 50%;
+      background: var(--ai);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: 800;
+      font-size: 1.05rem;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      flex-shrink: 0;
+    }
 
-.topbar {
-  padding:14px 18px;
-  border-radius:var(--radius);
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:12px;
-}
+    .user .avatar {
+      background: var(--accent);
+    }
 
-.brand {
-  display:flex;
-  align-items:center;
-  gap:14px;
-}
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      background: var(--accent);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-/* ----- MATCHING CIRCLE HEADER ICON ----- */
-.brand-icon {
-  height:40px;
-  width:40px;
-  min-height:40px;
-  min-width:40px;
+    .status {
+      font-size: 0.82rem;
+      padding: 4px 14px;
+      border-radius: 20px;
+      background: rgba(52,199,89,0.22);
+      border: 1px solid rgba(52,199,89,0.35);
+      color: #b2ffcf;
+      font-weight: 500;
+    }
 
-  border-radius:50%;
-  background:var(--ai);
+    #refresh {
+      height: 40px;
+      width: 40px;
+      border-radius: 50%;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: white;
+    }
 
-  display:flex;
-  justify-content:center;
-  align-items:center;
+    #chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
 
-  font-weight:700;
-  font-size:1.1rem;
-  color:#fff;
+    #log {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
 
-  box-shadow:0 4px 12px rgba(0,0,0,0.35);
-}
+    .msg {
+      display: flex;
+      width: 100%;
+      gap: 12px;
+    }
 
-.brand h1 {
-  margin:0;
-  font-size:1.25rem;
-  background:var(--accent);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-}
+    .msg.user {
+      flex-direction: row-reverse;
+    }
 
-.status {
-  font-size:.75rem;
-  padding:4px 12px;
-  border-radius:20px;
-  background:rgba(52,199,89,0.18);
-  border:1px solid rgba(52,199,89,0.3);
-  color:#a0ffbf;
-}
+    .bubble {
+      padding: 12px 18px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      max-width: calc(100% - 60px);
+      line-height: 1.45;
+      font-size: .95rem;
+      word-wrap: break-word;
+      white-space: normal;
+    }
 
-#refresh {
-  height:40px;
-  width:40px;
-  border-radius:50%;
-  border:none;
-  background:var(--glass);
-  border:1px solid var(--glass-border);
-  color:#fff;
-  font-size:1.2rem;
-  cursor:pointer;
-}
+    .user .bubble {
+      background: var(--accent);
+      color: white;
+    }
 
-/* -------------------------------------------- */
-/* CHAT LAYOUT */
-/* -------------------------------------------- */
+    #typing {
+      padding: 10px 22px;
+      font-size: .85rem;
+      color: var(--muted);
+      display: none;
+    }
 
-#chat {
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  border-radius:var(--radius);
-  overflow:hidden;
-}
+    .input-bar {
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border-top: 1px solid var(--glass-border);
+    }
 
-#log {
-  flex:1;
-  padding:20px;
-  overflow-y:auto;
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-}
+    #msg {
+      flex: 1;
+      height: 48px;
+      border-radius: var(--pill);
+      padding: 0 18px;
+      border: none;
+      background: rgba(255,255,255,0.08);
+      color: white;
+      font-size: 1rem;
+    }
 
-/* -------------------------------------------- */
-/* MESSAGES */
-/* -------------------------------------------- */
+    #msg:focus {
+      outline: none;
+    }
 
-.msg {
-  display:flex;
-  align-items:flex-start;
-  gap:10px;
-  max-width:85%;
-}
+    #send {
+      height: 48px;
+      padding: 0 24px;
+      border: none;
+      border-radius: var(--pill);
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
 
-.msg.user {
-  align-self:flex-end;
-  flex-direction:row-reverse;
-}
-
-/* ----- MATCHING CIRCLE CHAT AVATARS ----- */
-.avatar {
-  height:40px;
-  width:40px;
-  min-height:40px;
-  min-width:40px;
-
-  border-radius:50%;
-  flex-shrink:0;
-
-  background:var(--ai);
-  display:flex;
-  justify-content:center;
-  align-items:center;
-
-  font-weight:700;
-  font-size:1rem;
-  color:#fff;
-
-  box-shadow:0 4px 12px rgba(0,0,0,0.35);
-}
-
-.user .avatar {
-  background:var(--accent);
-}
-
-.bubble {
-  padding:12px 18px;
-  font-size:.95rem;
-  line-height:1.45;
-
-  background:rgba(255,255,255,0.08);
-  border:1px solid rgba(255,255,255,0.1);
-  border-radius:16px;
-
-  max-width:85vw;
-  word-wrap:break-word;
-  overflow-wrap:break-word;
-  white-space:normal;
-
-  display:block;
-}
-
-.user .bubble {
-  background:var(--accent);
-  color:#fff;
-}
-
-/* Typing indicator */
-#typing {
-  padding:12px 20px;
-  font-size:.85rem;
-  color:var(--muted);
-  display:none;
-}
-
-/* -------------------------------------------- */
-/* INPUT BAR */
-/* -------------------------------------------- */
-
-.input-bar {
-  padding:12px;
-  display:flex;
-  gap:10px;
-  border-top:1px solid var(--glass-border);
-}
-
-#msg {
-  flex:1;
-  height:48px;
-  border-radius:var(--pill);
-  border:none;
-  outline:none;
-  padding:0 18px;
-  background:rgba(255,255,255,0.08);
-  color:#fff;
-  font-size:1rem;
-}
-
-#send {
-  height:48px;
-  padding:0 24px;
-  border:none;
-  border-radius:var(--pill);
-  background:var(--accent);
-  color:#fff;
-  font-weight:600;
-  cursor:pointer;
-}
-
-@media(max-width:600px){
-  #msg { height:44px; }
-  #send { padding:0 18px; }
-}
-
-</style>
+    @media(max-width: 600px) {
+      #msg { height: 44px; }
+      #send { padding: 0 18px; }
+    }
+  </style>
 </head>
 
 <body onload="initNolan()">
 
-<div class="app">
+  <div class="app">
 
-  <div class="topbar frost">
-    <div class="brand">
-      <div class="brand-icon">N</div>
-      <div>
-        <h1>Nolan Ai</h1>
-        <div style="font-size:.78rem; color:var(--muted); margin-top:-2px;">Personal Assistant</div>
+    <div class="topbar frost">
+      <div class="brand">
+        <div class="brand-icon">N</div>
+        <div>
+          <h1>Nolan AI</h1>
+          <div style="font-size: .82rem; color: var(--muted); margin-top: 2px;">Personal Assistant</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button id="refresh">🔄</button>
+        <div class="status">Online</div>
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; align-items:center;">
-      <button id="refresh">🔄</button>
-      <div class="status">Online</div>
+    <div id="chat" class="frost">
+      <div id="log"></div>
+      <div id="typing">Nolan is thinking…</div>
+
+      <div class="input-bar">
+        <input id="msg" type="text" placeholder="Ask Nolan…" autocomplete="off">
+        <button id="send">Send</button>
+      </div>
     </div>
+
   </div>
 
-  <div id="chat" class="frost">
-    <div id="log"></div>
-    <div id="typing">Nolan is thinking…</div>
+  <script>
+    const API = "https://script.google.com/macros/s/AKfycbySYDpXbSkwnqW4Z5n3KMnsbMKTHJZRsv49xWIO37bQEQZTk52UxhE24bIx3xeKNCdc/exec";
 
-    <div class="input-bar">
-      <input id="msg" type="text" placeholder="Ask Nolan anything…" autocomplete="off">
-      <button id="send">Send</button>
-    </div>
-  </div>
+    const logDiv = document.getElementById("log");
+    const input = document.getElementById("msg");
+    const sendBtn = document.getElementById("send");
+    const typing = document.getElementById("typing");
 
-</div>
+    let lastSendTime = 0;
+    const MIN_INTERVAL = 1300;
 
-<script>
-/* -------------------------------------------- */
-/* ENDPOINT */
-/* -------------------------------------------- */
+    function canSend() {
+      const now = Date.now();
+      if (now - lastSendTime < MIN_INTERVAL) return false;
+      lastSendTime = now;
+      return true;
+    }
 
-const API = "https://script.google.com/macros/s/AKfycbyme8N1SCc18K6GhRkf4ly-HNt6xq2qlLfz9tbvaskc1bbr_bMPxSSg6M9CggXumNnA/exec";
+    function addMsg(text, who) {
+      const row = document.createElement("div");
+      row.className = `msg ${who}`;
 
-const log = document.getElementById("log");
-const input = document.getElementById("msg");
-const sendBtn = document.getElementById("send");
-const typing = document.getElementById("typing");
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = who === "user" ? "C" : "N";
 
-/* -------------------------------------------- */
-/* FALLBACK RESPONSES WHEN GEMINI FAILS */
-/* -------------------------------------------- */
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.innerHTML = text;
 
-const fallback = [
-  { k:["hello","hi"], r:"Hi Chris! 😊 I'm here and ready." },
-  { k:["status"], r:"I'm online and ready to help." },
-  { k:["event","cab"], r:"Tell me the event name and I’ll help plan it. 📅" },
-  { k:["email"], r:"Who’s this message for? I can draft it. ✉️" },
-  { k:["help"], r:"I'm right here. What do you need? 🤝" }
-];
+      row.appendChild(avatar);
+      row.appendChild(bubble);
 
-function offlineReply(msg) {
-  msg = msg.toLowerCase();
-  for (let f of fallback) {
-    if (f.k.some(k => msg.includes(k))) return f.r;
-  }
-  return "I'm here, Chris. What would you like to do next? ✨";
-}
+      logDiv.appendChild(row);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
 
-/* -------------------------------------------- */
-/* RENDER MESSAGE */
-/* -------------------------------------------- */
+    async function send() {
+      if (!canSend()) return;
 
-function addMsg(text, who) {
-  const row = document.createElement("div");
-  row.className = `msg ${who}`;
+      const txt = input.value.trim();
+      if (!txt) return;
 
-  const avatar = document.createElement("div");
-  avatar.className = "avatar";
-  avatar.textContent = who === "user" ? "C" : "N";
+      addMsg(txt, "user");
+      input.value = "";
+      input.disabled = true;
+      sendBtn.disabled = true;
+      typing.style.display = "block";
 
-  const bubble = document.createElement("div");
-  bubble.className = "bubble";
-  bubble.innerHTML = text; // <–– Proper rendering of paragraphs/emojis
+      try {
+        const res = await fetch(API + "?q=" + encodeURIComponent(txt));
+        const raw = await res.text();
 
-  row.appendChild(avatar);
-  row.appendChild(bubble);
+        let data = {};
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          data = { reply: "<p>Nolan couldn’t read the server response.</p>" };
+        }
 
-  log.appendChild(row);
-  log.scrollTop = log.scrollHeight;
-}
+        addMsg(data.reply, "ai");
+      } catch (err) {
+        addMsg("<p>I’m here, even if my main system is down.</p>", "ai");
+      }
 
-/* -------------------------------------------- */
-/* SEND MESSAGE */
-/* -------------------------------------------- */
+      typing.style.display = "none";
+      input.disabled = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
 
-async function send() {
-  const txt = input.value.trim();
-  if (!txt) return;
+    let initialized = false;
+    async function initNolan() {
+      if (initialized) return;
+      initialized = true;
 
-  addMsg(txt, "user");
+      typing.style.display = "block";
 
-  input.value = "";
-  input.disabled = true;
-  sendBtn.disabled = true;
-  typing.style.display = "block";
+      try {
+        const res = await fetch(API + "?q=nolan_init");
+        const raw = await res.text();
+        const data = JSON.parse(raw);
+        addMsg(data.reply, "ai");
+      } catch {
+        addMsg("<p>Good to see you, Chris. I’m ready when you are.</p>", "ai");
+      }
 
-  try {
-    const res = await fetch(API + "?q=" + encodeURIComponent(txt));
-    const raw = await res.text();
-    console.log("RAW:", raw);
+      typing.style.display = "none";
+      input.disabled = false;
+      sendBtn.disabled = false;
+      input.focus();
+    }
 
-    const data = JSON.parse(raw);
-    addMsg(data.reply, "ai");
-
-  } catch (err) {
-    addMsg(offlineReply(txt), "ai");
-  }
-
-  typing.style.display = "none";
-  input.disabled = false;
-  sendBtn.disabled = false;
-  input.focus();
-}
-
-/* -------------------------------------------- */
-/* INIT — STARTUP BRIEFING */
-/* -------------------------------------------- */
-
-async function initNolan() {
-  typing.style.display = "block";
-
-  try {
-    const res = await fetch(API + "?q=nolan_init");
-    const raw = await res.text();
-    console.log("INIT RAW:", raw);
-
-    const data = JSON.parse(raw);
-    addMsg(data.reply, "ai");
-
-  } catch (err) {
-    addMsg("Good morning Chris ☀️ I'm here whenever you need me.", "ai");
-  }
-
-  typing.style.display = "none";
-  input.disabled = false;
-  sendBtn.disabled = false;
-  input.focus();
-}
-
-/* -------------------------------------------- */
-/* EVENTS */
-/* -------------------------------------------- */
-
-sendBtn.addEventListener("click", send);
-input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
-document.getElementById("refresh").onclick = () => location.reload();
-
-</script>
-
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keypress", e => {
+      if (e.key === "Enter" && input.value.trim()) send();
+    });
+    document.getElementById("refresh").onclick = () => location.reload();
+  </script>
 </body>
 </html>
