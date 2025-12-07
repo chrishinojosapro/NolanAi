@@ -87,13 +87,33 @@ font-size:1.6rem;
 color:#fff;
 }
 
-.status {
-font-size:.8rem;
-padding:6px 14px;
-border-radius:20px;
-background:rgba(50,50,50,0.5);
-border:1px solid rgba(255,255,255,0.1);
-color:#d0ffd6;
+.status-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* New: Make the status display clickable */
+#mode-toggle {
+    cursor: pointer;
+    font-size: .8rem;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease-in-out;
+}
+
+/* Style for Online Mode (Full AI) */
+.mode-online {
+    background: rgba(0, 150, 255, 0.5);
+    color: #d0ffd6;
+}
+
+/* Style for Local Mode (Memory Only) */
+.mode-local {
+    background: rgba(255, 165, 0, 0.5); /* Orange for warning/local */
+    color: #ffe6b0;
+    border: 1px solid rgba(255, 165, 0, 0.4);
 }
 
 #chat {
@@ -233,9 +253,9 @@ Chris's AI Assistant
 </div>
 </div>
 </div>
-<div style="display:flex;gap:10px;align-items:center;">
-<button id="refresh">↻</button>
-<div id="status" class="status">Online</div>
+<div class="status-container">
+    <button id="refresh">↻</button>
+    <div id="mode-toggle" class="mode-online">Online (Full AI)</div>
 </div>
 </div>
 
@@ -251,32 +271,71 @@ Chris's AI Assistant
 </div>
 
 <script>
-// NEW API deployment URL provided by the user
-const API = "https://script.google.com/macros/s/AKfycbyC4_3qWNSIw3HOIidIcmxBKpUGspCI_My1bII7tAQgMvNILyGl2d26eOVwA8w3aFm4/exec";
+// API deployment URL (must be updated by the user)
+const API = "https://script.google.com/macros/s/AKfycbyvzN3NNagKXV2arFhC2PzOcQcganZGZr7_9YJ-dPuFzw4syMjK-HpV2KntcNhahp7S/exec";
 
 const logDiv = document.getElementById("log");
 const input = document.getElementById("msg");
 const sendBtn = document.getElementById("send");
 const typing = document.getElementById("typing");
-const statusDiv = document.getElementById("status");
+const modeToggle = document.getElementById("mode-toggle");
 const brandIcon = document.querySelector(".brand-icon");
 
-function setOnlineStatus() {
-statusDiv.textContent = "Online";
-brandIcon.innerHTML = "☁️";
-brandIcon.style.backgroundColor = "rgba(0,150,255,0.55)";
+let currentMode = 'online'; // 'online' (Full AI) or 'local' (Memory Only)
+
+// --- Mode Management ---
+function setOnlineMode(apiWorking) {
+    currentMode = 'online';
+    modeToggle.textContent = 'Online (Full AI)'; // Updated to Full AI
+    modeToggle.classList.remove('mode-local');
+    modeToggle.classList.add('mode-online');
+    brandIcon.innerHTML = "☁️";
+    brandIcon.style.backgroundColor = apiWorking ? "rgba(0,150,255,0.55)" : "rgba(255, 165, 0, 0.5)";
+}
+
+function setLocalMode() {
+    currentMode = 'local';
+    modeToggle.textContent = "Local (Memory Only)";
+    modeToggle.classList.remove('mode-online');
+    modeToggle.classList.add('mode-local');
+    brandIcon.innerHTML = "🧠";
+    brandIcon.style.backgroundColor = "rgba(255, 165, 0, 0.5)";
+}
+
+function toggleMode() {
+    if (currentMode === 'online') {
+        setLocalMode();
+        addMsg("Switched to Local Mode. I will only respond using stored facts and utilities. No external AI calls will be made.", "ai", true);
+    } else {
+        setOnlineMode(true);
+        addMsg("Switched back to Online Mode. I can now use the external AI model.", "ai");
+    }
+    // Store mode preference (optional, using localStorage if available)
+    if (window.localStorage) {
+        localStorage.setItem('nolanMode', currentMode);
+    }
+    input.focus();
+}
+
+modeToggle.addEventListener('click', toggleMode);
+
+// --- Status Updates ---
+
+function setApiStatus(isOnline) {
+    // This function now primarily handles visual feedback if we are in 'online' mode
+    if (currentMode === 'online') {
+        setOnlineMode(isOnline);
+    }
 }
 
 function setOfflineStatus() {
-statusDiv.textContent = "Offline Mode";
-brandIcon.innerHTML = "🧠";
-brandIcon.style.backgroundColor = "rgba(255,50,50,0.55)";
+    // If the API failed, we set the API status visually but keep the mode logic separate
+    setApiStatus(false); 
 }
+
 
 function addMsg(raw, who, offline = false) {
 let text = String(raw || "");
-// Using <p> tag as the primary element for text output
-// This ensures that the HTML returned from the Apps Script is rendered correctly as blocks.
 const tempDiv = document.createElement('div');
 tempDiv.innerHTML = text;
 text = tempDiv.innerHTML;
@@ -296,7 +355,6 @@ if (offline) {
 bubble.classList.add("offline");
 }
 
-// If the message contains multiple paragraphs, apply the briefing style.
 if (who === "ai" && text.includes("<p>")) {
 bubble.classList.add("briefing-bubble");
 }
@@ -312,51 +370,71 @@ logDiv.scrollTo({top: logDiv.scrollHeight, behavior: "smooth"});
 }
 
 async function send() {
-const msg = input.value.trim();
-if (!msg) return;
-addMsg(msg, "user");
+    const msg = input.value.trim();
+    if (!msg) return;
+    addMsg(msg, "user");
 
-input.value = "";
-input.disabled = true;
-sendBtn.disabled = true;
-typing.style.display = "block";
+    input.value = "";
+    input.disabled = true;
+    sendBtn.disabled = true;
+    typing.style.display = "block";
 
-try {
-const res = await fetch(API + "?q=" + encodeURIComponent(msg));
-const json = await res.json();
-addMsg(json.reply, "ai");
-setOnlineStatus();
-} catch (e) {
-addMsg("Chris… I can’t reach my main system right now — I’m a bit foggy, but I’m still here.", "ai", true);
-setOfflineStatus();
-}
+    let apiUrl = API;
 
-typing.style.display = "none";
-input.disabled = false;
-sendBtn.disabled = false;
-input.focus();
+    if (currentMode === 'local') {
+        // In Local Mode, bypass external AI entirely.
+        // The Apps Script must read this flag and skip callAI.
+        apiUrl += "?q=" + encodeURIComponent(msg) + "&mode=local"; 
+    } else {
+        apiUrl += "?q=" + encodeURIComponent(msg);
+    }
+
+    try {
+        const res = await fetch(apiUrl);
+        const json = await res.json();
+        addMsg(json.reply, "ai");
+        setApiStatus(true); // API connection confirmed
+    } catch (e) {
+        addMsg("Chris… my connection dropped for a second. Say that again? I'm running in offline/local memory mode until the API recovers.", "ai", true);
+        setOfflineStatus();
+        setLocalMode(); // Auto-switch to local memory mode on failure
+    }
+
+    typing.style.display = "none";
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
 }
 
 async function initNolan() {
-typing.style.display = "block";
-input.disabled = true;
-sendBtn.disabled = true;
+    // Check for stored mode preference
+    if (window.localStorage && localStorage.getItem('nolanMode') === 'local') {
+        setLocalMode();
+    } else {
+        // Initial load is always Online, but we check connectivity
+        setOnlineMode(true);
+    }
 
-try {
-const ts = Date.now();
-const res = await fetch(API + "?q=&_ts=" + ts);
-const json = await res.json();
-addMsg(json.reply, "ai");
-setOnlineStatus();
-} catch (e) {
-addMsg("Chris… I'm here even if things feel a little foggy.", "ai", true);
-setOfflineStatus();
-}
+    typing.style.display = "block";
+    input.disabled = true;
+    sendBtn.disabled = true;
 
-typing.style.display = "none";
-input.disabled = false;
-sendBtn.disabled = false;
-input.focus();
+    try {
+        const ts = Date.now();
+        const res = await fetch(API + "?q=&_ts=" + ts);
+        const json = await res.json();
+        addMsg(json.reply, "ai");
+        setApiStatus(true);
+    } catch (e) {
+        addMsg("Chris… I'm here. My external AI connection is currently offline, so I've automatically switched to **Local Memory Mode**.", "ai", true);
+        setOfflineStatus();
+        setLocalMode();
+    }
+
+    typing.style.display = "none";
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
 }
 
 sendBtn.addEventListener("click", send);
