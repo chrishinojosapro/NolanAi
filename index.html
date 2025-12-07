@@ -1,69 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nolan AI</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nolan AI</title>
 
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="https://i.imgur.com/8Qp4R0K.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="https://i.imgur.com/8Qp4R0K.png">
 
-  <style>
-    :root {
-      --bg: #000;
-      --glass: rgba(25,25,25,0.75);
-      --glass-border: rgba(255,255,255,0.14);
-      --text: #fff;
-      --muted: #999;
-      --accent: linear-gradient(135deg, #0A84FF, #BF5AF2);
-      --ai: linear-gradient(135deg, #34C759, #30B0C7);
-      --radius: 22px;
-      --pill: 50px;
-      --blur: 38px;
-      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial;
-    }
-
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { margin:0; background: var(--bg); color: var(--text); font-family: var(--font); height:100vh; display:flex; flex-direction:column; }
-    .frost { background: var(--glass); border:1px solid var(--glass-border); backdrop-filter: blur(var(--blur)) saturate(140%); -webkit-backdrop-filter: blur(var(--blur)) saturate(140%); }
-    .app { max-width:900px; width:100%; height:100%; padding:14px; margin:auto; display:flex; flex-direction:column; }
-    .topbar { padding:14px 18px; border-radius: var(--radius); display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-    .brand { display:flex; align-items:center; gap:14px; }
-    .brand-icon { height:42px; width:42px; border-radius:50%; background: var(--ai); display:flex; justify-content:center; align-items:center; font-weight:800; font-size:1.05rem; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.55); box-shadow:0 4px 12px rgba(0,0,0,0.25); flex-shrink:0; }
-    .brand h1 { margin:0; font-size:1.22rem; background:var(--accent); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    .status { font-size:.82rem; padding:4px 14px; border-radius:20px; background:rgba(52,199,89,0.22); border:1px solid rgba(52,199,89,0.35); color:#b2ffcf; font-weight:500; }
-    #refresh { height:40px; width:40px; border-radius:50%; background: var(--glass); border:1px solid var(--glass-border); font-size:1.2rem; cursor:pointer; color:white; display:flex; justify-content:center; align-items:center; }
-    #chat { flex:1; display:flex; flex-direction:column; border-radius:var(--radius); overflow:hidden; }
-    #log { flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:18px; }
-    .msg { display:flex; width:100%; gap:12px; }
-    .msg.user { flex-direction:row-reverse; }
-    .avatar { height:42px; width:42px; border-radius:50%; background:var(--ai); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; flex-shrink:0; }
-    .msg.user .avatar { background: var(--accent); }
-    .bubble { padding:12px 18px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:16px; max-width:calc(100% - 60px); line-height:1.45; font-size:.95rem; word-wrap:break-word; }
-    .msg.user .bubble { background:var(--accent); color:white; }
-    #typing { padding:10px 22px; font-size:.85rem; color:var(--muted); display:none; }
-    .input-bar { padding:12px; display:flex; gap:10px; align-items:center; border-top:1px solid var(--glass-border); }
-    #msg { flex:1; height:48px; border-radius:var(--pill); padding:0 18px; border:none; background:rgba(255,255,255,0.08); color:white; font-size:1rem; }
-    #msg:focus { outline:none; }
-    #send { height:48px; padding:0 24px; border:none; border-radius:var(--pill); background:var(--accent); color:white; font-weight:600; cursor:pointer; }
-    @media(max-width:600px){ #msg{height:44px;} #send{padding:0 18px;} }
-  </style>
+<style>
+:root {
+  --bg:#000;
+  --glass:rgba(25,25,25,0.75);
+  --glass-border:rgba(255,255,255,0.14);
+  --text:#fff;
+  --muted:#999;
+  --accent:linear-gradient(135deg,#0A84FF,#BF5AF2);
+  --ai:linear-gradient(135deg,#34C759,#30B0C7);
+  --radius:22px;
+  --pill:50px;
+  --blur:38px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);height:100vh;display:flex;flex-direction:column;}
+.frost{background:var(--glass);border:1px solid var(--glass-border);backdrop-filter:blur(var(--blur)) saturate(140%);-webkit-backdrop-filter:blur(var(--blur)) saturate(140%);}
+.app{max-width:900px;width:100%;height:100%;padding:14px;margin:auto;display:flex;flex-direction:column;}
+.topbar{padding:14px 18px;border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-icon{height:42px;width:42px;border-radius:50%;background:var(--ai);display:flex;justify-content:center;align-items:center;font-weight:800;font-size:1.05rem;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,0.55);box-shadow:0 4px 12px rgba(0,0,0,0.25);flex-shrink:0;}
+.brand h1{margin:0;font-size:1.22rem;background:var(--accent);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.status{font-size:.82rem;padding:4px 14px;border-radius:20px;background:rgba(52,199,89,0.22);border:1px solid rgba(52,199,89,0.35);color:#b2ffcf;font-weight:500;}
+#refresh{height:40px;width:40px;border-radius:50%;background:var(--glass);border:1px solid var(--glass-border);font-size:1.2rem;cursor:pointer;color:white;display:flex;justify-content:center;align-items:center;}
+#chat{flex:1;display:flex;flex-direction:column;border-radius:var(--radius);overflow:hidden;}
+#log{flex:1;padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;}
+.msg{display:flex;width:100%;gap:12px;}
+.msg.user{flex-direction:row-reverse;}
+.avatar{height:42px;width:42px;border-radius:50%;background:var(--ai);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;flex-shrink:0;}
+.msg.user .avatar{background:var(--accent);}
+.bubble{padding:12px 18px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:16px;max-width:calc(100% - 60px);line-height:1.45;font-size:.95rem;word-wrap:break-word;position:relative;}
+.bubble.stressed{background:#ff4646;}
+.bubble.excited{background:#34c759;}
+.bubble.tired{background:#aaa;}
+.bubble.confused{background:#bf5af2;}
+.bubble.urgent{background:#f5a623;}
+.timestamp{font-size:.65rem;color:var(--muted);margin-top:2px;display:block;text-align:right;}
+#typing{padding:10px 22px;font-size:.85rem;color:var(--muted);display:none;}
+.input-bar{padding:12px;display:flex;gap:10px;align-items:center;border-top:1px solid var(--glass-border);}
+#msg{flex:1;height:48px;border-radius:var(--pill);padding:0 18px;border:none;background:rgba(255,255,255,0.08);color:white;font-size:1rem;}
+#msg:focus{outline:none;}
+#send{height:48px;padding:0 24px;border:none;border-radius:var(--pill);background:var(--accent);color:white;font-weight:600;cursor:pointer;}
+@media(max-width:600px){#msg{height:44px;}#send{padding:0 18px;}}
+.daily-briefing{padding:12px 18px;background:rgba(52,199,89,0.12);border:1px solid rgba(52,199,89,0.25);border-radius:16px;font-weight:500;}
+</style>
 </head>
-
 <body onload="initNolan()">
-
 <div class="app">
-
   <div class="topbar frost">
     <div class="brand">
-      <div class="brand-icon">N</div>
+      <div class="brand-icon" id="nolan-avatar">N</div>
       <div>
         <h1>Nolan AI</h1>
         <div style="font-size:.82rem;color:var(--muted);margin-top:1px;">Personal Assistant</div>
       </div>
     </div>
-
     <div style="display:flex;gap:10px;">
       <button id="refresh">🔄</button>
       <div class="status">Online</div>
@@ -78,92 +79,76 @@
       <button id="send">Send</button>
     </div>
   </div>
-
 </div>
 
 <script>
-  const API = "https://script.google.com/macros/s/AKfycbybFVqrgd2ZlNTJHrxe2bvKbRst5yX3pwmqebbEEY1LjuFbNIFNSZhQcanqR2wtro2W/exec";
+const API="https://script.google.com/macros/s/AKfycbybFVqrgd2ZlNTJHrxe2bvKbRst5yX3pwmqebbEEY1LjuFbNIFNSZhQcanqR2wtro2W/exec";
+const logDiv=document.getElementById("log");
+const input=document.getElementById("msg");
+const sendBtn=document.getElementById("send");
+const typing=document.getElementById("typing");
+const avatar=document.getElementById("nolan-avatar");
+let lastSend=0;
+const SEND_DELAY=1200;
 
-  const logDiv = document.getElementById("log");
-  const input = document.getElementById("msg");
-  const sendBtn = document.getElementById("send");
-  const typing = document.getElementById("typing");
+function throttle(){const now=Date.now();if(now-lastSend<SEND_DELAY)return false;lastSend=now;return true;}
 
-  let lastSend = 0;
-  const SEND_DELAY = 1200;
+function addMsg(text,who,tone=null,isBriefing=false,isOffline=false){
+  const row=document.createElement("div");
+  row.className=`msg ${who}`;
+  const av=document.createElement("div");
+  av.className="avatar";
+  av.textContent=who==="user"?"C":"N";
+  if(tone) av.style.backgroundColor=toneColor(tone);
+  if(isBriefing){row.classList.add("daily-briefing");}
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
+  if(tone) bubble.classList.add(tone);
+  if(isOffline) bubble.style.background="#555";
+  bubble.innerHTML=text;
+  const ts=document.createElement("span");ts.className="timestamp";ts.textContent=new Date().toLocaleTimeString();
+  bubble.appendChild(ts);
+  row.appendChild(av);
+  row.appendChild(bubble);
+  logDiv.appendChild(row);
+  logDiv.scrollTo({top:logDiv.scrollHeight,behavior:"smooth"});
+}
 
-  function throttle() {
-    const now = Date.now();
-    if(now - lastSend < SEND_DELAY) return false;
-    lastSend = now;
-    return true;
-  }
+function toneColor(tone){switch(tone){case"stressed":return"#ff4646";case"excited":return"#34c759";case"tired":return"#aaa";case"confused":return"#bf5af2";case"urgent":return"#f5a623";default:return"#30b0c7";}}
 
-  function addMsg(text, who) {
-    const row = document.createElement("div");
-    row.className = `msg ${who}`;
-    const avatar = document.createElement("div");
-    avatar.className="avatar";
-    avatar.textContent = who==="user"?"C":"N";
-    const bubble = document.createElement("div");
-    bubble.className="bubble";
-    bubble.innerHTML = text;
-    row.appendChild(avatar);
-    row.appendChild(bubble);
-    logDiv.appendChild(row);
-    logDiv.scrollTop = logDiv.scrollHeight;
-  }
+async function send(){
+  if(!throttle())return;
+  const txt=input.value.trim();if(!txt)return;
+  addMsg(txt,"user");
+  input.value="";input.disabled=true;sendBtn.disabled=true;typing.style.display="block";
+  try{
+    const res=await fetch(API+"?q="+encodeURIComponent(txt));
+    const raw=await res.text();
+    let data;
+    try{data=JSON.parse(raw);}catch{data={reply:"<p>Nolan couldn’t read the server response.</p>"}}
+    const tone=data.tone||null;
+    addMsg(data.reply,"ai",tone,false,false);
+  }catch{addMsg("<p>Nolan is offline.</p>","ai",null,false,true);}
+  typing.style.display="none";input.disabled=false;sendBtn.disabled=false;input.focus();
+}
 
-  async function send() {
-    if(!throttle()) return;
-    const txt = input.value.trim();
-    if(!txt) return;
+async function initNolan(){
+  typing.style.display="block";
+  try{
+    const res=await fetch(API+"?q=nolan_init");
+    const raw=await res.text();
+    const data=JSON.parse(raw);
+    addMsg(data.reply,"ai",null,true,false);
+  }catch{addMsg("<p>Good to see you Chris — I’m here with you.</p>","ai",null,true,true);}
+  typing.style.display="none";
+  input.disabled=false;
+  sendBtn.disabled=false;
+  input.focus();
+}
 
-    addMsg(txt,"user");
-    input.value="";
-    input.disabled=true;
-    sendBtn.disabled=true;
-    typing.style.display="block";
-
-    try {
-      const res = await fetch(API + "?q=" + encodeURIComponent(txt));
-      const raw = await res.text();
-      let data;
-      try{ data = JSON.parse(raw); }catch{ data={reply:"<p>Nolan couldn’t read the server response.</p>"} }
-      addMsg(data.reply,"ai");
-    } catch {
-      addMsg("<p>I’m here — having trouble connecting to my system.</p>","ai");
-    }
-
-    typing.style.display="none";
-    input.disabled=false;
-    sendBtn.disabled=false;
-    input.focus();
-  }
-
-  let started = false;
-  async function initNolan() {
-    if(started) return;
-    started=true;
-    typing.style.display="block";
-    try {
-      const res = await fetch(API + "?q=nolan_init");
-      const raw = await res.text();
-      const data = JSON.parse(raw);
-      addMsg(data.reply,"ai");
-    } catch {
-      addMsg("<p>Good to see you Chris — I’m here with you.</p>","ai");
-    }
-    typing.style.display="none";
-    input.disabled=false;
-    sendBtn.disabled=false;
-    input.focus();
-  }
-
-  sendBtn.addEventListener("click", send);
-  input.addEventListener("keypress", e=>{if(e.key==="Enter")send();});
-  document.getElementById("refresh").onclick=()=>location.reload();
+sendBtn.addEventListener("click",send);
+input.addEventListener("keypress",e=>{if(e.key==="Enter")send();});
+document.getElementById("refresh").onclick=()=>location.reload();
 </script>
-
 </body>
 </html>
