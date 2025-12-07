@@ -2,328 +2,172 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Nolan AI Chatbot</title>
+<title>Nolan AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-
 <style>
-    /* -------------------------------------
-       1. GLOBAL & LAYOUT
-    ------------------------------------- */
+    /* NOLAN DARK THEME */
     :root {
-        --color-bg-dark: #1e1e1e;
-        --color-surface-dark: #2d2d2d;
-        --color-text-light: #f0f0f0;
-        --color-user-bubble: #1e88e5; /* Blue */
-        --color-ai-bubble: #00897b;   /* Teal */
-        --color-accent: #3cffd0;
-        --color-input-bg: #3c3c3c;
+        --bg: #0f0f0f; 
+        --surface: #1a1a1a; 
+        --text: #e0e0e0;
+        --user: #1e88e5; /* Blue */
+        --ai: #00897b;   /* Teal */
+        --accent: #00e676; /* Green Accent */
     }
-
-    * {
-        box-sizing: border-box;
-    }
-
-    body {
-        font-family: 'Roboto', sans-serif;
-        margin: 0;
-        background: var(--color-bg-dark);
-        color: var(--color-text-light);
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    #chat-container {
-        width: 100%;
-        max-width: 600px;
-        height: 90vh;
-        max-height: 800px;
-        background: var(--color-surface-dark);
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    /* -------------------------------------
-       2. MESSAGE AREA
-    ------------------------------------- */
-    #chat-log {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px 15px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    /* Custom scrollbar */
-    #chat-log::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    #chat-log::-webkit-scrollbar-thumb {
-        background-color: #555;
-        border-radius: 4px;
-    }
-
-    .msg-group {
-        display: flex;
-        align-items: flex-start;
-    }
-
-    .user-group {
-        justify-content: flex-end;
-    }
-
-    .ai-group {
-        justify-content: flex-start;
-    }
-
-    .avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        margin-right: 8px;
-        margin-left: 8px;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 14px;
-        font-weight: bold;
-    }
-
-    .user-group .avatar { 
-        order: 2; 
-        background-color: var(--color-user-bubble); 
-    }
-    .ai-group .avatar { 
-        order: 1; 
-        background-color: var(--color-ai-bubble); 
-    }
-
-    .message {
-        max-width: 80%;
-        padding: 10px 14px;
-        border-radius: 18px;
-        line-height: 1.5;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    }
-
-    .user-group .message {
-        background-color: var(--color-user-bubble);
-        color: var(--color-text-light);
-        border-bottom-right-radius: 4px; 
-        order: 1;
-    }
-
-    .ai-group .message {
-        background-color: var(--color-input-bg);
-        color: var(--color-text-light);
-        border-bottom-left-radius: 4px; 
-        order: 2;
+    body { font-family: 'Roboto', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; height: 100vh; overflow: hidden; }
+    
+    #terminal { 
+        width: 100%; max-width: 800px; 
+        display: flex; flex-direction: column; 
+        background: var(--surface); 
+        height: 100%; 
+        box-shadow: 0 0 30px rgba(0,0,0,0.7); 
     }
     
-    .loading-dots {
-        display: inline-flex;
-        align-items: center;
-        height: 10px;
-    }
-    .loading-dots span {
-        width: 6px;
-        height: 6px;
-        margin: 0 2px;
-        background-color: var(--color-text-light);
-        border-radius: 50%;
-        animation: loading-blink 1.4s infinite both;
-    }
-    .loading-dots span:nth-child(2) {
-        animation-delay: 0.2s;
-    }
-    .loading-dots span:nth-child(3) {
-        animation-delay: 0.4s;
-    }
-    @keyframes loading-blink {
-        0% { opacity: 0.2; }
-        20% { opacity: 1; }
-        100% { opacity: 0.2; }
-    }
-
-
-    /* -------------------------------------
-       3. INPUT AREA
-    ------------------------------------- */
-    #input-area {
-        background: var(--color-surface-dark);
-        padding: 15px;
-        display: flex;
-        gap: 10px;
-        border-top: 1px solid #3d3d3d;
-        flex-shrink: 0; 
-    }
-
-    #msg-input {
-        flex: 1;
-        padding: 12px 15px;
-        font-size: 16px;
-        border-radius: 24px;
-        border: 1px solid #555;
-        outline: none;
-        background-color: var(--color-input-bg);
-        color: var(--color-text-light);
-        transition: border-color 0.2s;
-    }
-
-    #msg-input:focus {
-        border-color: var(--color-accent);
-    }
-
-    #send-btn {
-        padding: 0 20px;
-        background: var(--color-accent);
-        border: none;
-        border-radius: 24px;
-        color: #000;
-        cursor: pointer;
+    #header {
+        padding: 15px 20px;
+        background: #222;
+        border-bottom: 1px solid #333;
         font-weight: bold;
-        font-size: 16px;
-        transition: background 0.2s, opacity 0.2s;
-        height: 48px;
         display: flex;
+        justify-content: space-between;
         align-items: center;
-        justify-content: center;
     }
+    .status-dot { height: 10px; width: 10px; background: var(--accent); border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 5px var(--accent); }
 
-    #send-btn:hover:not(:disabled) {
-        background: #30e0b7;
+    #log { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
+    
+    .row { display: flex; align-items: flex-end; animation: fadeIn 0.3s ease; }
+    .row.user { justify-content: flex-end; }
+    .row.ai { justify-content: flex-start; }
+    
+    .bubble { max-width: 80%; padding: 14px 18px; border-radius: 18px; line-height: 1.5; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .user .bubble { background: var(--user); color: #fff; border-bottom-right-radius: 2px; }
+    .ai .bubble { background: #2d2d2d; color: #fff; border-bottom-left-radius: 2px; }
+    
+    .avatar { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 12px; font-size: 14px; flex-shrink: 0; }
+    .user .avatar { background: var(--user); order: 2; }
+    .ai .avatar { background: var(--ai); order: 1; }
+
+    #controls { padding: 20px; background: #222; border-top: 1px solid #333; display: flex; gap: 12px; }
+    
+    input { 
+        flex: 1; padding: 16px; 
+        border-radius: 30px; border: 1px solid #444; 
+        background: #111; color: white; 
+        font-size: 16px; outline: none; 
+        transition: border 0.2s;
     }
-
-    #send-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+    input:focus { border-color: var(--accent); }
+    
+    button { 
+        padding: 0 25px; border-radius: 30px; border: none; 
+        background: var(--accent); color: #000; 
+        font-weight: bold; font-size: 14px; letter-spacing: 1px;
+        cursor: pointer; transition: transform 0.1s, opacity 0.2s; 
     }
+    button:active { transform: scale(0.95); }
+    button:disabled { background: #555; cursor: not-allowed; }
+    
+    .typing { font-style: italic; opacity: 0.6; font-size: 13px; margin-left: 60px; margin-bottom: 5px; display: none; color: var(--accent); }
+    .typing.show { display: block; }
 
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
-
 <body>
 
-<div id="chat-container">
-    <div id="chat-log">
-        <div class="msg-group ai-group">
-            <div class="avatar">N</div>
-            <div class="message">Hello! I'm Nolan. Ask me anything.</div>
-        </div>
+<div id="terminal">
+    <div id="header">
+        <span>NOLAN AI SYSTEM</span>
+        <span style="font-size: 12px; font-weight: normal;"><span class="status-dot"></span>ONLINE</span>
     </div>
 
-    <div id="input-area">
-        <input id="msg-input" type="text" placeholder="Type a message for Nolan..." autocomplete="off" />
-        <button id="send-btn" onclick="sendMessage()">Send</button>
+    <div id="log">
+        <div class="row ai">
+            <div class="avatar">N</div>
+            <div class="bubble">System Initialized. I'm Nolan. How can I help?</div>
+        </div>
+    </div>
+    
+    <div class="typing" id="indicator">Nolan is thinking...</div>
+    
+    <div id="controls">
+        <input type="text" id="msg" placeholder="Type a message..." autocomplete="off">
+        <button id="send">SEND</button>
     </div>
 </div>
 
 <script>
-    // The actual deployed Apps Script URL
-    const scriptURL = "https://script.google.com/macros/s/AKfycbyJRmRruuloWQ9jI6rig_2DcqIWBqJbV59pBFNpZXMDwMFFa2wjD_LIExLRIJoXh2g/exec"; 
-    
-    const chatLog = document.getElementById("chat-log");
-    const input = document.getElementById("msg-input");
-    const sendButton = document.getElementById("send-btn");
-    
-    // Add event listener for the Enter key
-    input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault(); 
-            sendMessage();
-        }
-    });
+    // ---------------------------------------------------------
+    // AUTOMATICALLY CONFIGURED WITH YOUR NEW URL
+    // ---------------------------------------------------------
+    const API_URL = "https://script.google.com/macros/s/AKfycbz_sAxSjXKT1gjdxwvnIEniuSXHzBDfdI3rrCOnFpkO1wcn0VgHNKl_VBpFxkfS6mwt/exec"; 
 
+    const input = document.getElementById('msg');
+    const btn = document.getElementById('send');
+    const log = document.getElementById('log');
+    const indicator = document.getElementById('indicator');
 
-    /**
-     * Adds a message bubble to the chat log.
-     * @param {string} text - The message content.
-     * @param {string} sender - 'user' or 'ai'.
-     * @returns {HTMLElement} The created message element.
-     */
-    function addMessage(text, sender) {
-        const group = document.createElement("div");
-        group.className = "msg-group " + (sender === "user" ? "user-group" : "ai-group");
+    input.addEventListener('keypress', (e) => { if(e.key === 'Enter') send(); });
+    btn.addEventListener('click', send);
 
-        const avatar = document.createElement("div");
-        avatar.className = "avatar";
-        avatar.textContent = sender === "user" ? "Y" : "N"; // Y for You, N for Nolan
-
-        const message = document.createElement("div");
-        message.className = "message";
-        message.textContent = text;
-
-        if (sender === "user") {
-            group.appendChild(message);
-            group.appendChild(avatar);
-        } else {
-            group.appendChild(avatar);
-            group.appendChild(message);
-        }
-
-        chatLog.appendChild(group);
-        chatLog.scrollTop = chatLog.scrollHeight;
-        return message; // Returns the inner message div
+    function addMsg(text, type) {
+        const row = document.createElement('div');
+        row.className = `row ${type}`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.innerText = type === 'user' ? 'Y' : 'N';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerText = text;
+        
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        log.appendChild(row);
+        log.scrollTop = log.scrollHeight;
     }
 
-    /**
-     * Sends the message to the Google Apps Script endpoint.
-     */
-    async function sendMessage() {
-        const text = input.value.trim();
-        if (!text || sendButton.disabled) return;
+    async function send() {
+        const txt = input.value.trim();
+        if(!txt) return;
 
-        // 1. Display user message and reset input
-        addMessage(text, "user");
-        input.value = "";
-
-        // 2. Disable input and add loading indicator
-        sendButton.disabled = true;
+        // 1. Add User Message
+        addMsg(txt, 'user');
+        input.value = '';
         input.disabled = true;
-        const loadingMessage = addMessage("", "ai"); // Placeholder message bubble
-        loadingMessage.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+        btn.disabled = true;
+        indicator.classList.add('show');
 
         try {
-            const res = await fetch(scriptURL, {
+            // 2. Send to Google Apps Script
+            const res = await fetch(API_URL, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text })
+                headers: { "Content-Type": "text/plain" }, 
+                body: JSON.stringify({ message: txt })
             });
 
-            // 3. Handle response
-            if (!res.ok) {
-                // If we get an HTTP error (e.g., 500 from server), throw
-                throw new Error(`HTTP error! status: ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`Server Error: ${res.status}`);
 
             const data = await res.json();
             
-            // 4. Update the loading message with the final reply
-            loadingMessage.textContent = data.reply || "I received an empty reply.";
+            // 3. Add Nolan's Reply
+            addMsg(data.reply, 'ai');
 
         } catch (error) {
-            // 4. Handle errors gracefully (this is where "Trouble reaching system" comes from)
-            console.error("Fetch Error:", error);
-            loadingMessage.textContent = 
-                "I'm having trouble reaching my main system right now. Please check the console.";
+            console.error(error);
+            addMsg("Connection Error: Unable to reach Nolan's Mainframe.", 'ai');
         } finally {
-            // 5. Re-enable input
-            sendButton.disabled = false;
             input.disabled = false;
+            btn.disabled = false;
             input.focus();
-            chatLog.scrollTop = chatLog.scrollHeight; // Scroll to new message
+            indicator.classList.remove('show');
         }
     }
 </script>
 
 </body>
+</html>
