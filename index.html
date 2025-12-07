@@ -13,7 +13,7 @@
   <style>
     :root {
       --bg: #000;
-      --glass: rgba(25,25,25,0.8);
+      --glass: rgba(25,25,25,0.75);
       --glass-border: rgba(255,255,255,0.14);
       --text: #fff;
       --muted: #999;
@@ -21,7 +21,7 @@
       --ai: linear-gradient(135deg, #34C759, #30B0C7);
       --radius: 22px;
       --pill: 50px;
-      --blur: 40px;
+      --blur: 38px;
       --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial;
     }
 
@@ -77,14 +77,13 @@
     .avatar {
       height: 42px;
       width: 42px;
-      min-height: 42px;
-      min-width: 42px;
       border-radius: 50%;
       background: var(--ai);
       display: flex;
       justify-content: center;
       align-items: center;
       font-weight: 800;
+      letter-spacing: -0.3px;
       font-size: 1.05rem;
       color: #fff;
       text-shadow: 0 1px 2px rgba(0,0,0,0.55);
@@ -98,7 +97,7 @@
 
     .brand h1 {
       margin: 0;
-      font-size: 1.25rem;
+      font-size: 1.22rem;
       background: var(--accent);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -123,6 +122,9 @@
       font-size: 1.2rem;
       cursor: pointer;
       color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
     #chat {
@@ -155,13 +157,13 @@
     .bubble {
       padding: 12px 18px;
       background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 16px;
       max-width: calc(100% - 60px);
       line-height: 1.45;
       font-size: .95rem;
-      word-wrap: break-word;
       white-space: normal;
+      word-wrap: break-word;
     }
 
     .user .bubble {
@@ -226,9 +228,10 @@
         <div class="brand-icon">N</div>
         <div>
           <h1>Nolan AI</h1>
-          <div style="font-size: .82rem; color: var(--muted); margin-top: 2px;">Personal Assistant</div>
+          <div style="font-size: .82rem; color: var(--muted); margin-top: 1px;">Personal Assistant</div>
         </div>
       </div>
+
       <div style="display: flex; gap: 10px;">
         <button id="refresh">🔄</button>
         <div class="status">Online</div>
@@ -248,20 +251,20 @@
   </div>
 
   <script>
-    const API = "https://script.google.com/macros/s/AKfycbySYDpXbSkwnqW4Z5n3KMnsbMKTHJZRsv49xWIO37bQEQZTk52UxhE24bIx3xeKNCdc/exec";
+    const API = "https://script.google.com/macros/s/AKfycbxvdm2srP9ujtArwa5_pK4lhuYm29mDCdCcQBzJ9x6EqLgUbJoA2LBv8HgELSR02Tgz/exec";
 
     const logDiv = document.getElementById("log");
     const input = document.getElementById("msg");
     const sendBtn = document.getElementById("send");
     const typing = document.getElementById("typing");
 
-    let lastSendTime = 0;
-    const MIN_INTERVAL = 1300;
+    let lastSend = 0;
+    const SEND_DELAY = 1200;
 
-    function canSend() {
+    function throttle() {
       const now = Date.now();
-      if (now - lastSendTime < MIN_INTERVAL) return false;
-      lastSendTime = now;
+      if (now - lastSend < SEND_DELAY) return false;
+      lastSend = now;
       return true;
     }
 
@@ -279,13 +282,12 @@
 
       row.appendChild(avatar);
       row.appendChild(bubble);
-
       logDiv.appendChild(row);
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
     async function send() {
-      if (!canSend()) return;
+      if (!throttle()) return;
 
       const txt = input.value.trim();
       if (!txt) return;
@@ -300,7 +302,7 @@
         const res = await fetch(API + "?q=" + encodeURIComponent(txt));
         const raw = await res.text();
 
-        let data = {};
+        let data;
         try {
           data = JSON.parse(raw);
         } catch {
@@ -308,8 +310,8 @@
         }
 
         addMsg(data.reply, "ai");
-      } catch (err) {
-        addMsg("<p>I’m here, even if my main system is down.</p>", "ai");
+      } catch {
+        addMsg("<p>I’m still here — just having trouble reaching my system.</p>", "ai");
       }
 
       typing.style.display = "none";
@@ -318,10 +320,11 @@
       input.focus();
     }
 
-    let initialized = false;
+    // init
+    let started = false;
     async function initNolan() {
-      if (initialized) return;
-      initialized = true;
+      if (started) return;
+      started = true;
 
       typing.style.display = "block";
 
@@ -331,7 +334,7 @@
         const data = JSON.parse(raw);
         addMsg(data.reply, "ai");
       } catch {
-        addMsg("<p>Good to see you, Chris. I’m ready when you are.</p>", "ai");
+        addMsg("<p>Good to see you Chris — I’m here with you.</p>", "ai");
       }
 
       typing.style.display = "none";
@@ -342,9 +345,11 @@
 
     sendBtn.addEventListener("click", send);
     input.addEventListener("keypress", e => {
-      if (e.key === "Enter" && input.value.trim()) send();
+      if (e.key === "Enter") send();
     });
+
     document.getElementById("refresh").onclick = () => location.reload();
   </script>
+
 </body>
 </html>
