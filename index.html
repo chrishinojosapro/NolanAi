@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v3</title>
+    <title>Universal LED Controller v4 (Music Edition)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -12,6 +12,7 @@
             --accent-color: #8b5cf6;
             --danger-color: #ef4444;
             --success-color: #22c55e;
+            --music-color: #f43f5e;
         }
 
         body {
@@ -57,6 +58,7 @@
         .btn-danger { background-color: var(--danger-color); color: white; }
         .btn-success { background-color: var(--success-color); color: white; }
         .btn-secondary { background-color: #444; color: white; }
+        .btn-music { background-color: var(--music-color); color: white; }
 
         .hidden { display: none; }
 
@@ -67,6 +69,31 @@
             border-top: 1px solid #333;
         }
         
+        /* Music Visualizer Styles */
+        .music-area {
+            background: #2a1b1b;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #442222;
+        }
+
+        .visualizer-canvas {
+            width: 100%;
+            height: 60px;
+            background: #000;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        input[type="file"] {
+            margin-bottom: 10px;
+            font-size: 0.8rem;
+            color: #ccc;
+            width: 100%;
+        }
+
         .builder-area {
             background: #252525;
             padding: 15px;
@@ -150,7 +177,7 @@
 
     <div class="container">
         <h1>Universal Controller</h1>
-        <p>Protocol 2 Active</p>
+        <p>Protocol 2 Active | Music Ready</p>
 
         <!-- Connect Screen -->
         <div id="connectScreen">
@@ -167,29 +194,24 @@
                 <option value="3">Protocol 4: QHM Variant</option>
             </select>
 
-            <input type="color" id="colorPicker" value="#ff0000">
-            
+            <!-- MUSIC SECTION -->
+            <div class="music-area">
+                <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--music-color);">🎵 Music Sync</h3>
+                <input type="file" id="audioFile" accept="audio/*">
+                <audio id="audioPlayer" controls style="width:100%; margin-top:5px;"></audio>
+                <canvas id="visualizer" class="visualizer-canvas"></canvas>
+                <div style="margin-top:10px; font-size:0.8rem; color:#aaa;">
+                    Upload MP3 -> Play -> Lights React to Bass
+                </div>
+            </div>
+
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <button id="offBtn" class="btn-danger">OFF</button>
                 <button id="onBtn" class="btn-success">ON</button>
             </div>
+
+            <input type="color" id="colorPicker" value="#ff0000">
             
-            <!-- NEW: Pattern Builder -->
-            <div class="builder-area">
-                <h3 style="margin:0 0 10px 0; font-size:1rem;">🛠 Pattern Builder</h3>
-                <div style="display:flex; gap:10px;">
-                    <button id="addStepBtn" class="btn-secondary" style="font-size:0.9rem;">+ Add Current Color</button>
-                    <button id="clearSeqBtn" class="btn-danger" style="width: 60px;">Clr</button>
-                </div>
-                
-                <div id="sequenceDisplay" class="sequence-display">
-                    <!-- Dots will appear here -->
-                    <span style="color:#555; font-size:0.8rem; width:100%; text-align:center; padding-top:4px;">Empty</span>
-                </div>
-
-                <button id="playCustomBtn" class="btn-primary">▶ Play Custom Pattern</button>
-            </div>
-
             <!-- Standard Shows -->
             <div class="show-controls">
                 <h3 style="margin:0 0 10px 0; font-size:1rem;">Presets</h3>
@@ -262,7 +284,13 @@
         // --- STATE ---
         let device, characteristic;
         let showInterval = null; 
-        let customSequence = []; // Stores user created pattern
+        
+        // --- AUDIO STATE ---
+        let audioCtx, analyser, dataArray;
+        let isAudioSetup = false;
+        let lastBeatTime = 0;
+        let beatColors = [[255,0,0], [0,0,255], [0,255,0], [255,0,255], [0,255,255], [255,255,0]];
+        let beatColorIndex = 0;
 
         // --- UI ELEMENTS ---
         const logBox = document.getElementById('log');
@@ -337,7 +365,7 @@
             try {
                 await characteristic.writeValue(data);
             } catch (e) {
-                log("Write error: " + e.message);
+                // Squelch errors during music playback to avoid lag
             }
         }
 
@@ -366,46 +394,91 @@
             }, 100);
         });
 
-        // --- PATTERN BUILDER LOGIC ---
+        // --- MUSIC ENGINE ---
+        const audioInput = document.getElementById('audioFile');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
 
-        function updateSeqDisplay() {
-            const container = document.getElementById('sequenceDisplay');
-            container.innerHTML = '';
-            if(customSequence.length === 0) {
-                container.innerHTML = '<span style="color:#555; font-size:0.8rem; width:100%; text-align:center; padding-top:4px;">Empty</span>';
-                return;
+        audioInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const objectUrl = URL.createObjectURL(file);
+                audioPlayer.src = objectUrl;
+                log("Audio loaded. Press Play.");
+                if (!isAudioSetup) setupAudioContext();
             }
-            customSequence.forEach(color => {
-                const dot = document.createElement('div');
-                dot.className = 'seq-dot';
-                dot.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-                container.appendChild(dot);
-            });
+        });
+
+        function setupAudioContext() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            const source = audioCtx.createMediaElementSource(audioPlayer);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            
+            isAudioSetup = true;
+            visualize();
         }
 
-        document.getElementById('addStepBtn').addEventListener('click', () => {
-            const hex = colorPicker.value;
-            const r = parseInt(hex.substring(1, 3), 16);
-            const g = parseInt(hex.substring(3, 5), 16);
-            const b = parseInt(hex.substring(5, 7), 16);
-            customSequence.push([r, g, b]);
-            updateSeqDisplay();
-        });
+        function visualize() {
+            requestAnimationFrame(visualize);
+            
+            // Get frequency data (0-255)
+            analyser.getByteFrequencyData(dataArray);
 
-        document.getElementById('clearSeqBtn').addEventListener('click', () => {
-            customSequence = [];
-            updateSeqDisplay();
-        });
+            // Draw Background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        document.getElementById('playCustomBtn').addEventListener('click', () => {
-            if (customSequence.length === 0) {
-                log("Sequence is empty!");
-                return;
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            // Simple Beat Detection Algorithm
+            // We check the lower frequencies (Bass)
+            let bassTotal = 0;
+            let bassCount = 0;
+            for(let i = 0; i < 10; i++) { // First 10 bins = Bass
+                 bassTotal += dataArray[i];
+                 bassCount++;
             }
-            startShow('custom');
-        });
+            const bassLevel = bassTotal / bassCount;
 
-        // --- LIGHT SHOW ENGINE ---
+            // Draw bars
+            for(let i = 0; i < dataArray.length; i++) {
+                barHeight = dataArray[i] / 2;
+                ctx.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                x += barWidth + 1;
+            }
+
+            // --- LIGHT SYNC LOGIC ---
+            // Threshold for beat detection (adjust based on song volume)
+            // Limit commands to every 150ms to prevent Bluetooth jamming
+            const now = Date.now();
+            if (bassLevel > 180 && (now - lastBeatTime > 150)) {
+                
+                // Beat Detected!
+                const proto = getActiveProtocol();
+                if(proto && characteristic) {
+                    const col = beatColors[beatColorIndex % beatColors.length];
+                    
+                    // Send color command
+                    // Note: We use .catch() to ignore errors if the previous write is still busy
+                    characteristic.writeValue(proto.writeColor(col[0], col[1], col[2])).catch(e => {});
+                    
+                    beatColorIndex++;
+                    lastBeatTime = now;
+                }
+            }
+        }
+
+        // --- LIGHT SHOW ENGINE (Legacy) ---
         
         const stopBtn = document.getElementById('stopShowBtn');
         const speedRange = document.getElementById('speedRange');
@@ -432,26 +505,20 @@
             let step = 0;
             let sequence = [];
 
-            if (type === 'custom') {
-                sequence = customSequence;
-                log(`Playing Custom Pattern (${sequence.length} steps)`);
-            } else {
-                // Preset Patterns
-                const patterns = {
-                    'rgb': [
-                        [255, 0, 0], [0, 255, 0], [0, 0, 255], 
-                        [255, 255, 0], [0, 255, 255], [255, 0, 255]
-                    ],
-                    'police': [
-                        [255, 0, 0], [0, 0, 255], [255, 0, 0], [0, 0, 255]
-                    ],
-                    'strobe': [
-                        [255, 255, 255], [0, 0, 0]
-                    ]
-                };
-                sequence = patterns[type];
-                log(`Starting ${type} show`);
-            }
+            // Preset Patterns
+            const patterns = {
+                'rgb': [
+                    [255, 0, 0], [0, 255, 0], [0, 0, 255], 
+                    [255, 255, 0], [0, 255, 255], [255, 0, 255]
+                ],
+                'police': [
+                    [255, 0, 0], [0, 0, 255], [255, 0, 0], [0, 0, 255]
+                ],
+                'strobe': [
+                    [255, 255, 255], [0, 0, 0]
+                ]
+            };
+            sequence = patterns[type];
 
             showInterval = setInterval(() => {
                 const color = sequence[step % sequence.length];
