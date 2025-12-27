@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v7 (Auto-Wake Fix)</title>
+    <title>Universal Screen Sync v8 (Hue-Play Simulation)</title>
     <style>
         :root {
-            --bg: #050505;
-            --panel: #111;
+            --bg: #020617;
+            --panel: #0f172a;
             --accent: #3b82f6;
-            --text: #eee;
-            --success: #22c55e;
+            --text: #f8fafc;
+            --success: #10b981;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
             margin: 0;
@@ -30,61 +30,84 @@
             max-width: 450px;
             background: var(--panel);
             padding: 30px;
-            border-radius: 24px;
-            border: 1px solid #222;
+            border-radius: 28px;
+            border: 1px solid #1e293b;
             text-align: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        h1 { margin: 0 0 10px 0; font-size: 1.4rem; text-transform: uppercase; letter-spacing: 2px; color: #fff; }
+        h1 { margin: 0 0 5px 0; font-size: 1.5rem; letter-spacing: -1px; }
+        p { font-size: 0.8rem; color: #64748b; margin-bottom: 20px; }
         
-        .preview-circle {
-            width: 120px; height: 120px; border-radius: 50%;
-            margin: 20px auto;
-            border: 4px solid #222;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 0.8rem;
-            transition: background 0.1s;
+        /* THE HUE HALO PREVIEW */
+        .preview-wrapper {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 25px;
+        }
+        .hue-halo {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.7rem;
+            transition: background 0.1s, box-shadow 0.1s;
+            border: 4px solid #1e293b;
+            z-index: 2;
+            position: relative;
+        }
+        .bloom-effect {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%;
+            filter: blur(40px);
+            opacity: 0.6;
+            z-index: 1;
         }
 
-        .controls { display: flex; flex-direction: column; gap: 15px; margin-top: 20px; }
+        .controls { display: flex; flex-direction: column; gap: 12px; }
 
         button {
-            padding: 15px; border: none; border-radius: 12px;
-            font-weight: bold; cursor: pointer; transition: 0.2s;
+            padding: 16px; border: none; border-radius: 14px;
+            font-weight: 700; cursor: pointer; transition: 0.2s;
             font-size: 1rem;
         }
-
         .btn-sync { background: #fff; color: #000; }
         .btn-connect { background: var(--accent); color: #fff; }
-        .connected-btn { background: var(--success) !important; color: white !important; }
-        button:active { transform: scale(0.98); }
+        .connected-btn { background: var(--success) !important; }
 
         .slider-box {
-            text-align: left; background: #1a1a1a; padding: 15px; border-radius: 12px;
+            text-align: left; background: #1e293b; padding: 18px; border-radius: 16px; margin-top: 10px;
         }
-        label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 8px; }
-        input[type=range] { width: 100%; accent-color: var(--accent); }
+        label { display: flex; justify-content: space-between; font-size: 0.7rem; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; font-weight: bold; }
+        input[type=range] { width: 100%; accent-color: #fff; cursor: pointer; }
 
         select {
-            width: 100%; padding: 12px; background: #000; color: #fff;
-            border: 1px solid #333; border-radius: 8px;
+            width: 100%; padding: 12px; background: #020617; color: #fff;
+            border: 1px solid #334155; border-radius: 10px;
         }
 
-        #status { font-size: 0.7rem; color: #444; margin-top: 15px; }
+        #status { font-size: 0.7rem; color: #475569; margin-top: 20px; font-family: monospace; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Sync v7</h1>
-        <p style="font-size: 0.8rem; color: #666; margin-top: -5px;">Direct Communication & Auto-Wake</p>
+        <h1>Hue Play Sync</h1>
+        <p>Advanced Spatial Sync Engine</p>
 
-        <div class="preview-circle" id="preview">OFF</div>
+        <div class="preview-wrapper">
+            <div class="bloom-effect" id="bloom"></div>
+            <div class="hue-halo" id="preview">OFF</div>
+        </div>
 
         <div class="controls">
-            <button class="btn-sync" id="syncBtn" onclick="startCapture()">👁️ Start Screen Sync</button>
+            <button class="btn-sync" id="syncBtn" onclick="startCapture()">👁️ Start Hue-Sync</button>
             
             <select id="protocol">
                 <option value="1">Protocol: Lotus/Keepsmile</option>
@@ -95,15 +118,15 @@
             <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
 
             <div class="slider-box">
-                <label>FADE SMOOTHING (Lerp Speed)</label>
-                <input type="range" id="lerpSpeed" min="5" max="60" value="20">
+                <label><span>Sync Smoothness</span> <span id="lerpVal">Fast</span></label>
+                <input type="range" id="lerpSpeed" min="5" max="80" value="30">
                 
-                <label style="margin-top:15px;">DEEP COLOR (Crush Pastels)</label>
-                <input type="range" id="purity" min="0" max="100" value="80">
+                <label style="margin-top:15px;"><span>Color Depth (Vibrancy)</span> <span id="purityVal">High</span></label>
+                <input type="range" id="purity" min="20" max="100" value="85">
             </div>
         </div>
 
-        <div id="status">Ready. Select protocol and connect.</div>
+        <div id="status">BT_IDLE</div>
     </div>
 
     <video id="captureVideo" autoplay playsinline muted style="display:none;"></video>
@@ -111,31 +134,16 @@
 
     <script>
         const PROTOCOLS = [
-            { 
-                name: "ELK", 
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]), 
-                on: new Uint8Array([0xcc, 0x23, 0x33]) 
-            },
-            { 
-                name: "Lotus", 
-                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
-                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
-                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) 
-            },
-            { 
-                name: "Triones", 
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]), 
-                on: new Uint8Array([0xcc, 0x23, 0x33]) 
-            }
+            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
+            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) },
+            { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) }
         ];
 
         let characteristic;
         let isSyncing = false;
-        let isLightPoweredOn = false; // Tracks soft-power state
+        let isPoweredOn = false;
         
-        // State for Fading
+        // Smoothing state
         let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
 
@@ -145,14 +153,10 @@
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "Running (Check Tab)";
+                document.getElementById('syncBtn').innerText = "LIVE SYNC";
+                document.getElementById('syncBtn').style.background = "#10b981";
+                document.getElementById('syncBtn').style.color = "#fff";
                 requestAnimationFrame(processLoop);
-                
-                stream.getVideoTracks()[0].onended = () => {
-                    isSyncing = false;
-                    document.getElementById('syncBtn').innerText = "👁️ Start Screen Sync";
-                    sendToLight(0,0,0);
-                };
             } catch(e) { console.error(e); }
         }
 
@@ -164,66 +168,79 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Analyze Screen
-                canvas.width = 40; canvas.height = 40;
-                ctx.drawImage(video, 0, 0, 40, 40);
-                const data = ctx.getImageData(0, 0, 40, 40).data;
+                // Hue Analysis Grid (60x40)
+                canvas.width = 60; canvas.height = 40;
+                ctx.drawImage(video, 0, 0, 60, 40);
+                const data = ctx.getImageData(0, 0, 60, 40).data;
 
-                let rSum=0, gSum=0, bSum=0, count=0;
+                // Sector Totals (Left, Center, Right)
+                let sectors = [{r:0,g:0,b:0,c:0}, {r:0,g:0,b:0,c:0}, {r:0,g:0,b:0,c:0}];
                 const purity = document.getElementById('purity').value / 100;
 
                 for(let i=0; i<data.length; i+=4) {
+                    const x = (i/4) % 60;
+                    const sectorIdx = x < 20 ? 0 : (x < 40 ? 1 : 2);
+                    
                     let r = data[i], g = data[i+1], b = data[i+2];
                     const max = Math.max(r, g, b);
                     const min = Math.min(r, g, b);
                     const sat = max === 0 ? 0 : (max - min) / max;
-                    
-                    // Filter: Need vibrant colors
-                    if (sat > 0.35 && max > 30) {
+
+                    // FILTER: Only look for high-impact colors
+                    if (sat > 0.4 && max > 40) {
                         const white = min * purity;
-                        rSum += (r - white);
-                        gSum += (g - white);
-                        bSum += (b - white);
-                        count++;
+                        sectors[sectorIdx].r += (r - white);
+                        sectors[sectorIdx].g += (g - white);
+                        sectors[sectorIdx].b += (b - white);
+                        sectors[sectorIdx].c++;
                     }
                 }
 
+                // Decide which sector "Wins" (Spatial Priority)
+                // This mimics the immersive feel of Hue Play
+                let winner = sectors.reduce((prev, current) => (prev.c > current.c) ? prev : current);
+                
                 let targetR = 0, targetG = 0, targetB = 0;
+                if (winner.c > 5) {
+                    targetR = winner.r / winner.c;
+                    targetG = winner.g / winner.c;
+                    targetB = winner.b / winner.c;
 
-                if (count > 5) {
-                    targetR = rSum / count;
-                    targetG = gSum / count;
-                    targetB = bSum / count;
-
-                    // Boost Intensity
+                    // Boost Intensity (Normalize to 255)
                     const maxOut = Math.max(targetR, targetG, targetB, 1);
                     const boost = 255 / maxOut;
                     targetR *= boost; targetG *= boost; targetB *= boost;
 
-                    // Deep Color Force: Crushing small channels to zero for better reds/blues
-                    if (targetR > targetG * 2.5 && targetR > targetB * 2.5) { targetG = 0; targetB = 0; }
-                    if (targetB > targetR * 2.5 && targetB > targetG * 2.5) { targetR = 0; targetG = 0; }
+                    // Deepen Hue (Crush low channels)
+                    if (targetR > targetG * 2) { targetG *= 0.1; }
+                    if (targetR > targetB * 2) { targetB *= 0.1; }
+                    if (targetB > targetR * 2) { targetR *= 0.1; }
+                    if (targetB > targetG * 2) { targetG *= 0.1; }
                 }
 
-                // Smooth Fading
-                const lerpBase = document.getElementById('lerpSpeed').value / 100;
-                curR += (targetR - curR) * lerpBase;
-                curG += (targetG - curG) * lerpBase;
-                curB += (targetB - curB) * lerpBase;
+                // Cinematic LERP (Smoothing)
+                const lerpBase = document.getElementById('lerpSpeed').value / 1000;
+                curR += (targetR - curR) * (lerpBase * 10);
+                curG += (targetG - curG) * (lerpBase * 10);
+                curB += (targetB - curB) * (lerpBase * 10);
 
-                // UI Preview
+                // Update UI
+                const rInt = Math.floor(curR), gInt = Math.floor(curG), bInt = Math.floor(curB);
+                const isOff = (rInt + gInt + bInt) < 15;
+                const colStr = `rgb(${rInt},${gInt},${bInt})`;
+
                 const preview = document.getElementById('preview');
-                const outR = Math.floor(curR), outG = Math.floor(curG), outB = Math.floor(curB);
-                const isBlack = (outR + outG + outB) < 10;
+                const bloom = document.getElementById('bloom');
                 
-                preview.style.background = isBlack ? '#000' : `rgb(${outR},${outG},${outB})`;
-                preview.style.boxShadow = isBlack ? 'none' : `0 0 40px rgb(${outR},${outG},${outB})`;
-                preview.innerText = isBlack ? "OFF" : "";
+                preview.style.background = isOff ? '#000' : colStr;
+                preview.innerText = isOff ? "OFF" : "";
+                bloom.style.background = colStr;
+                bloom.style.opacity = isOff ? "0" : "0.7";
 
-                // Send to Light (Throttled for BT stability)
+                // Bluetooth Sync (Throttled for reliability)
                 const now = Date.now();
-                if (now - lastSentTime > 75) {
-                    sendToLight(outR, outG, outB);
+                if (now - lastSentTime > 80) {
+                    sendToLight(rInt, gInt, bInt);
                     lastSentTime = now;
                 }
             }
@@ -236,22 +253,19 @@
             
             try {
                 if (r < 5 && g < 5 && b < 5) {
-                    // Signal is black: Turn soft-power OFF
-                    if (isLightPoweredOn) {
+                    if (isPoweredOn) {
                         await characteristic.writeValue(p.off);
-                        isLightPoweredOn = false;
+                        isPoweredOn = false;
                     }
                 } else {
-                    // Signal has color: Ensure soft-power is ON
-                    if (!isLightPoweredOn) {
-                        await characteristic.writeValue(p.on);
-                        isLightPoweredOn = true;
-                        // Brief wait for chip to wake before sending color
-                        await new Promise(res => setTimeout(res, 30));
+                    if (!isPoweredOn) {
+                        if(p.on) await characteristic.writeValue(p.on);
+                        isPoweredOn = true;
+                        await new Promise(r => setTimeout(r, 40)); 
                     }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
-            } catch(e) { console.warn("BT Write Fail", e); }
+            } catch(e) { }
         }
 
         async function connect() {
@@ -277,18 +291,15 @@
                 if(characteristic) {
                     const btn = document.getElementById('connectBtn');
                     btn.classList.add('connected-btn');
-                    btn.innerText = "CONNECTED";
-                    document.getElementById('status').innerText = "Linked: " + device.name;
+                    btn.innerText = "LINKED";
+                    document.getElementById('status').innerText = "CONNECTED_TO_" + device.name.toUpperCase();
                     
-                    // INITIAL WAKE COMMAND
+                    // Initial Wake
                     const p = PROTOCOLS[document.getElementById('protocol').value];
-                    await characteristic.writeValue(p.on);
-                    isLightPoweredOn = true;
-                    // Flash green to confirm link
-                    await characteristic.writeValue(p.write(0, 255, 0));
-                    setTimeout(() => sendToLight(0,0,0), 500);
+                    if(p.on) await characteristic.writeValue(p.on);
+                    isPoweredOn = true;
                 }
-            } catch(e) { alert("Connect Error: " + e.message); }
+            } catch(e) { alert(e.message); }
         }
     </script>
 </body>
