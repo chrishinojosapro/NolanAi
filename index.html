@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touch Sync Bridge v2.3 (300 Token Limit)</title>
+    <title>Touch Sync Bridge v2.4 (Training Engine)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -27,37 +27,33 @@
             min-height: 100vh;
         }
 
-        /* LANDING */
         #setup { display: flex; flex-direction: column; gap: 20px; text-align: center; padding: 50px 20px; }
         .btn-big { padding: 20px 40px; font-size: 1.2rem; border-radius: 16px; border: none; font-weight: 800; cursor: pointer; transition: 0.2s; }
         .btn-host { background: var(--accent); color: white; }
-        .btn-client { background: var(--success); color: white; }
-
-        /* HOST UI */
-        #hostUI { display: none; width: 100%; max-width: 900px; padding: 20px; box-sizing: border-box; }
-        .grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        
+        #hostUI { display: none; width: 100%; max-width: 1000px; padding: 20px; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
         .card { background: var(--panel); border: 1px solid #27272a; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
         #qrbox { background: white; padding: 10px; border-radius: 12px; display: inline-block; margin: 15px 0; }
         
         textarea#aiLog {
-            width: 100%; height: 350px; background: #000; color: #0f0; border: 1px solid #333;
-            border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.8rem; resize: none;
+            width: 100%; height: 500px; background: #000; color: #0f0; border: 1px solid #333;
+            border-radius: 8px; padding: 10px; font-family: 'Courier New', monospace; font-size: 0.75rem; resize: none;
         }
 
-        /* CLIENT UI */
         #clientUI { display: none; width: 100%; height: 100vh; position: relative; background: #000; flex-direction: column; }
-        video { width: 100%; height: 70%; object-fit: cover; }
+        video { width: 100%; height: 60%; object-fit: cover; }
         #sensorArea {
-            position: absolute; top: 35%; left: 50%;
+            position: absolute; top: 30%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 150px; height: 150px;
+            width: 160px; height: 160px;
             border: 4px dashed var(--ai-purp);
             border-radius: 20px;
             pointer-events: none;
         }
         
-        .client-controls { background: var(--panel); padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .client-controls { background: var(--panel); padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #333; }
         .ai-status { font-size: 0.7rem; color: var(--ai-purp); text-transform: uppercase; font-weight: 900; letter-spacing: 2px; }
         
         input[type="password"], input[type="text"] {
@@ -65,24 +61,23 @@
         }
 
         .thinking { color: #f59e0b; font-weight: bold; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     </style>
 </head>
 <body>
 
     <div id="setup">
-        <h1>AI Vision Bridge v2.3</h1>
-        <p style="color: #71717a;">Identify LED modes using DeepSeek & Phone Camera.</p>
-        <button class="btn-big btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
-        <p style="font-size: 0.8rem; color: #3f3f46;">Point phone camera at strip. Token Limit: 300.</p>
+        <h1>AI Training Bridge v2.4</h1>
+        <p style="color: #71717a;">Map and describe LED animations for future light shows.</p>
+        <button class="btn-big btn-host" onclick="initHost()">💻 Start Training Host</button>
     </div>
 
     <!-- HOST INTERFACE -->
     <div id="hostUI">
         <div class="grid">
             <div class="card">
-                <h2 style="margin:0 0 15px 0; font-size: 1rem;">1. Config & Link</h2>
-                <input type="password" id="apiKey" placeholder="OpenRouter API Key (sk-or-v1-...)">
+                <h2 style="margin:0 0 15px 0; font-size: 1rem;">1. Link & Key</h2>
+                <input type="password" id="apiKey" placeholder="OpenRouter API Key">
                 
                 <select id="protocol" style="width:100%; padding:10px; background:#000; color:white; border:1px solid #333; border-radius:8px; margin-bottom:10px;">
                     <option value="1">Protocol: Lotus (Keepsmile)</option>
@@ -93,17 +88,17 @@
                 
                 <div style="text-align:center;">
                     <div id="qrbox"></div>
-                    <p id="connStatus" style="color:#ef4444; font-size:0.8rem; font-weight:bold;">Wait for Phone Connection...</p>
+                    <p id="connStatus" style="color:#ef4444; font-size:0.8rem; font-weight:bold;">Waiting for iPhone...</p>
                 </div>
             </div>
 
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h2 style="margin:0; font-size:1rem;">2. AI Mode Log</h2>
-                    <button onclick="downloadLog()" style="font-size:0.7rem; background:#333; color:white; padding:5px 10px; border-radius:5px;">💾 Save JSON</button>
+                    <h2 style="margin:0; font-size:1rem;">2. Choreography Metadata</h2>
+                    <button onclick="downloadLog()" style="font-size:0.7rem; background:#333; color:white; padding:5px 10px; border-radius:5px;">💾 Download Training Data</button>
                 </div>
-                <textarea id="aiLog" readonly>// Analysis Log starting...</textarea>
-                <div id="hostStatus" style="font-size:0.7rem; color:#666; margin-top:10px;">System Ready.</div>
+                <textarea id="aiLog" readonly>// Awaiting AI insights...</textarea>
+                <div id="hostStatus" style="font-size:0.7rem; color:#666; margin-top:10px;">Idle.</div>
             </div>
         </div>
     </div>
@@ -113,27 +108,25 @@
         <video id="video" autoplay playsinline muted></video>
         <div id="sensorArea"></div>
         <div class="client-controls">
-            <div class="ai-status" id="clientStatus">Link Established</div>
-            <div id="modeHud" style="font-size:1.5rem; font-weight:900;">MODE: --</div>
-            <button class="btn-big btn-client" id="scanBtn" onclick="toggleAutoScan()" style="background:var(--ai-purp)">🤖 Start AI Auto-Scan</button>
-            <p style="font-size:0.7rem; color:#888;">Hold camera still. Point sensor at a bright part of the strip.</p>
+            <div class="ai-status" id="clientStatus">Hardware Link Required</div>
+            <div id="modeHud" style="font-size:1.8rem; font-weight:900; color:var(--accent);">MODE: --</div>
+            <button class="btn-big" id="scanBtn" onclick="toggleAutoScan()" style="background:var(--ai-purp); color:white;">🤖 Start Training Loop</button>
+            <p style="font-size:0.7rem; color:#888;">AI will observe color flow over 4 seconds for maximum sync accuracy.</p>
         </div>
     </div>
 
     <canvas id="procCanvas" style="display:none;"></canvas>
 
     <script>
-        // --- CONFIG ---
         const PROTOCOLS = [
             { name: "ELK", on: [0xcc, 0x23, 0x33], setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
             { name: "Lotus", on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef], setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) }
         ];
 
         let peer, conn, bleChar;
-        let isHost = false;
+        let isHost = false, isScanning = false;
         let currentMode = 1;
-        let isScanning = false;
-        let scanBuffer = [];
+        let temporalBuffer = [];
         let library = [];
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -143,16 +136,14 @@
             isHost = true;
             document.getElementById('setup').style.display = 'none';
             document.getElementById('hostUI').style.display = 'block';
-            
             peer = new Peer();
             peer.on('open', (id) => {
                 const url = `${window.location.href.split('?')[0]}?host=${id}`;
                 new QRCode(document.getElementById("qrbox"), { text: url, width: 150, height: 150 });
             });
-
             peer.on('connection', (c) => {
                 conn = c;
-                document.getElementById('connStatus').innerText = "📱 PHONE LINKED";
+                document.getElementById('connStatus').innerText = "📱 SENSOR LINKED";
                 document.getElementById('connStatus').style.color = "#22c55e";
                 setupDataListener();
             });
@@ -171,7 +162,7 @@
                     for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { bleChar = c; break; } }
                 }
                 if(bleChar) {
-                    document.getElementById('btBtn').innerText = "LINKED TO LIGHT";
+                    document.getElementById('btBtn').innerText = "LIGHT ONLINE";
                     document.getElementById('btBtn').style.background = "#22c55e";
                     const p = PROTOCOLS[document.getElementById('protocol').value];
                     await bleChar.writeValue(new Uint8Array(p.on));
@@ -181,51 +172,44 @@
 
         function setupDataListener() {
             conn.on('data', async (data) => {
-                if (data.type === 'SCAN_RESULT') {
-                    analyzeWithAI(data);
-                }
-                if (data.type === 'REQUEST_NEXT') {
-                    advanceMode();
-                }
+                if (data.type === 'SCAN_RESULT') analyzeWithAI(data);
+                if (data.type === 'REQUEST_NEXT') advanceMode();
             });
         }
 
         async function advanceMode() {
             currentMode++;
-            if(currentMode > 210) {
-                isScanning = false;
-                document.getElementById('hostStatus').innerText = "Full Scan Complete.";
-                return;
-            }
+            if(currentMode > 210) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
             if(bleChar) await bleChar.writeValue(p.setMode(currentMode));
             conn.send({ type: 'MODE_SYNC', val: currentMode });
-            document.getElementById('hostStatus').innerText = "Initializing Mode " + currentMode + "...";
         }
 
         async function analyzeWithAI(data) {
             const key = document.getElementById('apiKey').value;
             const statusEl = document.getElementById('hostStatus');
+            if(!key) { logToLibrary(data.mode, "Error", "No API Key."); return; }
 
-            if(!key) {
-                logToLibrary(data.mode, data.motion, "Error: Missing API Key.");
-                return;
-            }
+            statusEl.innerHTML = `<span class="thinking">DEEPSEEK GENERATING TRAINING DATA FOR MODE ${data.mode}...</span>`;
 
-            statusEl.innerHTML = `<span class="thinking">AI ANALYZING MODE ${data.mode}...</span>`;
-
-            // Instructions to DeepSeek for a professional detailed response
-            const prompt = `LED lighting technical analysis: 
-            Detected colors: [${data.colors.join(", ")}]
-            Observed motion: ${data.motion}
-            Hardware Mode Index: ${data.mode}
+            // We provide a temporal sequence to the AI to describe movement accurately
+            const prompt = `LED Lighting Engineer Task:
+            Data for Hardware Mode #${data.mode}:
+            Sequence Observed (Temporal): [${data.temporal.join(" -> ")}]
+            Detected Motion Character: ${data.motion}
             
-            Task: Provide a highly detailed technical description of this animation pattern. 
-            Identify if it is a chase, stack, breathe, strobe, or custom flow. 
-            Mention color transitions and physical direction of movement if applicable.`;
+            Analyze the animation. Return exactly this JSON structure:
+            {
+                "mode": ${data.mode},
+                "colors": "list of colors",
+                "animation_type": "Chase/Stack/Pulse/Breathe/Strobe/etc",
+                "direction": "Up/Down/Static/Random",
+                "rhythm": "Fast/Medium/Slow",
+                "choreography_note": "A highly detailed sentence on how to use this mode for a music-synced light show."
+            }`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 35000); 
+            const timeoutId = setTimeout(() => controller.abort(), 40000); 
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -234,12 +218,12 @@
                         "Authorization": `Bearer ${key}`,
                         "Content-Type": "application/json",
                         "HTTP-Referer": window.location.href,
-                        "X-Title": "LED Vision Logger"
+                        "X-Title": "LED Training Studio"
                     },
                     body: JSON.stringify({
                         model: "deepseek/deepseek-chat",
                         messages: [{ role: "user", content: prompt }],
-                        max_tokens: 300 // LINKED TO 300 TOKENS PER RESPONSE
+                        max_tokens: 300
                     }),
                     signal: controller.signal
                 });
@@ -248,27 +232,21 @@
                 const result = await response.json();
                 
                 if (result.choices && result.choices.length > 0) {
-                    const desc = result.choices[0].message.content;
-                    logToLibrary(data.mode, data.motion, desc);
-                } else if (result.error) {
-                    logToLibrary(data.mode, data.motion, `AI Error: ${result.error.message}`);
+                    const aiResult = JSON.parse(result.choices[0].message.content.match(/\{[\s\S]*\}/)[0]);
+                    logToLibrary(data.mode, data.motion, aiResult);
                 } else {
-                    logToLibrary(data.mode, data.motion, "AI Error: Unexpected response format.");
+                    logToLibrary(data.mode, data.motion, "AI Processing Error.");
                 }
 
             } catch(e) {
-                if (e.name === 'AbortError') {
-                    logToLibrary(data.mode, data.motion, "AI Error: Request timed out (took longer than 35s).");
-                } else {
-                    logToLibrary(data.mode, data.motion, "System Error: " + e.message);
-                }
+                logToLibrary(data.mode, data.motion, "System Failure: " + e.message);
             }
         }
 
-        function logToLibrary(mode, motion, desc) {
-            library.push({ mode, motion, description: desc, timestamp: new Date().toLocaleTimeString() });
+        function logToLibrary(mode, motion, aiObj) {
+            library.push({ ...aiObj, raw_motion: motion, timestamp: new Date().toLocaleTimeString() });
             document.getElementById('aiLog').value = JSON.stringify(library, null, 2);
-            document.getElementById('hostStatus').innerText = `Logged Mode ${mode}. Continuing loop...`;
+            document.getElementById('hostStatus').innerText = `Finished Mode ${mode}. Awaiting next sample...`;
             conn.send({ type: 'ACK_AI' });
         }
 
@@ -276,10 +254,10 @@
             const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'led_vision_library.json'; a.click();
+            a.href = url; a.download = 'choreography_training_data.json'; a.click();
         }
 
-        // --- CLIENT LOGIC (Phone) ---
+        // --- CLIENT LOGIC (iPhone) ---
         async function initClient(hostId) {
             document.getElementById('setup').style.display = 'none';
             document.getElementById('clientUI').style.display = 'flex';
@@ -293,48 +271,53 @@
                 conn.on('data', (data) => {
                     if(data.type === 'MODE_SYNC') {
                         currentMode = data.val;
-                        document.getElementById('modeHud').innerText = "MODE: " + currentMode;
+                        document.getElementById('modeHud').innerText = "TRAINING: " + currentMode;
                         startSampling();
                     }
-                    if(data.type === 'ACK_AI') {
-                        if(isScanning) conn.send({ type: 'REQUEST_NEXT' });
-                    }
+                    if(data.type === 'ACK_AI') { if(isScanning) conn.send({ type: 'REQUEST_NEXT' }); }
                 });
             });
         }
 
         async function startVision() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: 640, height: 480 } 
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 document.getElementById('video').srcObject = stream;
                 requestAnimationFrame(visionLoop);
-            } catch(e) { alert("Camera Permission Required: " + e.message); }
+            } catch(e) { alert(e); }
         }
 
         function toggleAutoScan() {
             isScanning = !isScanning;
-            document.getElementById('scanBtn').innerText = isScanning ? "⏹ Stop Scanning" : "🤖 Start AI Auto-Scan";
+            document.getElementById('scanBtn').innerText = isScanning ? "⏹ Stop Training" : "🤖 Start Training Loop";
             if(isScanning) conn.send({ type: 'REQUEST_NEXT' });
         }
 
         function startSampling() {
-            scanBuffer = [];
-            document.getElementById('clientStatus').innerText = "SAMPLING MODE " + currentMode + "...";
-            // 3 second observation period
+            temporalBuffer = [];
+            document.getElementById('clientStatus').innerText = "WATCHING ANIMATION FLOW...";
+            
+            // Observe for 4 seconds for better temporal mapping
+            const sampleInt = setInterval(() => {
+                const col = getCurrentColor();
+                temporalBuffer.push(col);
+            }, 250); // Sample every 250ms
+
             setTimeout(() => {
-                const motion = detectMotion(scanBuffer);
-                const uniqueColors = [...new Set(scanBuffer)];
+                clearInterval(sampleInt);
+                const motionSummary = detectMotion(temporalBuffer);
                 conn.send({ 
                     type: 'SCAN_RESULT', 
                     mode: currentMode, 
-                    colors: uniqueColors.slice(0, 10),
-                    motion: motion
+                    temporal: temporalBuffer, 
+                    motion: motionSummary 
                 });
-                document.getElementById('clientStatus').innerText = "AI GENERATING...";
-            }, 3000);
+                document.getElementById('clientStatus').innerText = "PROCESSING...";
+            }, 4000);
         }
+
+        let lastColor = "Off";
+        function getCurrentColor() { return lastColor; }
 
         function visionLoop() {
             const video = document.getElementById('video');
@@ -342,36 +325,35 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.width = 50; canvas.height = 50;
-                ctx.drawImage(video, (video.videoWidth/2)-75, (video.videoHeight/2)-75, 150, 150, 0, 0, 50, 50);
+                ctx.drawImage(video, (video.videoWidth/2)-80, (video.videoHeight/2)-80, 160, 160, 0, 0, 50, 50);
                 const data = ctx.getImageData(0,0,50,50).data;
                 let r=0, g=0, b=0;
                 for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
                 r = Math.floor(r/(50*50)); g = Math.floor(g/(50*50)); b = Math.floor(b/(50*50));
-                const colName = getColorName(r,g,b);
-                if(colName !== "Off") scanBuffer.push(colName);
+                lastColor = getColorName(r,g,b);
             }
             requestAnimationFrame(visionLoop);
         }
 
         function getColorName(r, g, b) {
             const max = Math.max(r, g, b);
-            if (max < 30) return "Off";
-            if (r > g*1.6 && r > b*1.6) return "Red";
-            if (g > r*1.6 && g > b*1.6) return "Green";
-            if (b > r*1.6 && b > g*1.6) return "Blue";
-            if (r > 150 && g > 150 && b < 100) return "Yellow";
-            if (r > 150 && b > 150 && g < 100) return "Purple";
+            if (max < 40) return "Black/Off";
+            if (r > g*1.8 && r > b*1.8) return "Red";
+            if (g > r*1.8 && g > b*1.8) return "Green";
+            if (b > r*1.8 && b > g*1.8) return "Blue";
+            if (r > 160 && g > 160 && b < 100) return "Yellow";
+            if (r > 160 && b > 160 && g < 100) return "Purple";
             if (r > 200 && g > 200 && b > 200) return "White";
-            return "Mixed/Transitional";
+            return "Multi";
         }
 
         function detectMotion(buffer) {
             let changes = 0;
             for(let i=1; i<buffer.length; i++) if(buffer[i] !== buffer[i-1]) changes++;
-            if(changes > 25) return "High-Frequency Strobe/Sparkle";
-            if(changes > 8) return "Active Motion (Chase/Flow)";
-            if(changes > 1) return "Slow Gradient/Breathe";
-            return "Static/Constant Color";
+            if(changes > 10) return "High-Speed Dynamic";
+            if(changes > 3) return "Sequential Flow";
+            if(changes > 0) return "Slow Transition";
+            return "Static";
         }
     </script>
 </body>
