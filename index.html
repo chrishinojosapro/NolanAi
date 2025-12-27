@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High Contrast Sync v3 (Smooth Deep Color)</title>
+    <title>High Contrast Sync v4 (White Support)</title>
     <style>
         :root {
             --bg: #000000;
@@ -111,19 +111,18 @@
             margin-bottom: 15px;
         }
 
+        #status { font-size: 0.7rem; color: #444; margin-top: 10px; font-family: monospace; }
+
         /* VIDEO CAPTURE (Hidden) */
         #captureVideo {
             position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none;
         }
-        
-        #status { font-size: 0.7rem; color: #444; margin-top: 10px; font-family: monospace; }
-
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>High Contrast Sync v3</h1>
+        <h1>Sync v4: White Support</h1>
         
         <div class="preview-box" id="preview">
             OFF
@@ -144,19 +143,19 @@
                 <span>Fade Smoothing (Lerp)</span>
                 <span id="fadeVal">15%</span>
             </div>
-            <input type="range" id="fadeSpeed" min="2" max="60" value="15" oninput="updateLabels()">
+            <input type="range" id="fadeSpeed" min="2" max="80" value="15" oninput="updateLabels()">
             
             <div class="slider-label">
-                <span>Vibrancy Threshold</span>
-                <span id="satVal">40%</span>
+                <span>Color Purification</span>
+                <span id="purityVal">50%</span>
             </div>
-            <input type="range" id="satThresh" min="0" max="100" value="40" oninput="updateLabels()">
+            <input type="range" id="purityFactor" min="0" max="100" value="50" oninput="updateLabels()">
             
             <div class="slider-label">
                 <span>Min Brightness</span>
-                <span id="briVal">20%</span>
+                <span id="briVal">10%</span>
             </div>
-            <input type="range" id="briThresh" min="0" max="100" value="20" oninput="updateLabels()">
+            <input type="range" id="briThresh" min="0" max="100" value="10" oninput="updateLabels()">
         </div>
         
         <div id="status">BT_IDLE</div>
@@ -182,11 +181,11 @@
         // Interpolation State
         let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
-        const BLUETOOTH_FPS_LIMIT = 85; // ms between BT packets
+        const BLUETOOTH_FPS_LIMIT = 90; 
 
         function updateLabels() {
             document.getElementById('fadeVal').innerText = document.getElementById('fadeSpeed').value + "%";
-            document.getElementById('satVal').innerText = document.getElementById('satThresh').value + "%";
+            document.getElementById('purityVal').innerText = document.getElementById('purityFactor').value + "%";
             document.getElementById('briVal').innerText = document.getElementById('briThresh').value + "%";
         }
 
@@ -203,7 +202,7 @@
                 video.play();
                 
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "LIVE";
+                document.getElementById('syncBtn').innerText = "LIVE SYNC ACTIVE";
                 document.getElementById('syncBtn').style.background = "#22c55e";
                 document.getElementById('syncBtn').style.color = "#fff";
                 
@@ -228,7 +227,7 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Downsample for speed
+                // Analysis Grid
                 canvas.width = 40; canvas.height = 40;
                 ctx.drawImage(video, 0, 0, 40, 40);
                 const frame = ctx.getImageData(0, 0, 40, 40).data;
@@ -236,16 +235,15 @@
                 let rTot=0, gTot=0, bTot=0;
                 let validPixels = 0;
                 
-                const minSat = parseInt(document.getElementById('satThresh').value) / 100;
                 const minBri = parseInt(document.getElementById('briThresh').value) * 2.55; 
+                const purityFactor = parseInt(document.getElementById('purityFactor').value) / 100;
 
                 for(let i=0; i<frame.length; i+=4) {
                     const r = frame[i], g = frame[i+1], b = frame[i+2];
                     const max = Math.max(r, g, b);
-                    const min = Math.min(r, g, b);
-                    const sat = max === 0 ? 0 : (max - min) / max;
                     
-                    if (sat > minSat && max > minBri) {
+                    // Filter by brightness
+                    if (max > minBri) {
                         rTot += r; gTot += g; bTot += b;
                         validPixels++;
                     }
@@ -253,30 +251,37 @@
                 
                 let targetR = 0, targetG = 0, targetB = 0;
                 
-                if (validPixels > 16) {
+                if (validPixels > 10) {
                     let avgR = rTot / validPixels;
                     let avgG = gTot / validPixels;
                     let avgB = bTot / validPixels;
                     
-                    // --- DEEP COLOR ALGORITHM ---
-                    // 1. Remove Whiteness
-                    const whiteLevel = Math.min(avgR, avgG, avgB);
-                    avgR -= whiteLevel;
-                    avgG -= whiteLevel;
-                    avgB -= whiteLevel;
-                    
-                    // 2. Neon Normalization
+                    // --- ADAPTIVE COLOR ENGINE ---
                     const maxChan = Math.max(avgR, avgG, avgB);
-                    if (maxChan > 10) {
-                         const norm = 255 / maxChan;
-                         avgR *= norm;
-                         avgG *= norm;
-                         avgB *= norm;
-                         
-                         // 3. Channel Crushing (Pure Reds/Blues)
-                         if(avgR < 110) avgR = 0;
-                         if(avgG < 110) avgG = 0;
-                         if(avgB < 110) avgB = 0;
+                    const minChan = Math.min(avgR, avgG, avgB);
+                    const saturation = maxChan === 0 ? 0 : (maxChan - minChan) / maxChan;
+
+                    // Apply Purification only if saturation exists and user wants it
+                    if (saturation > 0.1 && purityFactor > 0) {
+                        // Subtract "white component" weighted by user preference
+                        const whiteToClear = minChan * purityFactor;
+                        avgR -= whiteToClear;
+                        avgG -= whiteToClear;
+                        avgB -= whiteToClear;
+                        
+                        // Normalize back to original brightness
+                        const newMax = Math.max(avgR, avgG, avgB, 1);
+                        const boost = maxChan / newMax;
+                        avgR *= boost;
+                        avgG *= boost;
+                        avgB *= boost;
+
+                        // Extreme Crushing for high-purity saber effects
+                        if (purityFactor > 0.7 && saturation > 0.5) {
+                            if (avgR < 80) avgR = 0;
+                            if (avgG < 80) avgG = 0;
+                            if (avgB < 80) avgB = 0;
+                        }
                     }
 
                     targetR = avgR;
@@ -285,26 +290,26 @@
                 } 
 
                 // --- FADE ENGINE (LERP) ---
-                const fadeFactor = parseInt(document.getElementById('fadeSpeed').value) / 100;
-                curR += (targetR - curR) * fadeFactor;
-                curG += (targetG - curG) * fadeFactor;
-                curB += (targetB - curB) * fadeFactor;
+                const lerpBase = parseInt(document.getElementById('fadeSpeed').value) / 100;
+                // Higher values make it reactive, lower values make it buttery smooth
+                curR += (targetR - curR) * lerpBase;
+                curG += (targetG - curG) * lerpBase;
+                curB += (targetB - curB) * lerpBase;
                 
-                // Integer clamping
-                const outR = Math.floor(curR);
-                const outG = Math.floor(curG);
-                const outB = Math.floor(curB);
+                const outR = Math.max(0, Math.min(255, Math.floor(curR)));
+                const outG = Math.max(0, Math.min(255, Math.floor(curG)));
+                const outB = Math.max(0, Math.min(255, Math.floor(curB)));
                 
-                // UI Update
-                const prev = document.getElementById('preview');
+                // UI Visuals
+                const preview = document.getElementById('preview');
                 const isBlack = (outR + outG + outB) < 10;
                 const colStr = `rgb(${outR},${outG},${outB})`;
                 
-                prev.style.backgroundColor = isBlack ? '#000' : colStr;
-                prev.style.boxShadow = isBlack ? 'none' : `0 0 40px ${colStr}`;
-                prev.innerText = isBlack ? "OFF" : "";
+                preview.style.backgroundColor = isBlack ? '#000' : colStr;
+                preview.style.boxShadow = isBlack ? 'none' : `0 0 40px ${colStr}`;
+                preview.innerText = isBlack ? "OFF" : "";
 
-                // Bluetooth Send (Throttled for stability)
+                // Bluetooth Throttle
                 const now = Date.now();
                 if (now - lastSentTime > BLUETOOTH_FPS_LIMIT) {
                     sendToLight(outR, outG, outB);
@@ -319,7 +324,7 @@
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
             try {
-                if (r < 10 && g < 10 && b < 10) {
+                if (r < 5 && g < 5 && b < 5) {
                     if(isPoweredOn) {
                         await characteristic.writeValue(p.off);
                         isPoweredOn = false;
@@ -328,8 +333,7 @@
                     if(!isPoweredOn) {
                          await characteristic.writeValue(p.on);
                          isPoweredOn = true;
-                         // Wait for chip to wake
-                         await new Promise(res => setTimeout(res, 30));
+                         await new Promise(res => setTimeout(res, 40)); 
                     }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
@@ -338,7 +342,6 @@
 
         async function connect() {
             try {
-                if (!navigator.bluetooth) throw new Error("Bluetooth not supported");
                 const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
@@ -351,21 +354,17 @@
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
 
                 if(characteristic) {
-                    const btn = document.getElementById('connectBtn');
-                    btn.style.background = "#22c55e";
-                    btn.innerText = "CONNECTED";
-                    document.getElementById('status').innerText = "LINKED: " + device.name.toUpperCase();
+                    document.getElementById('connectBtn').style.background = "#22c55e";
+                    document.getElementById('connectBtn').innerText = "CONNECTED";
+                    document.getElementById('status').innerText = "READY: " + device.name.toUpperCase();
                     
-                    // Initial soft-on
                     const p = PROTOCOLS[document.getElementById('protocol').value];
                     await characteristic.writeValue(p.on);
                     isPoweredOn = true;
-                    sendToLight(0,0,0);
                 }
             } catch(e) { alert("Connect Error: " + e.message); }
         }
 
-        // Initialize labels
         updateLabels();
     </script>
 </body>
