@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner</title>
+    <title>AI Vision Scanner v3 (Vertical Analysis)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -12,6 +12,7 @@
             --accent: #3b82f6;
             --success: #22c55e;
             --danger: #ef4444;
+            --ai: #10b981;
         }
 
         body {
@@ -33,10 +34,10 @@
             grid-template-columns: 1fr 1fr;
             gap: 20px;
             width: 100%;
-            max-width: 1000px;
+            max-width: 1200px;
         }
 
-        @media (max-width: 700px) {
+        @media (max-width: 800px) {
             .container { grid-template-columns: 1fr; }
         }
 
@@ -57,32 +58,45 @@
             background: black;
             border-radius: 8px;
             overflow: hidden;
-            aspect-ratio: 16/9;
+            aspect-ratio: 16/9; /* Standard webcam aspect */
         }
-        video, canvas {
+        video, canvas#drawCanvas {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain; /* Ensure we see full frame */
+            position: absolute;
+            top: 0; left: 0;
         }
         #analysisOverlay {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 10px;
+            top: 10px; left: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px;
             border-radius: 4px;
             font-family: monospace;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #0f0;
             pointer-events: none;
+            white-space: pre-wrap;
+            z-index: 10;
         }
-        #targetBox {
+        
+        /* Strip Guide Overlay */
+        .strip-guide {
             position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 50px; height: 50px;
-            border: 2px solid rgba(255,255,255,0.5);
+            left: 50%; top: 10%; bottom: 10%; width: 40px;
+            transform: translateX(-50%);
+            border: 2px dashed rgba(0, 255, 0, 0.5);
             pointer-events: none;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+        }
+        .strip-segment {
+            flex: 1;
+            border-bottom: 1px dotted rgba(0, 255, 0, 0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: rgba(255,255,255,0.5);
         }
 
         /* CONTROLS */
@@ -93,6 +107,7 @@
             padding: 10px;
             border-radius: 6px;
             width: 100%;
+            box-sizing: border-box;
         }
 
         button {
@@ -109,6 +124,7 @@
         button.primary { background: var(--accent); }
         button.success { background: var(--success); }
         button.danger { background: var(--danger); }
+        button.ai { background: var(--ai); color: black; }
 
         /* LOGGING */
         textarea {
@@ -121,6 +137,7 @@
             border-radius: 6px;
             border: 1px solid #334155;
             resize: vertical;
+            white-space: pre;
         }
 
         .status-dot {
@@ -128,24 +145,34 @@
             margin-right: 5px;
         }
         .connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        
+        .ai-config {
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            margin-top: 10px;
+        }
 
     </style>
 </head>
 <body>
 
-    <h1>👁️ AI Vision Scanner</h1>
+    <h1>👁️ Vertical Strip Scanner</h1>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
         <div class="panel">
             <div class="video-wrapper">
                 <video id="video" autoplay playsinline muted></video>
-                <div id="targetBox"></div> <!-- Target reticle -->
+                <canvas id="drawCanvas"></canvas>
+                <!-- The Green Box Guide -->
+                <div class="strip-guide" id="stripGuide">
+                    <!-- Segments injected by JS -->
+                </div>
                 <div id="analysisOverlay">Waiting for camera...</div>
             </div>
             <button onclick="startCamera()">📷 Start Camera</button>
             <div style="font-size:0.8rem; color:#aaa;">
-                Point center square at the light strip. Ensure room is dim.
+                Align your light strip inside the vertical dotted box.
             </div>
         </div>
 
@@ -179,19 +206,31 @@
                     <input type="number" id="scanSpeed" value="3" min="1" max="10">
                 </div>
             </div>
+            
+            <div class="ai-config">
+                <label style="display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:0.9rem;">
+                    <input type="checkbox" id="useAi" style="width:auto;"> 
+                    Use DeepSeek AI to name effects?
+                </label>
+                <input type="password" id="apiKey" placeholder="OpenRouter API Key (sk-or-...)" style="display:none;">
+            </div>
 
             <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Vision Scan</button>
 
-            <textarea id="log" readonly>// Scan Results will appear here...</textarea>
-            <button onclick="copyLog()">Copy Results</button>
+            <textarea id="log" readonly>// Detected Library:
+{
+  "modes": {}
+}</textarea>
+            <button onclick="copyLog()">Copy Library JSON</button>
         </div>
     </div>
 
-    <!-- Hidden canvas for processing -->
-    <canvas id="canvas" style="display:none;"></canvas>
+    <!-- Processing Canvas -->
+    <canvas id="procCanvas" style="display:none;"></canvas>
 
     <script>
         // --- CONSTANTS ---
+        const SEGMENTS = 10; // Number of vertical analysis zones
         const PROTOCOLS = [
             { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
             { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
@@ -204,6 +243,23 @@
         let currentMode = 1;
         let isScanning = false;
         let stream = null;
+        let detectedLibrary = { modes: {} };
+        
+        // Vision Data Buffer (Stores frames for current mode)
+        let frameBuffer = []; 
+
+        // --- UI INIT ---
+        const guide = document.getElementById('stripGuide');
+        for(let i=0; i<SEGMENTS; i++) {
+            const div = document.createElement('div');
+            div.className = 'strip-segment';
+            div.innerText = i+1;
+            guide.appendChild(div);
+        }
+        
+        document.getElementById('useAi').addEventListener('change', (e) => {
+            document.getElementById('apiKey').style.display = e.target.checked ? 'block' : 'none';
+        });
 
         // --- CAMERA LOGIC ---
         async function startCamera() {
@@ -211,78 +267,68 @@
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 const video = document.getElementById('video');
                 video.srcObject = stream;
-                
-                // Start Analysis Loop
                 requestAnimationFrame(analyzeFrame);
             } catch(e) {
-                alert("Camera access denied or error: " + e.message);
+                alert("Camera error: " + e.message);
             }
         }
 
-        // Color Classifier
         function getColorName(r, g, b) {
-            if (r < 40 && g < 40 && b < 40) return "Black/Off";
-            if (r > 200 && g > 200 && b > 200) return "White";
-            
-            if (r > g + b) return "Red";
-            if (g > r + b) return "Green";
-            if (b > r + g) return "Blue";
-            
-            if (r > 150 && g > 150 && b < 100) return "Yellow";
-            if (r > 150 && b > 150 && g < 100) return "Purple";
-            if (g > 150 && b > 150 && r < 100) return "Cyan";
-            
-            return "Mixed";
+            if (r<50 && g<50 && b<50) return "Off";
+            if (r>200 && g>200 && b>200) return "White";
+            if (r > g*1.5 && r > b*1.5) return "Red";
+            if (g > r*1.5 && g > b*1.5) return "Green";
+            if (b > r*1.5 && b > g*1.5) return "Blue";
+            if (r>150 && g>150 && b<100) return "Yellow";
+            if (r>150 && b>150 && g<100) return "Purple";
+            if (g>150 && b>150 && r<100) return "Cyan";
+            return "Mix";
         }
-
-        // Frame Analysis
-        let lastColor = "";
-        let frameDiffs = 0;
-        let frameCount = 0;
-        let lastRGB = {r:0, g:0, b:0};
 
         function analyzeFrame() {
             if (!stream) return;
             
             const video = document.getElementById('video');
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
+            const procCanvas = document.getElementById('procCanvas');
+            const ctx = procCanvas.getContext('2d');
             
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                procCanvas.width = video.videoWidth;
+                procCanvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0);
                 
-                // Analyze Center (50x50px box)
-                const cx = Math.floor(canvas.width / 2);
-                const cy = Math.floor(canvas.height / 2);
-                const frame = ctx.getImageData(cx - 25, cy - 25, 50, 50);
-                const data = frame.data;
+                // Define ROI (Region of Interest) - Center Vertical Column
+                // Matches CSS .strip-guide: left 50%, width 40px (approx 5-10% of width)
+                const stripW = Math.floor(procCanvas.width * 0.1); 
+                const stripX = Math.floor((procCanvas.width - stripW) / 2);
+                const stripH = Math.floor(procCanvas.height * 0.8); // 80% height (10% padding top/bot)
+                const stripY = Math.floor(procCanvas.height * 0.1);
                 
-                let r=0, g=0, b=0;
-                for (let i = 0; i < data.length; i += 4) {
-                    r += data[i];
-                    g += data[i+1];
-                    b += data[i+2];
+                const segmentH = Math.floor(stripH / SEGMENTS);
+                
+                let segmentColors = []; // Array of strings ["Red", "Blue", ...]
+                let rawColors = []; // Array of {r,g,b}
+                
+                // Analyze each segment
+                for(let i=0; i<SEGMENTS; i++) {
+                    const y = stripY + (i * segmentH);
+                    // Sample center pixel of segment
+                    const frame = ctx.getImageData(stripX + (stripW/2), y + (segmentH/2), 1, 1);
+                    const [r,g,b] = frame.data;
+                    segmentColors.push(getColorName(r,g,b));
+                    rawColors.push({r,g,b});
                 }
-                const count = data.length / 4;
-                r = Math.floor(r/count);
-                g = Math.floor(g/count);
-                b = Math.floor(b/count);
                 
-                // Detect Change (Motion/Flashing)
-                const diff = Math.abs(r - lastRGB.r) + Math.abs(g - lastRGB.g) + Math.abs(b - lastRGB.b);
-                if (diff > 10) frameDiffs++;
-                lastRGB = {r,g,b};
+                // If scanning, save data
+                if(isScanning) {
+                    frameBuffer.push(rawColors);
+                }
                 
-                // Update UI Overlay
-                const colorName = getColorName(r,g,b);
-                lastColor = colorName; // Store for scanner
-                
+                // UI Overlay Update
                 const overlay = document.getElementById('analysisOverlay');
-                overlay.innerHTML = `RGB: ${r},${g},${b}<br>Color: ${colorName}<br>Change: ${diff}`;
-                overlay.style.color = `rgb(${r},${g},${b})`;
-                if(r+g+b < 100) overlay.style.color = 'white'; // Readable on dark
+                const topColor = segmentColors[0];
+                const botColor = segmentColors[SEGMENTS-1];
+                overlay.innerText = `Top: ${topColor}\nBot: ${botColor}\nRaw: ${rawColors[0].r},${rawColors[0].g},${rawColors[0].b}`;
             }
             
             if(!isScanning || stream) requestAnimationFrame(analyzeFrame);
@@ -311,45 +357,112 @@
                 const speed = parseInt(document.getElementById('scanSpeed').value) * 1000;
                 
                 currentMode = start;
+                detectedLibrary = { modes: {} }; // Reset library
                 
-                // Clear Log
-                const log = document.getElementById('log');
-                log.value = "Mode | Detected Color | Type\n----------------------------\n";
-                
-                // Loop
-                performScanStep(end); // Run first immediately
-                
-                scanInterval = setInterval(() => {
-                    performScanStep(end);
-                }, speed);
+                // Start Loop
+                performScanStep(end, speed); 
             }
         }
 
-        function performScanStep(endMode) {
-            // 1. Send Mode Command
+        function performScanStep(endMode, speed) {
+            // 1. Clear Buffer
+            frameBuffer = [];
+            
+            // 2. Send Command
             testMode(currentMode);
             
-            // 2. Wait for camera to see change (handled by delay)
-            // 3. Log what we see *right before* we switch to the next mode
-            // We log the result of the *previous* interval effectively, but for simplicity
-            // we will sample halfway through the next interval.
-            
-            setTimeout(() => {
-                // Analyze Result
-                let type = "Static";
-                if (frameDiffs > 5) type = "Dynamic/Flash"; // Based on diff accumulator
+            // 3. Schedule Analysis & Next Step
+            setTimeout(async () => {
+                // ANALYZE BUFFER
+                const description = await analyzeBuffer(frameBuffer);
                 
-                const log = document.getElementById('log');
-                log.value += `M${currentMode} | ${lastColor.padEnd(10)} | ${type}\n`;
-                log.scrollTop = log.scrollHeight;
+                // Log
+                detectedLibrary.modes[currentMode] = description;
+                updateLog();
                 
-                frameDiffs = 0; // Reset movement counter
-                
-                // Increment
+                // Next
                 currentMode++;
-                if (currentMode > endMode) toggleScan(); // Stop
-                
-            }, 1500); // Sample 1.5s after command sent
+                if (currentMode <= endMode && isScanning) {
+                    performScanStep(endMode, speed);
+                } else {
+                    toggleScan(); // Stop
+                }
+            }, speed);
+        }
+        
+        async function analyzeBuffer(frames) {
+            // frames = [ [{r,g,b} x 10 segments], ... ] over ~3 seconds
+            if(frames.length === 0) return "No Data";
+            
+            // 1. Detect Base Colors (Average of middle frames)
+            const midFrame = frames[Math.floor(frames.length/2)];
+            const topColor = getColorName(midFrame[0].r, midFrame[0].g, midFrame[0].b);
+            const botColor = getColorName(midFrame[9].r, midFrame[9].g, midFrame[9].b);
+            
+            // 2. Detect Motion
+            // Compare frame 0 segment 0 vs frame N segment 0? 
+            // Better: Check vertical variance in single frame vs temporal variance
+            
+            let isMoving = false;
+            let motionType = "Static";
+            
+            // Check diff between start and end frame
+            const startF = frames[0];
+            const endF = frames[frames.length-1];
+            let totalDiff = 0;
+            
+            for(let i=0; i<SEGMENTS; i++) {
+                totalDiff += Math.abs(startF[i].r - endF[i].r);
+            }
+            
+            if(totalDiff > 1000) isMoving = true; // Arbitrary threshold
+            
+            // Generate description
+            let desc = `${topColor}/${botColor} ${isMoving ? 'Motion' : 'Static'}`;
+            
+            // AI ENHANCEMENT (If Enabled)
+            const useAi = document.getElementById('useAi').checked;
+            const apiKey = document.getElementById('apiKey').value;
+            
+            if(useAi && apiKey) {
+                desc = await getAiDescription(frames, apiKey);
+            }
+            
+            return desc;
+        }
+        
+        async function getAiDescription(frames, key) {
+            // Compress data to save tokens: Take start, mid, end frames, simplify colors
+            // Format: "T=0: [R,R,R,B,B...], T=1: [R,R,B,B,B...]"
+            const snapshots = [
+                frames[0], 
+                frames[Math.floor(frames.length/2)], 
+                frames[frames.length-1]
+            ].map(f => f.map(p => getColorName(p.r,p.g,p.b).charAt(0)).join("")); // e.g. "RRRBBGGG"
+            
+            const prompt = `Analyze LED Strip (Top to Bot). Frames: 1:${snapshots[0]} 2:${snapshots[1]} 3:${snapshots[2]}. Name effect in 2-3 words (e.g. Red Rise, Blue Fire).`;
+            
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model: "deepseek/deepseek-chat",
+                        messages: [{role: "user", content: prompt}],
+                        max_tokens: 10
+                    })
+                });
+                const data = await res.json();
+                return data.choices[0].message.content.trim();
+            } catch(e) {
+                return "AI Error";
+            }
+        }
+
+        function updateLog() {
+            const logBox = document.getElementById('log');
+            logBox.value = JSON.stringify(detectedLibrary, null, 2);
+            logBox.scrollTop = logBox.scrollHeight;
         }
 
         // --- BLUETOOTH ---
@@ -387,9 +500,9 @@
             const copyText = document.getElementById("log");
             copyText.select();
             document.execCommand("copy");
-            alert("Results copied! Paste them into the chat.");
+            alert("Library copied!");
         }
 
     </script>
 </body>
-</html>
+</html>>
