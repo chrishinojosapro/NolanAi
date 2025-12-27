@@ -149,6 +149,28 @@
             transition: width 0.1s linear;
         }
 
+        /* File Upload Styling */
+        input[type="file"] {
+            display: none;
+        }
+        .custom-file-upload {
+            border: 1px dashed #555;
+            display: block;
+            padding: 12px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #aaa;
+            transition: all 0.2s;
+        }
+        .custom-file-upload:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-color: #777;
+        }
+
     </style>
 </head>
 <body>
@@ -168,6 +190,12 @@
             <option value="0">Protocol: ELK-BLEDOM (Standard)</option>
             <option value="2">Protocol: Triones</option>
         </select>
+
+        <label for="audioUpload" class="custom-file-upload">
+            🎵 Upload Soundtrack (MP3/WAV)
+        </label>
+        <input type="file" id="audioUpload" accept="audio/*">
+        <audio id="battleAudio"></audio>
 
         <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
         <button class="btn-start" id="startBtn" onclick="startBattle()" disabled>⚔️ Start Battle Sequence</button>
@@ -262,6 +290,18 @@
         let device, characteristic;
         let isRunning = false;
         let timeoutId = null;
+
+        // --- AUDIO HANDLER ---
+        document.getElementById('audioUpload').addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                document.getElementById('battleAudio').src = url;
+                document.querySelector('.custom-file-upload').innerText = "🎵 Loaded: " + file.name;
+                document.querySelector('.custom-file-upload').style.borderColor = "#22c55e";
+                document.querySelector('.custom-file-upload').style.color = "#22c55e";
+            }
+        });
 
         // --- BLUETOOTH CONNECTION ---
         async function connect() {
@@ -362,6 +402,14 @@
         // --- ENGINE ---
         function startBattle() {
             if(isRunning) return;
+            
+            // Start Audio
+            const audio = document.getElementById('battleAudio');
+            if (audio.src) {
+                audio.currentTime = 0;
+                audio.play();
+            }
+
             isRunning = true;
             document.getElementById('startBtn').innerText = "Running...";
             runStep(0);
@@ -370,6 +418,12 @@
         function stopBattle() {
             isRunning = false;
             clearTimeout(timeoutId);
+            
+            // Stop Audio
+            const audio = document.getElementById('battleAudio');
+            audio.pause();
+            audio.currentTime = 0;
+            
             sendOff();
             document.getElementById('startBtn').innerText = "⚔️ Start Battle Sequence";
             document.getElementById('status').innerText = "Stopped.";
