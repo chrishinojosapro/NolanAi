@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v8 (Hue-Play Simulation)</title>
+    <title>Universal Screen Sync v9 (Sensitivity Fix)</title>
     <style>
         :root {
             --bg: #020617;
@@ -52,6 +52,7 @@
             border-radius: 50%;
             background: #000;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             font-weight: bold;
@@ -69,6 +70,16 @@
             opacity: 0.6;
             z-index: 1;
         }
+
+        .signal-badge {
+            font-size: 0.6rem;
+            background: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 5px;
+            color: #ef4444;
+        }
+        .signal-active { color: #10b981; }
 
         .controls { display: flex; flex-direction: column; gap: 12px; }
 
@@ -98,12 +109,15 @@
 <body>
 
     <div class="container">
-        <h1>Hue Play Sync</h1>
-        <p>Advanced Spatial Sync Engine</p>
+        <h1>Hue Play Sync v9</h1>
+        <p>Fixed Sensitivity & Logic Errors</p>
 
         <div class="preview-wrapper">
             <div class="bloom-effect" id="bloom"></div>
-            <div class="hue-halo" id="preview">OFF</div>
+            <div class="hue-halo" id="preview">
+                <span id="previewText">OFF</span>
+                <div class="signal-badge" id="signalBadge">SIGNAL: NO</div>
+            </div>
         </div>
 
         <div class="controls">
@@ -118,11 +132,11 @@
             <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
 
             <div class="slider-box">
-                <label><span>Sync Smoothness</span> <span id="lerpVal">Fast</span></label>
-                <input type="range" id="lerpSpeed" min="5" max="80" value="30">
+                <label><span>Sync Smoothing</span></label>
+                <input type="range" id="lerpSpeed" min="5" max="80" value="40">
                 
-                <label style="margin-top:15px;"><span>Color Depth (Vibrancy)</span> <span id="purityVal">High</span></label>
-                <input type="range" id="purity" min="20" max="100" value="85">
+                <label style="margin-top:15px;"><span>Vibrancy (Lower = More Sensitive)</span></label>
+                <input type="range" id="satThreshold" min="10" max="80" value="25">
             </div>
         </div>
 
@@ -133,33 +147,70 @@
     <canvas id="analysisCanvas" style="display:none;"></canvas>
 
     <script>
+        // --- DATA STRUCTURES ---
         const PROTOCOLS = [
-            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
-            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) },
-            { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) }
+            { 
+                name: "ELK", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]) 
+            },
+            { 
+                name: "Lotus", 
+                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
+                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
+                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) // FIXED: 0xf0 instead of f0
+            },
+            { 
+                name: "Triones", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]) 
+            }
         ];
 
+        // --- STATE ---
         let characteristic;
         let isSyncing = false;
         let isPoweredOn = false;
-        
-        // Smoothing state
         let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
 
+        // --- CAPTURE ---
         async function startCapture() {
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" } });
+                const stream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: { cursor: "never" },
+                    audio: false 
+                });
+                
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
+                
+                // Signal monitoring
+                const badge = document.getElementById('signalBadge');
+                badge.innerText = "SIGNAL: YES";
+                badge.classList.add('signal-active');
+
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "LIVE SYNC";
+                document.getElementById('syncBtn').innerText = "LIVE";
                 document.getElementById('syncBtn').style.background = "#10b981";
                 document.getElementById('syncBtn').style.color = "#fff";
+                
                 requestAnimationFrame(processLoop);
-            } catch(e) { console.error(e); }
+
+                stream.getVideoTracks()[0].onended = () => {
+                    isSyncing = false;
+                    document.getElementById('syncBtn').innerText = "👁️ Start Hue-Sync";
+                    document.getElementById('syncBtn').style.background = "#fff";
+                    document.getElementById('syncBtn').style.color = "#000";
+                    badge.innerText = "SIGNAL: NO";
+                    badge.classList.remove('signal-active');
+                };
+            } catch(e) { console.error("Capture failed:", e); }
         }
 
+        // --- ANALYSIS ENGINE ---
         function processLoop() {
             if(!isSyncing) return;
             
@@ -168,85 +219,80 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Hue Analysis Grid (60x40)
-                canvas.width = 60; canvas.height = 40;
-                ctx.drawImage(video, 0, 0, 60, 40);
-                const data = ctx.getImageData(0, 0, 60, 40).data;
+                // Downsample grid (40x40 is plenty for ambiance)
+                canvas.width = 40; canvas.height = 40;
+                ctx.drawImage(video, 0, 0, 40, 40);
+                const data = ctx.getImageData(0, 0, 40, 40).data;
 
-                // Sector Totals (Left, Center, Right)
-                let sectors = [{r:0,g:0,b:0,c:0}, {r:0,g:0,b:0,c:0}, {r:0,g:0,b:0,c:0}];
-                const purity = document.getElementById('purity').value / 100;
+                let rSum=0, gSum=0, bSum=0, count=0;
+                
+                // Sensitivity parameters
+                const satThresh = parseInt(document.getElementById('satThreshold').value) / 100;
+                const minBrightness = 25; 
 
                 for(let i=0; i<data.length; i+=4) {
-                    const x = (i/4) % 60;
-                    const sectorIdx = x < 20 ? 0 : (x < 40 ? 1 : 2);
-                    
                     let r = data[i], g = data[i+1], b = data[i+2];
                     const max = Math.max(r, g, b);
                     const min = Math.min(r, g, b);
                     const sat = max === 0 ? 0 : (max - min) / max;
 
-                    // FILTER: Only look for high-impact colors
-                    if (sat > 0.4 && max > 40) {
-                        const white = min * purity;
-                        sectors[sectorIdx].r += (r - white);
-                        sectors[sectorIdx].g += (g - white);
-                        sectors[sectorIdx].b += (b - white);
-                        sectors[sectorIdx].c++;
+                    // FILTER: Look for color, ignore neutrals/blacks
+                    if (sat >= satThresh && max > minBrightness) {
+                        // Aggressive color cleaning
+                        // If it's red-ish, minimize green/blue components
+                        const cleanFactor = 0.5;
+                        const white = min * cleanFactor;
+                        
+                        rSum += (r - white);
+                        gSum += (g - white);
+                        bSum += (b - white);
+                        count++;
                     }
                 }
 
-                // Decide which sector "Wins" (Spatial Priority)
-                // This mimics the immersive feel of Hue Play
-                let winner = sectors.reduce((prev, current) => (prev.c > current.c) ? prev : current);
-                
                 let targetR = 0, targetG = 0, targetB = 0;
-                if (winner.c > 5) {
-                    targetR = winner.r / winner.c;
-                    targetG = winner.g / winner.c;
-                    targetB = winner.b / winner.c;
+                if (count > 2) { // Need at least a few valid pixels
+                    targetR = rSum / count;
+                    targetG = gSum / count;
+                    targetB = bSum / count;
 
-                    // Boost Intensity (Normalize to 255)
+                    // Normalization: Expand the color to 255 brightness
                     const maxOut = Math.max(targetR, targetG, targetB, 1);
                     const boost = 255 / maxOut;
                     targetR *= boost; targetG *= boost; targetB *= boost;
-
-                    // Deepen Hue (Crush low channels)
-                    if (targetR > targetG * 2) { targetG *= 0.1; }
-                    if (targetR > targetB * 2) { targetB *= 0.1; }
-                    if (targetB > targetR * 2) { targetR *= 0.1; }
-                    if (targetB > targetG * 2) { targetG *= 0.1; }
                 }
 
-                // Cinematic LERP (Smoothing)
-                const lerpBase = document.getElementById('lerpSpeed').value / 1000;
-                curR += (targetR - curR) * (lerpBase * 10);
-                curG += (targetG - curG) * (lerpBase * 10);
-                curB += (targetB - curB) * (lerpBase * 10);
+                // LERP (Smoothing)
+                const lerpBase = document.getElementById('lerpSpeed').value / 500;
+                curR += (targetR - curR) * lerpBase;
+                curG += (targetG - curG) * lerpBase;
+                curB += (targetB - curB) * lerpBase;
 
-                // Update UI
-                const rInt = Math.floor(curR), gInt = Math.floor(curG), bInt = Math.floor(curB);
-                const isOff = (rInt + gInt + bInt) < 15;
-                const colStr = `rgb(${rInt},${gInt},${bInt})`;
+                // Clamp to valid range
+                const outR = Math.max(0, Math.min(255, Math.floor(curR)));
+                const outG = Math.max(0, Math.min(255, Math.floor(curG)));
+                const outB = Math.max(0, Math.min(255, Math.floor(curB)));
 
-                const preview = document.getElementById('preview');
-                const bloom = document.getElementById('bloom');
+                // UI Feedback
+                const isOff = (outR + outG + outB) < 15;
+                const colStr = `rgb(${outR},${outG},${outB})`;
                 
-                preview.style.background = isOff ? '#000' : colStr;
-                preview.innerText = isOff ? "OFF" : "";
-                bloom.style.background = colStr;
-                bloom.style.opacity = isOff ? "0" : "0.7";
+                document.getElementById('preview').style.background = isOff ? '#000' : colStr;
+                document.getElementById('previewText').innerText = isOff ? "OFF" : "";
+                document.getElementById('bloom').style.background = colStr;
+                document.getElementById('bloom').style.opacity = isOff ? "0" : "0.7";
 
-                // Bluetooth Sync (Throttled for reliability)
+                // Bluetooth Send (Throttled for stability)
                 const now = Date.now();
-                if (now - lastSentTime > 80) {
-                    sendToLight(rInt, gInt, bInt);
+                if (now - lastSentTime > 70) {
+                    sendToLight(outR, outG, outB);
                     lastSentTime = now;
                 }
             }
             requestAnimationFrame(processLoop);
         }
 
+        // --- BLUETOOTH COMMANDS ---
         async function sendToLight(r, g, b) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
@@ -259,9 +305,9 @@
                     }
                 } else {
                     if (!isPoweredOn) {
-                        if(p.on) await characteristic.writeValue(p.on);
+                        await characteristic.writeValue(p.on);
                         isPoweredOn = true;
-                        await new Promise(r => setTimeout(r, 40)); 
+                        await new Promise(r => setTimeout(r, 40)); // Let the chip wake
                     }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
@@ -272,7 +318,7 @@
             try {
                 const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
-                    optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb']
+                    optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
                 
                 const server = await device.gatt.connect();
@@ -292,14 +338,13 @@
                     const btn = document.getElementById('connectBtn');
                     btn.classList.add('connected-btn');
                     btn.innerText = "LINKED";
-                    document.getElementById('status').innerText = "CONNECTED_TO_" + device.name.toUpperCase();
+                    document.getElementById('status').innerText = "CONNECTED_" + device.name.toUpperCase();
                     
-                    // Initial Wake
                     const p = PROTOCOLS[document.getElementById('protocol').value];
-                    if(p.on) await characteristic.writeValue(p.on);
+                    await characteristic.writeValue(p.on);
                     isPoweredOn = true;
                 }
-            } catch(e) { alert(e.message); }
+            } catch(e) { alert("BT Error: " + e.message); }
         }
     </script>
 </body>
