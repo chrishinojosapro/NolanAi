@@ -3,285 +3,391 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Capability Scanner</title>
+    <title>AI Vision Scanner</title>
     <style>
         :root {
-            --bg-color: #111;
-            --panel-bg: #222;
-            --text-color: #eee;
-            --accent: #0ea5e9;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f1f5f9;
+            --accent: #3b82f6;
             --success: #22c55e;
             --danger: #ef4444;
         }
 
         body {
-            font-family: monospace;
-            background: var(--bg-color);
-            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             padding: 20px;
-            max-width: 600px;
-            margin: 0 auto;
+            margin: 0;
+            min-height: 100vh;
         }
 
-        /* CARD STYLE */
+        h1 { margin-bottom: 20px; font-size: 1.5rem; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        @media (max-width: 700px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
         .panel {
-            background: var(--panel-bg);
-            border: 1px solid #333;
-            border-radius: 8px;
+            background: var(--panel);
             padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
-        h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 1.2rem; }
-        
+        /* VIDEO AREA */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            background: black;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+        video, canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #analysisOverlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #0f0;
+            pointer-events: none;
+        }
+        #targetBox {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px; height: 50px;
+            border: 2px solid rgba(255,255,255,0.5);
+            pointer-events: none;
+        }
+
+        /* CONTROLS */
+        select, input {
+            background: #0f172a;
+            color: white;
+            border: 1px solid #475569;
+            padding: 10px;
+            border-radius: 6px;
+            width: 100%;
+        }
+
         button {
-            padding: 10px 15px;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
             cursor: pointer;
-            background: #333;
+            transition: 0.2s;
+            background: #334155;
             color: white;
-            border: 1px solid #555;
-            border-radius: 4px;
-            font-family: inherit;
         }
-        button:hover { background: #444; }
-        button.primary { background: var(--accent); border-color: var(--accent); }
-        button.success { background: var(--success); border-color: var(--success); }
-        
-        input, select {
-            background: #111;
-            color: white;
-            border: 1px solid #555;
-            padding: 8px;
-            border-radius: 4px;
-            font-family: inherit;
-        }
+        button:hover { filter: brightness(1.2); }
+        button.primary { background: var(--accent); }
+        button.success { background: var(--success); }
+        button.danger { background: var(--danger); }
 
-        /* GRID LAYOUTS */
-        .control-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        
-        /* OUTPUT BOX */
+        /* LOGGING */
         textarea {
             width: 100%;
-            height: 150px;
+            height: 300px;
             background: #000;
             color: #0f0;
-            border: 1px solid #333;
             font-family: monospace;
-            font-size: 0.8rem;
             padding: 10px;
-            box-sizing: border-box;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            resize: vertical;
         }
 
-        .highlight { color: var(--accent); font-weight: bold; }
+        .status-dot {
+            display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #666;
+            margin-right: 5px;
+        }
+        .connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
+
     </style>
 </head>
 <body>
 
-    <h1>🔦 Light Scanner</h1>
-    
-    <!-- 1. CONNECT -->
-    <div class="panel">
-        <h2>1. Connection & Protocol</h2>
-        <div class="control-row">
-            <select id="protocol" style="flex:1">
-                <option value="1">Protocol: Lotus (Keepsmile)</option>
-                <option value="0">Protocol: ELK (Standard)</option>
-                <option value="2">Protocol: Triones</option>
-            </select>
-            <button id="connectBtn" class="primary">Connect</button>
-        </div>
-        <div id="status" style="color: #666; font-size: 0.8rem;">Status: Disconnected</div>
-    </div>
+    <h1>👁️ AI Vision Scanner</h1>
 
-    <!-- 2. COLOR CALIBRATION -->
-    <div class="panel">
-        <h2>2. Color Calibration</h2>
-        <p style="font-size:0.8rem; color:#aaa;">Click RED. If light is not Red, change Byte Order.</p>
-        <div class="control-row">
-            <button onclick="sendColor(255,0,0)" style="border-left: 5px solid red;">Send RED</button>
-            <button onclick="sendColor(0,255,0)" style="border-left: 5px solid green;">Send GREEN</button>
-            <button onclick="sendColor(0,0,255)" style="border-left: 5px solid blue;">Send BLUE</button>
-        </div>
-        <div class="control-row">
-            <label>Byte Order:</label>
-            <select id="byteOrder" onchange="testColor()">
-                <option value="RGB">RGB (Standard)</option>
-                <option value="GRB">GRB (Swapped)</option>
-                <option value="BGR">BGR (Swapped)</option>
-            </select>
-        </div>
-    </div>
-
-    <!-- 3. MODE DISCOVERY -->
-    <div class="panel">
-        <h2>3. Mode Discovery</h2>
-        
-        <div class="control-row" style="justify-content: space-between; background: #000; padding: 10px; border-radius: 6px;">
-            <button onclick="changeMode(-1)">◀ Prev</button>
-            <span style="font-size:1.5rem; font-weight:bold;" id="modeDisplay">Mode 1</span>
-            <button onclick="changeMode(1)">Next ▶</button>
-        </div>
-
-        <div class="control-row">
-            <button onclick="testMode()" style="flex:1">Test Again</button>
-            <button id="scanBtn" onclick="toggleScan()" style="flex:1">▶ Auto-Scan</button>
-        </div>
-
-        <div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
-            <label style="font-size:0.8rem; display:block; margin-bottom:5px;">What do you see?</label>
-            <div class="control-row">
-                <input type="text" id="descInput" placeholder="e.g. Red Stacking, Blue Fire..." style="flex:1;">
-                <button class="success" onclick="saveEntry()">Save Entry</button>
+    <div class="container">
+        <!-- LEFT: CAMERA & VISION -->
+        <div class="panel">
+            <div class="video-wrapper">
+                <video id="video" autoplay playsinline muted></video>
+                <div id="targetBox"></div> <!-- Target reticle -->
+                <div id="analysisOverlay">Waiting for camera...</div>
+            </div>
+            <button onclick="startCamera()">📷 Start Camera</button>
+            <div style="font-size:0.8rem; color:#aaa;">
+                Point center square at the light strip. Ensure room is dim.
             </div>
         </div>
-    </div>
 
-    <!-- 4. LIBRARY OUTPUT -->
-    <div class="panel">
-        <h2>4. Library Output</h2>
-        <p style="font-size:0.8rem; color:#aaa;">Copy this code and paste it to the AI.</p>
-        <textarea id="outputArea" readonly>// Detected Capabilities:
-{
-  "protocol": "lotus",
-  "order": "RGB",
-  "modes": {}
-}</textarea>
-        <div class="control-row" style="margin-top:10px;">
-            <button onclick="copyToClipboard()" style="width:100%">Copy to Clipboard</button>
+        <!-- RIGHT: CONTROLS & LOG -->
+        <div class="panel">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:bold;">Controls</span>
+                <span><span class="status-dot" id="statusDot"></span> <span id="statusText">Disconnected</span></span>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <select id="protocol">
+                    <option value="1">Lotus (Keepsmile)</option>
+                    <option value="0">ELK (Standard)</option>
+                    <option value="2">Triones</option>
+                </select>
+                <button class="primary" id="connectBtn">Connect</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;">
+                <div>
+                    <label style="font-size:0.7rem; color:#aaa;">Start Mode</label>
+                    <input type="number" id="startMode" value="1" min="1" max="200">
+                </div>
+                <div>
+                    <label style="font-size:0.7rem; color:#aaa;">End Mode</label>
+                    <input type="number" id="endMode" value="50" min="1" max="200">
+                </div>
+                <div>
+                    <label style="font-size:0.7rem; color:#aaa;">Sec/Mode</label>
+                    <input type="number" id="scanSpeed" value="3" min="1" max="10">
+                </div>
+            </div>
+
+            <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Vision Scan</button>
+
+            <textarea id="log" readonly>// Scan Results will appear here...</textarea>
+            <button onclick="copyLog()">Copy Results</button>
         </div>
     </div>
 
-    <script>
-        // --- DATA ---
-        let device, characteristic;
-        let currentMode = 1;
-        let library = {
-            protocol: "lotus",
-            order: "RGB",
-            modes: {}
-        };
-        let scanInterval = null;
+    <!-- Hidden canvas for processing -->
+    <canvas id="canvas" style="display:none;"></canvas>
 
-        // --- PROTOCOLS ---
+    <script>
+        // --- CONSTANTS ---
         const PROTOCOLS = [
             { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
             { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
             { name: "triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
         ];
 
+        // --- STATE ---
+        let device, characteristic;
+        let scanInterval = null;
+        let currentMode = 1;
+        let isScanning = false;
+        let stream = null;
+
+        // --- CAMERA LOGIC ---
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                
+                // Start Analysis Loop
+                requestAnimationFrame(analyzeFrame);
+            } catch(e) {
+                alert("Camera access denied or error: " + e.message);
+            }
+        }
+
+        // Color Classifier
+        function getColorName(r, g, b) {
+            if (r < 40 && g < 40 && b < 40) return "Black/Off";
+            if (r > 200 && g > 200 && b > 200) return "White";
+            
+            if (r > g + b) return "Red";
+            if (g > r + b) return "Green";
+            if (b > r + g) return "Blue";
+            
+            if (r > 150 && g > 150 && b < 100) return "Yellow";
+            if (r > 150 && b > 150 && g < 100) return "Purple";
+            if (g > 150 && b > 150 && r < 100) return "Cyan";
+            
+            return "Mixed";
+        }
+
+        // Frame Analysis
+        let lastColor = "";
+        let frameDiffs = 0;
+        let frameCount = 0;
+        let lastRGB = {r:0, g:0, b:0};
+
+        function analyzeFrame() {
+            if (!stream) return;
+            
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Analyze Center (50x50px box)
+                const cx = Math.floor(canvas.width / 2);
+                const cy = Math.floor(canvas.height / 2);
+                const frame = ctx.getImageData(cx - 25, cy - 25, 50, 50);
+                const data = frame.data;
+                
+                let r=0, g=0, b=0;
+                for (let i = 0; i < data.length; i += 4) {
+                    r += data[i];
+                    g += data[i+1];
+                    b += data[i+2];
+                }
+                const count = data.length / 4;
+                r = Math.floor(r/count);
+                g = Math.floor(g/count);
+                b = Math.floor(b/count);
+                
+                // Detect Change (Motion/Flashing)
+                const diff = Math.abs(r - lastRGB.r) + Math.abs(g - lastRGB.g) + Math.abs(b - lastRGB.b);
+                if (diff > 10) frameDiffs++;
+                lastRGB = {r,g,b};
+                
+                // Update UI Overlay
+                const colorName = getColorName(r,g,b);
+                lastColor = colorName; // Store for scanner
+                
+                const overlay = document.getElementById('analysisOverlay');
+                overlay.innerHTML = `RGB: ${r},${g},${b}<br>Color: ${colorName}<br>Change: ${diff}`;
+                overlay.style.color = `rgb(${r},${g},${b})`;
+                if(r+g+b < 100) overlay.style.color = 'white'; // Readable on dark
+            }
+            
+            if(!isScanning || stream) requestAnimationFrame(analyzeFrame);
+        }
+
+        // --- SCANNER LOGIC ---
+        function toggleScan() {
+            if (isScanning) {
+                clearInterval(scanInterval);
+                isScanning = false;
+                document.getElementById('scanBtn').innerText = "🤖 Start Auto-Vision Scan";
+                document.getElementById('scanBtn').classList.remove('danger');
+                document.getElementById('scanBtn').classList.add('success');
+            } else {
+                if(!characteristic) return alert("Connect light first!");
+                if(!stream) return alert("Start camera first!");
+                
+                isScanning = true;
+                const btn = document.getElementById('scanBtn');
+                btn.innerText = "⏹ STOP SCAN";
+                btn.classList.remove('success');
+                btn.classList.add('danger');
+                
+                const start = parseInt(document.getElementById('startMode').value);
+                const end = parseInt(document.getElementById('endMode').value);
+                const speed = parseInt(document.getElementById('scanSpeed').value) * 1000;
+                
+                currentMode = start;
+                
+                // Clear Log
+                const log = document.getElementById('log');
+                log.value = "Mode | Detected Color | Type\n----------------------------\n";
+                
+                // Loop
+                performScanStep(end); // Run first immediately
+                
+                scanInterval = setInterval(() => {
+                    performScanStep(end);
+                }, speed);
+            }
+        }
+
+        function performScanStep(endMode) {
+            // 1. Send Mode Command
+            testMode(currentMode);
+            
+            // 2. Wait for camera to see change (handled by delay)
+            // 3. Log what we see *right before* we switch to the next mode
+            // We log the result of the *previous* interval effectively, but for simplicity
+            // we will sample halfway through the next interval.
+            
+            setTimeout(() => {
+                // Analyze Result
+                let type = "Static";
+                if (frameDiffs > 5) type = "Dynamic/Flash"; // Based on diff accumulator
+                
+                const log = document.getElementById('log');
+                log.value += `M${currentMode} | ${lastColor.padEnd(10)} | ${type}\n`;
+                log.scrollTop = log.scrollHeight;
+                
+                frameDiffs = 0; // Reset movement counter
+                
+                // Increment
+                currentMode++;
+                if (currentMode > endMode) toggleScan(); // Stop
+                
+            }, 1500); // Sample 1.5s after command sent
+        }
+
         // --- BLUETOOTH ---
         document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
-                if (!navigator.bluetooth) throw new Error("Bluetooth not supported.");
-                document.getElementById('status').innerText = "Status: Scanning...";
-                
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
-
                 const server = await device.gatt.connect();
-                
-                // Find service (Standard UUIDs)
+                // Find service
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
-                if(!service) throw new Error("No service found");
-
+                
                 const charUUIDs = ['0000ffd9-0000-1000-8000-00805f9b34fb', '0000ffe9-0000-1000-8000-00805f9b34fb', '0000fff3-0000-1000-8000-00805f9b34fb'];
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
 
                 if(characteristic) {
-                    document.getElementById('status').innerText = "Status: Connected to " + device.name;
-                    document.getElementById('status').style.color = "#22c55e";
-                    
-                    // Update library protocol
-                    const pIndex = document.getElementById('protocol').value;
-                    library.protocol = PROTOCOLS[pIndex].name;
-                    updateOutput();
+                    document.getElementById('statusDot').classList.add('connected');
+                    document.getElementById('statusText').innerText = "Connected";
+                    document.getElementById('connectBtn').style.display = 'none';
                 }
-            } catch(e) { 
-                document.getElementById('status').innerText = "Error: " + e.message;
-            }
+            } catch(e) { alert("Error: " + e.message); }
         });
 
-        // --- COMMANDS ---
-        async function sendColor(r, g, b) {
+        async function testMode(m) {
             if(!characteristic) return;
-            
-            // Apply Byte Order
-            const order = document.getElementById('byteOrder').value;
-            let finalR = r, finalG = g, finalB = b;
-            
-            if(order === 'GRB') { finalR = g; finalG = r; finalB = b; }
-            if(order === 'BGR') { finalR = b; finalG = g; finalB = r; }
-            
-            library.order = order;
-            updateOutput();
-
             const pIndex = document.getElementById('protocol').value;
-            const data = PROTOCOLS[pIndex].write(finalR, finalG, finalB);
+            const data = PROTOCOLS[pIndex].setMode(m);
             try { await characteristic.writeValue(data); } catch(e){}
         }
 
-        async function testMode() {
-            if(!characteristic) return;
-            const pIndex = document.getElementById('protocol').value;
-            const data = PROTOCOLS[pIndex].setMode(currentMode);
-            try { await characteristic.writeValue(data); } catch(e){}
-        }
-
-        // --- UI LOGIC ---
-        function changeMode(delta) {
-            currentMode += delta;
-            if(currentMode < 1) currentMode = 200;
-            if(currentMode > 200) currentMode = 1;
-            
-            document.getElementById('modeDisplay').innerText = "Mode " + currentMode;
-            document.getElementById('descInput').value = library.modes[currentMode] || ""; // Load existing if saved
-            testMode();
-        }
-
-        function saveEntry() {
-            const desc = document.getElementById('descInput').value;
-            if(!desc) return;
-            
-            library.modes[currentMode] = desc;
-            updateOutput();
-            
-            // Visual feedback
-            const btn = document.querySelector('button.success');
-            const originalText = btn.innerText;
-            btn.innerText = "Saved!";
-            setTimeout(() => btn.innerText = originalText, 1000);
-        }
-
-        function updateOutput() {
-            document.getElementById('outputArea').value = JSON.stringify(library, null, 2);
-        }
-
-        function copyToClipboard() {
-            const copyText = document.getElementById("outputArea");
+        function copyLog() {
+            const copyText = document.getElementById("log");
             copyText.select();
             document.execCommand("copy");
-            alert("Copied to clipboard!");
-        }
-
-        function toggleScan() {
-            const btn = document.getElementById('scanBtn');
-            if(scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
-                btn.innerText = "▶ Auto-Scan";
-                btn.style.background = "#333";
-            } else {
-                btn.innerText = "⏹ STOP";
-                btn.style.background = "#ef4444";
-                scanInterval = setInterval(() => {
-                    changeMode(1);
-                }, 2000); // 2 seconds per mode
-            }
+            alert("Results copied! Paste them into the chat.");
         }
 
     </script>
