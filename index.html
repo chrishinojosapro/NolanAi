@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High Contrast Sync v16 (Hero Fade)</title>
+    <title>Universal Sync v17 (Dominant Logic)</title>
     <style>
         :root {
             --bg: #000000;
             --panel: #111111;
             --text: #ffffff;
-            --accent: #ff0055; /* Cyberpunk Red */
-            --highlight: #00e5ff; /* Cyberpunk Blue */
+            --accent: #3b82f6;
             --success: #22c55e;
+            --danger: #ef4444;
         }
 
         body {
@@ -29,40 +29,37 @@
         .container {
             background: var(--panel);
             padding: 40px;
-            border-radius: 20px;
+            border-radius: 24px;
             border: 1px solid #333;
             width: 90%;
-            max-width: 500px;
+            max-width: 450px;
             text-align: center;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            box-shadow: 0 0 60px rgba(0,0,0,0.9);
         }
 
         h1 {
-            margin: 0 0 20px 0;
-            font-size: 1.8rem;
+            margin: 0 0 5px 0;
+            font-size: 1.6rem;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            background: linear-gradient(90deg, #ff0000, #ffffff, #0044ff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
         }
+        
+        p { color: #666; font-size: 0.8rem; margin-bottom: 25px; }
 
-        /* LIVE PREVIEW BOX */
-        .preview-box {
-            width: 100%;
-            height: 120px;
+        /* HUE PREVIEW */
+        .preview-halo {
+            width: 150px;
+            height: 150px;
             background: #000;
-            border: 2px solid #333;
-            border-radius: 15px;
-            margin-bottom: 20px;
+            border-radius: 50%;
+            margin: 0 auto 25px;
+            border: 4px solid #222;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
             font-weight: bold;
-            color: #fff;
-            text-shadow: 0 0 10px black;
-            transition: background-color 0.05s linear, box-shadow 0.05s linear;
+            font-size: 1.2rem;
+            transition: background 0.1s linear, box-shadow 0.1s linear;
         }
 
         /* CONTROLS */
@@ -72,7 +69,7 @@
             background: #222;
             color: white;
             border: 1px solid #444;
-            border-radius: 8px;
+            border-radius: 10px;
             margin-bottom: 15px;
             font-size: 1rem;
         }
@@ -80,58 +77,58 @@
         button {
             width: 100%;
             padding: 15px;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: bold;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: 0.2s;
             margin-bottom: 10px;
         }
-        button:hover { filter: brightness(1.2); }
-        button:active { transform: scale(0.98); }
+        button:active { transform: scale(0.97); }
 
-        .btn-sync { background: var(--highlight); color: black; }
+        .btn-sync { background: #fff; color: #000; }
         .btn-connect { background: var(--accent); color: white; }
-        .connected-btn { background: var(--success) !important; color: white !important; }
+        .connected { background: var(--success) !important; }
 
         /* SLIDERS */
         .slider-group {
             text-align: left;
-            margin-top: 20px;
-            background: #1a1a1a;
-            padding: 15px;
-            border-radius: 8px;
+            margin-top: 15px;
+            background: #050505;
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid #222;
         }
         .slider-label {
-            display: flex; justify-content: space-between; font-size: 0.8rem; color: #888; margin-bottom: 5px; text-transform: uppercase; font-weight: bold;
+            display: flex; justify-content: space-between; font-size: 0.7rem; color: #888; margin-bottom: 8px; text-transform: uppercase; font-weight: bold;
         }
         input[type=range] {
             width: 100%;
-            accent-color: var(--highlight);
+            accent-color: var(--accent);
             cursor: pointer;
             margin-bottom: 15px;
         }
 
-        #status { font-size: 0.7rem; color: #444; margin-top: 10px; font-family: monospace; }
-
-        /* HIDDEN ELEMENTS */
-        #captureVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-        #analysisCanvas { display: none; }
+        #status { font-size: 0.7rem; color: #444; margin-top: 15px; font-family: monospace; }
+        
+        /* VIDEO (Hidden) */
+        #captureVideo { position: fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Hero Fade Sync v16</h1>
+        <h1>Universal Sync v17</h1>
+        <p>Primary Color Dominance & Blackout Engine</p>
         
-        <div class="preview-box" id="preview">OFF</div>
+        <div class="preview-halo" id="preview">OFF</div>
 
         <button class="btn-sync" id="syncBtn" onclick="startCapture()">1. Start Screen Sync</button>
         
         <select id="protocol">
-            <option value="1">Protocol: Lotus/Keepsmile</option>
-            <option value="0">Protocol: ELK-BLEDOM</option>
+            <option value="1">Protocol: Lotus (Keepsmile)</option>
+            <option value="0">Protocol: ELK (Standard)</option>
             <option value="2">Protocol: Triones</option>
         </select>
         
@@ -139,29 +136,28 @@
 
         <div class="slider-group">
             <div class="slider-label">
-                <span>Transition Smoothness</span>
-                <span id="fadeVal">25%</span>
+                <span>Blackout Aggression</span>
+                <span id="blackoutVal">Medium</span>
             </div>
-            <input type="range" id="fadeSpeed" min="2" max="90" value="25" oninput="updateLabels()">
+            <input type="range" id="blackoutThresh" min="5" max="60" value="20">
             
             <div class="slider-label">
-                <span>Vibrancy Cutoff (Blackout)</span>
-                <span id="satVal">30%</span>
+                <span>Deep Color Force</span>
+                <span id="deepVal">High</span>
             </div>
-            <input type="range" id="satThresh" min="0" max="80" value="30" oninput="updateLabels()">
-            
+            <input type="range" id="purity" min="0" max="100" value="80">
+
             <div class="slider-label">
-                <span>Brightness Boost</span>
-                <span id="briVal">1.5x</span>
+                <span>Transition Fade</span>
             </div>
-            <input type="range" id="brightnessGain" min="10" max="50" value="15" oninput="updateLabels()">
+            <input type="range" id="lerpSpeed" min="5" max="95" value="40">
         </div>
         
-        <div id="status">BT_IDLE</div>
+        <div id="status">Ready...</div>
     </div>
 
     <video id="captureVideo" autoplay playsinline muted></video>
-    <canvas id="analysisCanvas"></canvas>
+    <canvas id="analysisCanvas" style="display:none;"></canvas>
 
     <script>
         const PROTOCOLS = [
@@ -174,16 +170,9 @@
         let isSyncing = false;
         let isPoweredOn = false;
         
-        // Lerp/Fade state
+        // Fading State
         let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
-        const BT_FPS = 80; // ms between packets
-
-        function updateLabels() {
-            document.getElementById('fadeVal').innerText = document.getElementById('fadeSpeed').value + "%";
-            document.getElementById('satVal').innerText = document.getElementById('satThresh').value + "%";
-            document.getElementById('briVal').innerText = (document.getElementById('brightnessGain').value / 10) + "x";
-        }
 
         async function startCapture() {
             try {
@@ -191,13 +180,16 @@
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "LIVE SYNC ACTIVE";
-                document.getElementById('syncBtn').style.background = "var(--success)";
+                document.getElementById('syncBtn').innerText = "LIVE ACTIVE";
+                document.getElementById('syncBtn').style.background = "#22c55e";
                 document.getElementById('syncBtn').style.color = "#fff";
                 requestAnimationFrame(analyzeLoop);
+                
                 stream.getVideoTracks()[0].onended = () => {
                     isSyncing = false;
                     document.getElementById('syncBtn').innerText = "1. Start Screen Sync";
+                    document.getElementById('syncBtn').style.background = "#fff";
+                    document.getElementById('syncBtn').style.color = "#000";
                     sendToLight(0,0,0);
                 };
             } catch(e) { console.error(e); }
@@ -205,86 +197,84 @@
 
         function analyzeLoop() {
             if(!isSyncing) return;
+            
             const video = document.getElementById('captureVideo');
             const canvas = document.getElementById('analysisCanvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            
-            if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Downsample massively for speed
-                canvas.width = 40; canvas.height = 40;
-                ctx.drawImage(video, 0, 0, 40, 40);
-                const frame = ctx.getImageData(0, 0, 40, 40).data;
-                
-                // HERO COLOR LOCK LOGIC
-                let bestR = 0, bestG = 0, bestB = 0;
-                let maxImpact = 0;
-                
-                const satCutoff = parseInt(document.getElementById('satThresh').value) / 100;
-                const gain = parseInt(document.getElementById('brightnessGain').value) / 10;
 
-                for(let i=0; i<frame.length; i+=4) {
-                    let r = frame[i], g = frame[i+1], b = frame[i+2];
+            if(video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Analysis grid (30x30)
+                canvas.width = 30; canvas.height = 30;
+                ctx.drawImage(video, 0, 0, 30, 30);
+                const data = ctx.getImageData(0, 0, 30, 30).data;
+
+                const blackoutLevel = parseInt(document.getElementById('blackoutThresh').value);
+                const purity = parseInt(document.getElementById('purity').value) / 100;
+                
+                let rSum=0, gSum=0, bSum=0, count=0;
+                let globalBri = 0;
+
+                // 1. DOMINANT CLUSTER DETECTION
+                // We calculate global brightness and color importance simultaneously
+                for(let i=0; i<data.length; i+=4) {
+                    let r = data[i], g = data[i+1], b = data[i+2];
                     const max = Math.max(r, g, b);
                     const min = Math.min(r, g, b);
                     const sat = max === 0 ? 0 : (max - min) / max;
                     
-                    // Score = Vibrancy x Brightness
-                    const impact = sat * max;
+                    globalBri += max;
 
-                    if (impact > maxImpact) {
-                        maxImpact = impact;
-                        bestR = r; bestG = g; bestB = b;
+                    // FILTER: Focus on the "Soul" of the scene (vibrant, non-white areas)
+                    if (sat > 0.3 && max > 25) {
+                        // Subtract the "Whiteness" to deepen the color
+                        const whitePart = min * purity;
+                        rSum += (r - whitePart);
+                        gSum += (g - whitePart);
+                        bSum += (b - whitePart);
+                        count++;
                     }
                 }
-                
+
+                const avgGlobalBri = globalBri / (30 * 30);
                 let targetR = 0, targetG = 0, targetB = 0;
-                
-                // Check if the dominant color is actually vibrant or bright enough
-                const bestMax = Math.max(bestR, bestG, bestB);
-                const bestMin = Math.min(bestR, bestG, bestB);
-                const bestSat = bestMax === 0 ? 0 : (bestMax - bestMin) / bestMax;
 
-                if (bestMax > 15 && (bestSat > satCutoff || bestMax > 220)) {
-                    // HERO FOUND (or pure white flash found)
-                    targetR = bestR; targetG = bestG; targetB = bestB;
+                // 2. BLACKOUT GUARD
+                // If global screen brightness is too low, or we didn't find enough "Dominant" color
+                if (avgGlobalBri > blackoutLevel && count > 10) {
+                    targetR = rSum / count;
+                    targetG = gSum / count;
+                    targetB = bSum / count;
 
-                    // Deep Color Math: Subtract white contamination if saturated
-                    if (bestSat > 0.3) {
-                        targetR -= bestMin;
-                        targetG -= bestMin;
-                        targetB -= bestMin;
-                    }
+                    // BOOSTER: Stretch primary color to full intensity
+                    const maxOut = Math.max(targetR, targetG, targetB, 1);
+                    const boost = 255 / maxOut;
+                    targetR *= boost; targetG *= boost; targetB *= boost;
 
-                    // Boost Intensity
-                    const m = Math.max(targetR, targetG, targetB, 1);
-                    targetR = Math.min(255, (targetR / m) * 255 * gain);
-                    targetG = Math.min(255, (targetG / m) * 255 * gain);
-                    targetB = Math.min(255, (targetB / m) * 255 * gain);
+                    // CRUSH logic for Primary Colors (Red saber / Blue saber)
+                    // If one channel is 2x stronger than others, kill the weak ones.
+                    if (targetR > targetG * 2 && targetR > targetB * 2) { targetG = 0; targetB = 0; }
+                    else if (targetB > targetR * 2 && targetB > targetG * 2) { targetR = 0; targetG = 0; }
+                }
 
-                    // Final Crush for Sabers (Red/Blue exclusivity)
-                    if (targetR > targetG * 2.2 && targetR > targetB * 2.2) { targetG = 0; targetB = 0; }
-                    if (targetB > targetR * 2.2 && targetB > targetG * 2.2) { targetR = 0; targetG = 0; }
-                } 
+                // 3. FADE ENGINE (Smooth sliding)
+                const lerpBase = document.getElementById('lerpSpeed').value / 500;
+                curR += (targetR - curR) * lerpBase;
+                curG += (targetG - curG) * lerpBase;
+                curB += (targetB - curB) * lerpBase;
 
-                // FADE ENGINE (LERP)
-                const lerp = parseInt(document.getElementById('fadeSpeed').value) / 250;
-                curR += (targetR - curR) * lerp;
-                curG += (targetG - curG) * lerp;
-                curB += (targetB - curB) * lerp;
-                
                 const outR = Math.floor(curR), outG = Math.floor(curG), outB = Math.floor(curB);
-                const isBlack = (outR + outG + outB) < 15;
+                const isOff = (outR + outG + outB) < 15;
                 const colStr = `rgb(${outR},${outG},${outB})`;
-                
-                // UI Visuals
-                const prev = document.getElementById('preview');
-                prev.style.backgroundColor = isBlack ? '#000' : colStr;
-                prev.style.boxShadow = isBlack ? 'none' : `0 0 40px ${colStr}`;
-                prev.innerText = isBlack ? "OFF" : "";
 
-                // Bluetooth Throttle
+                // 4. UI UPDATE
+                const preview = document.getElementById('preview');
+                preview.style.background = isOff ? '#000' : colStr;
+                preview.style.boxShadow = isOff ? 'none' : `0 0 50px ${colStr}`;
+                preview.innerText = isOff ? "OFF" : "";
+
+                // 5. BT SEND (Throttled for stability)
                 const now = Date.now();
-                if (now - lastSentTime > BT_FPS) {
+                if (now - lastSentTime > 85) { 
                     sendToLight(outR, outG, outB);
                     lastSentTime = now;
                 }
@@ -295,14 +285,22 @@
         async function sendToLight(r, g, b) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
+            
             try {
                 if (r < 5 && g < 5 && b < 5) {
-                    if(isPoweredOn) { await characteristic.writeValue(p.off); isPoweredOn = false; }
+                    if (isPoweredOn) {
+                        await characteristic.writeValue(p.off);
+                        isPoweredOn = false;
+                    }
                 } else {
-                    if(!isPoweredOn) { await characteristic.writeValue(p.on); isPoweredOn = true; await new Promise(r => setTimeout(r, 40)); }
+                    if (!isPoweredOn) {
+                        await characteristic.writeValue(p.on);
+                        isPoweredOn = true;
+                        await new Promise(res => setTimeout(res, 40)); 
+                    }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
-            } catch(e) {}
+            } catch(e) { }
         }
 
         async function connect() {
@@ -323,17 +321,15 @@
                     if(characteristic) break;
                 }
                 if(characteristic) {
-                    const btn = document.getElementById('connectBtn');
-                    btn.classList.add('connected-btn');
-                    btn.innerText = "CONNECTED";
-                    document.getElementById('status').innerText = "READY: " + device.name.toUpperCase();
+                    document.getElementById('connectBtn').classList.add('connected');
+                    document.getElementById('connectBtn').innerText = "CONNECTED";
+                    document.getElementById('status').innerText = "LINKED: " + device.name.toUpperCase();
                     const p = PROTOCOLS[document.getElementById('protocol').value];
                     await characteristic.writeValue(p.on);
                     isPoweredOn = true;
                 }
             } catch(e) { alert(e.message); }
         }
-        updateLabels();
     </script>
 </body>
 </html>
