@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: Master Performance v3</title>
+    <title>Carol of the Bells: GOD MODE v4</title>
     <style>
         :root {
             --bg: #020617;
@@ -24,113 +24,142 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             min-height: 100vh;
             padding: 20px;
-            overflow-x: hidden;
         }
 
         .stage {
             width: 100%;
-            max-width: 550px;
+            max-width: 600px;
             background: var(--panel);
-            padding: 40px;
+            padding: 30px;
             border-radius: 32px;
             border: 1px solid #1e293b;
             text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
         }
 
-        h1 { margin: 0; font-size: 1.8rem; letter-spacing: -1px; background: linear-gradient(to right, var(--crimson), var(--white), var(--emerald)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; }
-        p { color: #64748b; font-size: 0.85rem; margin-bottom: 30px; }
-
-        .preview-orb {
-            width: 180px;
-            height: 180px;
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+        
+        /* PERFORMANCE VISUALIZER */
+        .visualizer-ring {
+            width: 200px;
+            height: 200px;
             border-radius: 50%;
-            margin: 0 auto 30px;
-            border: 8px solid #1e293b;
+            margin: 20px auto;
+            border: 10px solid #1e293b;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: all 0.05s ease-out;
             position: relative;
             background: #000;
-            overflow: hidden;
+            transition: border-color 0.1s;
         }
-        .orb-glow {
+        .ring-glow {
             position: absolute; width: 100%; height: 100%;
-            filter: blur(40px); opacity: 0.6; z-index: 0;
+            border-radius: 50%; filter: blur(50px); opacity: 0.7; z-index: 0;
         }
 
-        .timer { font-family: monospace; font-size: 2.2rem; font-weight: 800; z-index: 2; position: relative; color: white; text-shadow: 0 0 10px black; }
-        .action-label { font-size: 0.7rem; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; }
+        .bpm-display { font-family: monospace; font-size: 2.5rem; font-weight: 900; z-index: 2; position: relative; }
+        .mode-tag { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px;}
 
-        .ui-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        select { width: 100%; padding: 12px; background: #020617; color: white; border: 1px solid #334155; border-radius: 12px; }
-        
+        /* SYNC CONTROLS */
+        .sync-box {
+            background: #020617;
+            padding: 20px;
+            border-radius: 20px;
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            border: 1px solid #334155;
+        }
+
+        .tap-btn {
+            grid-column: span 2;
+            padding: 20px;
+            background: var(--accent);
+            color: white;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: 900;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+        }
+        .tap-btn:active { transform: scale(0.95); background: white; color: black; }
+
         button {
-            padding: 16px; border-radius: 14px; border: none; font-weight: 800;
-            cursor: pointer; font-size: 1rem; transition: 0.2s;
+            padding: 12px; border-radius: 12px; border: none; font-weight: 800;
+            cursor: pointer; font-size: 0.9rem; transition: 0.2s;
         }
-        .btn-connect { background: var(--accent); color: white; }
-        .btn-start { background: white; color: black; grid-column: span 2; }
-        .btn-start:disabled { opacity: 0.2; }
+        .btn-connect { background: #334155; color: white; }
+        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.2rem;}
         .connected { background: var(--emerald) !important; }
 
-        .file-zone {
-            border: 2px dashed #334155; padding: 15px; border-radius: 16px; margin-bottom: 20px; font-size: 0.8rem; color: #64748b;
-            cursor: pointer; position: relative;
-        }
-        .file-zone input { position: absolute; opacity: 0; top:0; left:0; width:100%; height:100%; cursor:pointer; }
-        .file-zone.loaded { border-color: var(--emerald); color: var(--emerald); background: rgba(16, 185, 129, 0.05); }
+        .slider-row { grid-column: span 2; text-align: left; font-size: 0.7rem; color: #64748b; margin-top: 10px;}
+        input[type=range] { width: 100%; accent-color: var(--gold); cursor: pointer; }
 
-        .progress-bar { width: 100%; height: 4px; background: #1e293b; border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
-        #progressFill { width: 0%; height: 100%; background: var(--gold); }
-
+        #audioInput { margin: 20px 0; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
     <div class="stage">
-        <h1>Carol of the Bells</h1>
-        <p>Performance v3 (Power Fix)</p>
-
-        <div class="preview-orb" id="orb">
-            <div class="orb-glow" id="orbGlow"></div>
-            <div class="timer" id="timer">0:00</div>
-            <div class="action-label" id="actionText">Ready</div>
+        <h1>Bells: God Mode</h1>
+        
+        <div class="visualizer-ring" id="ring">
+            <div class="ring-glow" id="glow"></div>
+            <div class="bpm-display" id="bpmText">160</div>
+            <div class="mode-tag" id="modeText">IDLE</div>
         </div>
 
-        <div class="progress-bar"><div id="progressFill"></div></div>
-
-        <div class="file-zone" id="dropZone">
-            <span id="fileName">📁 Load Audio File</span>
-            <input type="file" accept="audio/*" onchange="loadAudio(this)">
-        </div>
-
-        <div class="ui-grid">
-            <select id="protocol">
-                <option value="1">Protocol: Lotus (Keepsmile)</option>
-                <option value="0">Protocol: ELK (Standard)</option>
-                <option value="2">Protocol: Triones</option>
+        <div class="sync-box">
+            <button class="tap-btn" onclick="tapTempo()">BEAT SYNC (TAP 4X)</button>
+            <div class="slider-row">
+                MANUAL BPM: <span id="bpmVal">160</span>
+                <input type="range" id="bpmSlider" min="100" max="220" value="160" oninput="updateBPM(this.value)">
+            </div>
+            
+            <select id="protocol" style="background:#1e293b; color:white; border-radius:8px; padding:10px; border:1px solid #334155;">
+                <option value="1">Protocol: Lotus</option>
+                <option value="0">Protocol: ELK</option>
             </select>
-            <button class="btn-connect" id="connBtn" onclick="connect()">Connect Light</button>
-            <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ Begin Performance</button>
+            <button class="btn-connect" id="connBtn" onclick="connect()">Connect</button>
         </div>
+
+        <input type="file" id="audioInput" accept="audio/*" onchange="loadAudio(this)">
+        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ BEGIN PERFORMANCE</button>
+        
+        <div id="status" style="font-size:0.7rem; color:#444; margin-top:10px;">Load Audio & Connect Light to Unlock Intensity</div>
     </div>
 
     <audio id="audioPlayer"></audio>
 
     <script>
+        // --- MODE POOLS (Based on your scan data) ---
+        const POOLS = {
+            intro: [165, 131, 108, 140, 180], // Slow flows
+            rhythm: [37, 38, 39, 40, 45, 181, 182], // Wipes and Stacks
+            epic: [1, 2, 3, 4, 5, 80, 89, 95, 100, 110], // Rainbows and Chaos
+            frost: [161, 180, 200, 131] // White/Blue spikes
+        };
+
+        // --- STATE ---
+        let device, characteristic;
+        let isPlaying = false;
+        let isLightOn = false;
+        let bpm = 160;
+        let beatInterval;
+        let lastTap = 0;
+        let tapTimes = [];
+        
         const PROTOCOLS = [
             { 
                 name: "ELK", 
                 write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]), 
-                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]),
                 setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
             },
             { 
@@ -139,55 +168,128 @@
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) 
-            },
-            { 
-                name: "Triones", 
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]), 
-                on: new Uint8Array([0xcc, 0x23, 0x33]),
-                setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
             }
         ];
 
-        const SCRIPT = [
-            { t: 0, type: 'off', desc: "Silent Night" },
-            { t: 1.5, type: 'color', val: [0, 40, 0], desc: "Wintry Green Intro" },
-            { t: 4.5, type: 'color', val: [60, 0, 0], desc: "Distant Red Glow" },
-            { t: 9.0, type: 'color', val: [0, 40, 0], desc: "Green Pulse" },
-            { t: 13.5, type: 'color', val: [60, 0, 0], desc: "Red Pulse" },
-            { t: 18.0, type: 'color', val: [0, 255, 0], desc: "EMERALD BELL" },
-            { t: 18.3, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
-            { t: 18.4, type: 'color', val: [255, 0, 0], desc: "CRIMSON BELL" },
-            { t: 18.7, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
-            { t: 20.0, type: 'color', val: [0, 200, 0], desc: "Emerald" },
-            { t: 20.8, type: 'color', val: [200, 0, 0], desc: "Crimson" },
-            { t: 21.6, type: 'color', val: [0, 200, 0], desc: "Emerald" },
-            { t: 22.4, type: 'color', val: [200, 0, 0], desc: "Crimson" },
-            { t: 27.0, type: 'mode', val: 38, desc: "Green Stack Climbing" },
-            { t: 31.0, type: 'mode', val: 37, desc: "Red Stack Climbing" },
-            { t: 35.0, type: 'mode', val: 45, desc: "Gradient Lock" },
-            { t: 42.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
-            { t: 42.2, type: 'color', val: [0, 0, 255], desc: "Deep Blue Ice" },
-            { t: 43.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
-            { t: 43.2, type: 'color', val: [255, 0, 255], desc: "Sugar Plum" },
-            { t: 50, type: 'color', val: [255, 0, 0], desc: "RED" },
-            { t: 50.2, type: 'color', val: [0, 255, 0], desc: "GREEN" },
-            { t: 50.4, type: 'color', val: [255, 0, 0], desc: "RED" },
-            { t: 50.6, type: 'color', val: [0, 255, 0], desc: "GREEN" },
-            { t: 50.8, type: 'color', val: [255, 255, 255], desc: "WHITE BURST" },
-            { t: 60.0, type: 'mode', val: 1, desc: "RAINBOW FLOW" },
-            { t: 70.0, type: 'mode', val: 3, desc: "ULTRA FLASH" },
-            { t: 85.0, type: 'color', val: [255, 255, 255], desc: "GLORY WHITE" },
-            { t: 86.0, type: 'mode', val: 180, desc: "STABLE LIGHT" },
-            { t: 100.0, type: 'mode', val: 165, desc: "Melting Ice..." },
-            { t: 115.0, type: 'off', desc: "Final Blackout" }
-        ];
+        // --- TEMPO LOGIC ---
+        function tapTempo() {
+            const now = Date.now();
+            if (now - lastTap > 2000) tapTimes = [];
+            lastTap = now;
+            tapTimes.push(now);
+            if (tapTimes.length > 3) {
+                const diffs = [];
+                for(let i=1; i<tapTimes.length; i++) diffs.push(tapTimes[i] - tapTimes[i-1]);
+                const avg = diffs.reduce((a,b) => a+b) / diffs.length;
+                updateBPM(Math.round(60000 / avg));
+            }
+        }
 
-        let characteristic, device;
-        let isPlaying = false;
-        let lastCue = -1;
-        let animationFrame;
-        let isLightPoweredOn = false;
+        function updateBPM(val) {
+            bpm = val;
+            document.getElementById('bpmText').innerText = bpm;
+            document.getElementById('bpmVal').innerText = bpm;
+            document.getElementById('bpmSlider').value = bpm;
+            if(isPlaying) restartRhythm();
+        }
+
+        // --- AUDIO ---
+        function loadAudio(input) {
+            const file = input.files[0];
+            if(!file) return;
+            document.getElementById('audioPlayer').src = URL.createObjectURL(file);
+            document.getElementById('startBtn').disabled = false;
+        }
+
+        // --- PERFORMANCE ENGINE ---
+        function togglePlay() { if(isPlaying) stop(); else start(); }
+
+        function start() {
+            if(!characteristic) return alert("Connect light first!");
+            isPlaying = true;
+            document.getElementById('audioPlayer').play();
+            document.getElementById('startBtn').innerText = "⏹ STOP PERFORMANCE";
+            document.getElementById('startBtn').style.background = "#ef4444";
+            document.getElementById('startBtn').style.color = "white";
+            startRhythm();
+        }
+
+        function stop() {
+            isPlaying = false;
+            clearInterval(beatInterval);
+            document.getElementById('audioPlayer').pause();
+            document.getElementById('audioPlayer').currentTime = 0;
+            document.getElementById('startBtn').innerText = "▶ BEGIN PERFORMANCE";
+            document.getElementById('startBtn').style.background = "white";
+            document.getElementById('startBtn').style.color = "black";
+            sendOff();
+        }
+
+        function startRhythm() {
+            const msPerBeat = 60000 / bpm;
+            // The Carol of the Bells is in 3/4, so we cycle every 3 or 6 beats
+            beatInterval = setInterval(onBeat, msPerBeat);
+        }
+
+        function restartRhythm() {
+            clearInterval(beatInterval);
+            startRhythm();
+        }
+
+        let beatCount = 0;
+        function onBeat() {
+            if(!isPlaying) return;
+            beatCount++;
+            
+            const player = document.getElementById('audioPlayer');
+            const t = player.currentTime;
+            const ring = document.getElementById('ring');
+            const glow = document.getElementById('glow');
+            const modeText = document.getElementById('modeText');
+            
+            let pool = POOLS.intro;
+            let intensity = "Intro";
+
+            // Song Structure Cues
+            if(t > 15) { pool = POOLS.rhythm; intensity = "The Build"; }
+            if(t > 45) { pool = POOLS.epic; intensity = "Crescendo"; }
+            if(t > 80) { pool = POOLS.epic; intensity = "MAX CHAOS"; }
+            if(t > 110) { pool = POOLS.frost; intensity = "Finale"; }
+
+            // Pick a random mode from the pool
+            const mode = pool[Math.floor(Math.random() * pool.length)];
+            
+            // Visual Feedback
+            const colors = ["#ef4444", "#10b981", "#f59e0b", "#ffffff"];
+            const col = colors[beatCount % colors.length];
+            ring.style.borderColor = col;
+            glow.style.background = col;
+            modeText.innerText = `${intensity} | Mode ${mode}`;
+
+            // Bluetooth Send
+            sendMode(mode);
+
+            // Every 4th beat, add a "Bell Strobe"
+            if(beatCount % 4 === 0) {
+                setTimeout(() => sendMode(180), 50); // Hard Flash
+            }
+        }
+
+        // --- BLUETOOTH ---
+        async function sendMode(m) {
+            if(!characteristic) return;
+            const p = PROTOCOLS[document.getElementById('protocol').value];
+            try {
+                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; }
+                await characteristic.writeValue(p.setMode(m));
+            } catch(e){}
+        }
+
+        async function sendOff() {
+            if(!characteristic) return;
+            const p = PROTOCOLS[document.getElementById('protocol').value];
+            try { await characteristic.writeValue(p.off); isLightOn = false; } catch(e){}
+        }
 
         async function connect() {
             try {
@@ -205,111 +307,8 @@
                 const btn = document.getElementById('connBtn');
                 btn.innerText = "LINKED";
                 btn.classList.add('connected');
-                
-                const p = PROTOCOLS[document.getElementById('protocol').value];
-                await characteristic.writeValue(p.on);
-                isLightPoweredOn = true;
-            } catch(e) { alert("Connect error: " + e.message); }
-        }
-
-        function loadAudio(input) {
-            const file = input.files[0];
-            if(!file) return;
-            const player = document.getElementById('audioPlayer');
-            player.src = URL.createObjectURL(file);
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('fileName').innerText = "✅ " + file.name;
-            document.getElementById('dropZone').classList.add('loaded');
-        }
-
-        function togglePlay() { if(isPlaying) stop(); else start(); }
-
-        function start() {
-            if(!characteristic) return alert("Connect Light First!");
-            isPlaying = true;
-            lastCue = -1;
-            document.getElementById('audioPlayer').play();
-            document.getElementById('startBtn').innerText = "⏹ STOP PERFORMANCE";
-            document.getElementById('startBtn').style.background = "#ef4444";
-            document.getElementById('startBtn').style.color = "white";
-            performanceLoop();
-        }
-
-        function stop() {
-            isPlaying = false;
-            cancelAnimationFrame(animationFrame);
-            const player = document.getElementById('audioPlayer');
-            player.pause();
-            player.currentTime = 0;
-            document.getElementById('startBtn').innerText = "▶ BEGIN PERFORMANCE";
-            document.getElementById('startBtn').style.background = "white";
-            document.getElementById('startBtn').style.color = "black";
-            sendOff();
-        }
-
-        async function sendOff() {
-            if(!characteristic) return;
-            const p = PROTOCOLS[document.getElementById('protocol').value];
-            try { 
-                await characteristic.writeValue(p.off); 
-                isLightPoweredOn = false;
-            } catch(e){}
-        }
-
-        function performanceLoop() {
-            if(!isPlaying) return;
-            const player = document.getElementById('audioPlayer');
-            const now = player.currentTime;
-            
-            document.getElementById('timer').innerText = `${Math.floor(now / 60)}:${Math.floor(now % 60).toString().padStart(2, '0')}`;
-            document.getElementById('progressFill').style.width = (now / player.duration) * 100 + "%";
-
-            for(let i=0; i<SCRIPT.length; i++) {
-                const cue = SCRIPT[i];
-                if(now >= cue.t && lastCue < i) {
-                    executeCue(cue);
-                    lastCue = i;
-                }
-            }
-
-            if(player.ended) stop();
-            else animationFrame = requestAnimationFrame(performanceLoop);
-        }
-
-        async function executeCue(cue) {
-            if(!characteristic) return;
-            const p = PROTOCOLS[document.getElementById('protocol').value];
-            const orb = document.getElementById('orb');
-            const glow = document.getElementById('orbGlow');
-            document.getElementById('actionText').innerText = cue.desc;
-
-            try {
-                if(cue.type === 'off') {
-                    orb.style.borderColor = "#1e293b";
-                    glow.style.background = "transparent";
-                    await characteristic.writeValue(p.off);
-                    isLightPoweredOn = false;
-                } else {
-                    // Ensure light is ON before sending data
-                    if(!isLightPoweredOn) {
-                        await characteristic.writeValue(p.on);
-                        isLightPoweredOn = true;
-                        await new Promise(r => setTimeout(r, 40)); // Let the chip wake
-                    }
-
-                    if(cue.type === 'color') {
-                        const [r,g,b] = cue.val;
-                        const col = `rgb(${r},${g},${b})`;
-                        orb.style.borderColor = col;
-                        glow.style.background = col;
-                        await characteristic.writeValue(p.write(r,g,b));
-                    } else if(cue.type === 'mode') {
-                        orb.style.borderColor = "var(--gold)";
-                        glow.style.background = "var(--gold)";
-                        await characteristic.writeValue(p.setMode(cue.val));
-                    }
-                }
-            } catch(e) { console.error("Cue Error", e); }
+                sendMode(180); // Wake up
+            } catch(e) { alert(e.message); }
         }
     </script>
 </body>
