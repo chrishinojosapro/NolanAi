@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: Master Performance v2</title>
+    <title>Carol of the Bells: Master Performance v3</title>
     <style>
         :root {
             --bg: #020617;
@@ -45,7 +45,6 @@
         h1 { margin: 0; font-size: 1.8rem; letter-spacing: -1px; background: linear-gradient(to right, var(--crimson), var(--white), var(--emerald)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; }
         p { color: #64748b; font-size: 0.85rem; margin-bottom: 30px; }
 
-        /* PERFORMANCE HUD */
         .preview-orb {
             width: 180px;
             height: 180px;
@@ -69,7 +68,6 @@
         .timer { font-family: monospace; font-size: 2.2rem; font-weight: 800; z-index: 2; position: relative; color: white; text-shadow: 0 0 10px black; }
         .action-label { font-size: 0.7rem; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; }
 
-        /* CONTROLS */
         .ui-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
         select { width: 100%; padding: 12px; background: #020617; color: white; border: 1px solid #334155; border-radius: 12px; }
         
@@ -98,7 +96,7 @@
 
     <div class="stage">
         <h1>Carol of the Bells</h1>
-        <p>Advanced Synchronized Choreography</p>
+        <p>Performance v3 (Power Fix)</p>
 
         <div class="preview-orb" id="orb">
             <div class="orb-glow" id="orbGlow"></div>
@@ -109,7 +107,7 @@
         <div class="progress-bar"><div id="progressFill"></div></div>
 
         <div class="file-zone" id="dropZone">
-            <span id="fileName">📁 Click to Load Epic Audio Track</span>
+            <span id="fileName">📁 Load Audio File</span>
             <input type="file" accept="audio/*" onchange="loadAudio(this)">
         </div>
 
@@ -127,64 +125,6 @@
     <audio id="audioPlayer"></audio>
 
     <script>
-        // --- CHOREOGRAPHY SCRIPT ---
-        // time (seconds), type: 'color'|'mode'|'off', val: [r,g,b] | modeID, desc: text
-        const SCRIPT = [
-            { t: 0, type: 'off', desc: "Silent Night" },
-            { t: 1.5, type: 'color', val: [0, 40, 0], desc: "Wintry Green Intro" },
-            { t: 4.5, type: 'color', val: [60, 0, 0], desc: "Distant Red Glow" },
-            { t: 9.0, type: 'color', val: [0, 40, 0], desc: "Green Pulse" },
-            { t: 13.5, type: 'color', val: [60, 0, 0], desc: "Red Pulse" },
-
-            // 18.0s: The Motif Begins ("Da-Da-Da-Da")
-            { t: 18.0, type: 'color', val: [0, 255, 0], desc: "EMERALD BELL" },
-            { t: 18.3, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
-            { t: 18.4, type: 'color', val: [255, 0, 0], desc: "CRIMSON BELL" },
-            { t: 18.7, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
-            
-            // Accelerated motif
-            { t: 20.0, type: 'color', val: [0, 200, 0], desc: "Emerald" },
-            { t: 20.8, type: 'color', val: [200, 0, 0], desc: "Crimson" },
-            { t: 21.6, type: 'color', val: [0, 200, 0], desc: "Emerald" },
-            { t: 22.4, type: 'color', val: [200, 0, 0], desc: "Crimson" },
-
-            // 27.0s: The First Build
-            { t: 27.0, type: 'mode', val: 38, desc: "Green Stack Climbing" },
-            { t: 31.0, type: 'mode', val: 37, desc: "Red Stack Climbing" },
-            { t: 35.0, type: 'mode', val: 45, desc: "Gradient Lock" },
-
-            // 42.0s: The Frantic Mid-Section
-            { t: 42.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
-            { t: 42.2, type: 'color', val: [0, 0, 255], desc: "Deep Blue Ice" },
-            { t: 43.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
-            { t: 43.2, type: 'color', val: [255, 0, 255], desc: "Sugar Plum" },
-            
-            // The "Epic Build-Up" Loop (Fast alternations)
-            { t: 50, type: 'color', val: [255, 0, 0], desc: "RED" },
-            { t: 50.2, type: 'color', val: [0, 255, 0], desc: "GREEN" },
-            { t: 50.4, type: 'color', val: [255, 0, 0], desc: "RED" },
-            { t: 50.6, type: 'color', val: [0, 255, 0], desc: "GREEN" },
-            { t: 50.8, type: 'color', val: [255, 255, 255], desc: "WHITE BURST" },
-
-            // 60.0s: The Crescendo
-            { t: 60.0, type: 'mode', val: 1, desc: "RAINBOW FLOW" },
-            { t: 70.0, type: 'mode', val: 3, desc: "ULTRA FLASH" },
-
-            // 85.0s: The Peak Finale
-            { t: 85.0, type: 'color', val: [255, 255, 255], desc: "GLORY WHITE" },
-            { t: 86.0, type: 'mode', val: 180, desc: "STABLE LIGHT" },
-            
-            // The Melting Fade
-            { t: 100.0, type: 'mode', val: 165, desc: "Melting Ice..." },
-            { t: 115.0, type: 'off', desc: "Final Blackout" }
-        ];
-
-        // --- ENGINE ---
-        let device, characteristic;
-        let isPlaying = false;
-        let lastCue = -1;
-        let animationFrame;
-
         const PROTOCOLS = [
             { 
                 name: "ELK", 
@@ -209,6 +149,46 @@
             }
         ];
 
+        const SCRIPT = [
+            { t: 0, type: 'off', desc: "Silent Night" },
+            { t: 1.5, type: 'color', val: [0, 40, 0], desc: "Wintry Green Intro" },
+            { t: 4.5, type: 'color', val: [60, 0, 0], desc: "Distant Red Glow" },
+            { t: 9.0, type: 'color', val: [0, 40, 0], desc: "Green Pulse" },
+            { t: 13.5, type: 'color', val: [60, 0, 0], desc: "Red Pulse" },
+            { t: 18.0, type: 'color', val: [0, 255, 0], desc: "EMERALD BELL" },
+            { t: 18.3, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
+            { t: 18.4, type: 'color', val: [255, 0, 0], desc: "CRIMSON BELL" },
+            { t: 18.7, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
+            { t: 20.0, type: 'color', val: [0, 200, 0], desc: "Emerald" },
+            { t: 20.8, type: 'color', val: [200, 0, 0], desc: "Crimson" },
+            { t: 21.6, type: 'color', val: [0, 200, 0], desc: "Emerald" },
+            { t: 22.4, type: 'color', val: [200, 0, 0], desc: "Crimson" },
+            { t: 27.0, type: 'mode', val: 38, desc: "Green Stack Climbing" },
+            { t: 31.0, type: 'mode', val: 37, desc: "Red Stack Climbing" },
+            { t: 35.0, type: 'mode', val: 45, desc: "Gradient Lock" },
+            { t: 42.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
+            { t: 42.2, type: 'color', val: [0, 0, 255], desc: "Deep Blue Ice" },
+            { t: 43.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
+            { t: 43.2, type: 'color', val: [255, 0, 255], desc: "Sugar Plum" },
+            { t: 50, type: 'color', val: [255, 0, 0], desc: "RED" },
+            { t: 50.2, type: 'color', val: [0, 255, 0], desc: "GREEN" },
+            { t: 50.4, type: 'color', val: [255, 0, 0], desc: "RED" },
+            { t: 50.6, type: 'color', val: [0, 255, 0], desc: "GREEN" },
+            { t: 50.8, type: 'color', val: [255, 255, 255], desc: "WHITE BURST" },
+            { t: 60.0, type: 'mode', val: 1, desc: "RAINBOW FLOW" },
+            { t: 70.0, type: 'mode', val: 3, desc: "ULTRA FLASH" },
+            { t: 85.0, type: 'color', val: [255, 255, 255], desc: "GLORY WHITE" },
+            { t: 86.0, type: 'mode', val: 180, desc: "STABLE LIGHT" },
+            { t: 100.0, type: 'mode', val: 165, desc: "Melting Ice..." },
+            { t: 115.0, type: 'off', desc: "Final Blackout" }
+        ];
+
+        let characteristic, device;
+        let isPlaying = false;
+        let lastCue = -1;
+        let animationFrame;
+        let isLightPoweredOn = false;
+
         async function connect() {
             try {
                 device = await navigator.bluetooth.requestDevice({
@@ -226,9 +206,9 @@
                 btn.innerText = "LINKED";
                 btn.classList.add('connected');
                 
-                // Wake
                 const p = PROTOCOLS[document.getElementById('protocol').value];
-                if(p.on) await characteristic.writeValue(p.on);
+                await characteristic.writeValue(p.on);
+                isLightPoweredOn = true;
             } catch(e) { alert("Connect error: " + e.message); }
         }
 
@@ -240,12 +220,9 @@
             document.getElementById('startBtn').disabled = false;
             document.getElementById('fileName').innerText = "✅ " + file.name;
             document.getElementById('dropZone').classList.add('loaded');
-            document.getElementById('actionText').innerText = "TRACK LOADED";
         }
 
-        function togglePlay() {
-            if(isPlaying) stop(); else start();
-        }
+        function togglePlay() { if(isPlaying) stop(); else start(); }
 
         function start() {
             if(!characteristic) return alert("Connect Light First!");
@@ -267,14 +244,16 @@
             document.getElementById('startBtn').innerText = "▶ BEGIN PERFORMANCE";
             document.getElementById('startBtn').style.background = "white";
             document.getElementById('startBtn').style.color = "black";
-            document.getElementById('actionText').innerText = "READY";
             sendOff();
         }
 
         async function sendOff() {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            try { await characteristic.writeValue(p.off); } catch(e){}
+            try { 
+                await characteristic.writeValue(p.off); 
+                isLightPoweredOn = false;
+            } catch(e){}
         }
 
         function performanceLoop() {
@@ -282,13 +261,9 @@
             const player = document.getElementById('audioPlayer');
             const now = player.currentTime;
             
-            // Update HUD
-            const mins = Math.floor(now / 60);
-            const secs = Math.floor(now % 60).toString().padStart(2, '0');
-            document.getElementById('timer').innerText = `${mins}:${secs}`;
+            document.getElementById('timer').innerText = `${Math.floor(now / 60)}:${Math.floor(now % 60).toString().padStart(2, '0')}`;
             document.getElementById('progressFill').style.width = (now / player.duration) * 100 + "%";
 
-            // Trigger Cues
             for(let i=0; i<SCRIPT.length; i++) {
                 const cue = SCRIPT[i];
                 if(now >= cue.t && lastCue < i) {
@@ -306,25 +281,33 @@
             const p = PROTOCOLS[document.getElementById('protocol').value];
             const orb = document.getElementById('orb');
             const glow = document.getElementById('orbGlow');
-            const label = document.getElementById('actionText');
-            
-            label.innerText = cue.desc;
+            document.getElementById('actionText').innerText = cue.desc;
 
             try {
-                if(cue.type === 'color') {
-                    const [r,g,b] = cue.val;
-                    const col = `rgb(${r},${g},${b})`;
-                    orb.style.borderColor = col;
-                    glow.style.background = col;
-                    await characteristic.writeValue(p.write(r,g,b));
-                } else if(cue.type === 'mode') {
-                    orb.style.borderColor = "var(--gold)";
-                    glow.style.background = "var(--gold)";
-                    await characteristic.writeValue(p.setMode(cue.val));
-                } else if(cue.type === 'off') {
+                if(cue.type === 'off') {
                     orb.style.borderColor = "#1e293b";
                     glow.style.background = "transparent";
                     await characteristic.writeValue(p.off);
+                    isLightPoweredOn = false;
+                } else {
+                    // Ensure light is ON before sending data
+                    if(!isLightPoweredOn) {
+                        await characteristic.writeValue(p.on);
+                        isLightPoweredOn = true;
+                        await new Promise(r => setTimeout(r, 40)); // Let the chip wake
+                    }
+
+                    if(cue.type === 'color') {
+                        const [r,g,b] = cue.val;
+                        const col = `rgb(${r},${g},${b})`;
+                        orb.style.borderColor = col;
+                        glow.style.background = col;
+                        await characteristic.writeValue(p.write(r,g,b));
+                    } else if(cue.type === 'mode') {
+                        orb.style.borderColor = "var(--gold)";
+                        glow.style.background = "var(--gold)";
+                        await characteristic.writeValue(p.setMode(cue.val));
+                    }
                 }
             } catch(e) { console.error("Cue Error", e); }
         }
