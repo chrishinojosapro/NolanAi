@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v11 (Debug Mode)</title>
+    <title>Universal Screen Sync v12 (Smart Fallback)</title>
     <style>
         :root {
             --bg: #020617;
@@ -40,7 +40,6 @@
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: -1px; }
         p { font-size: 0.8rem; color: #64748b; margin-bottom: 15px; }
         
-        /* THE HUE HALO PREVIEW */
         .preview-wrapper {
             position: relative;
             width: 140px;
@@ -69,11 +68,14 @@
             font-family: monospace;
             font-size: 0.7rem;
             background: #000;
-            padding: 8px;
+            padding: 10px;
             border-radius: 8px;
             margin-bottom: 15px;
             color: #10b981;
-            display: flex; justify-content: space-around;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            text-align: left;
         }
 
         .controls { display: flex; flex-direction: column; gap: 10px; }
@@ -85,14 +87,13 @@
         }
         .btn-sync { background: #fff; color: #000; }
         .btn-connect { background: var(--accent); color: #fff; }
-        .btn-test { background: #334155; color: #fff; font-size: 0.7rem; padding: 8px; }
         .connected-btn { background: var(--success) !important; }
 
         .slider-box {
             text-align: left; background: #1e293b; padding: 15px; border-radius: 16px; margin-top: 5px;
         }
-        label { display: flex; justify-content: space-between; font-size: 0.65rem; color: #94a3b8; margin-bottom: 5px; text-transform: uppercase; }
-        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+        label { display: flex; justify-content: space-between; font-size: 0.65rem; color: #94a3b8; margin-bottom: 5px; text-transform: uppercase; font-weight: bold;}
+        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; margin-bottom: 10px;}
 
         select {
             width: 100%; padding: 12px; background: #020617; color: #fff;
@@ -105,8 +106,8 @@
 <body>
 
     <div class="container">
-        <h1>Hue Sync v11</h1>
-        <p>Amplified Detection Engine</p>
+        <h1>Hue Sync v12</h1>
+        <p>Smart Fallback & Boost Engine</p>
 
         <div class="preview-wrapper">
             <div class="bloom-effect" id="bloom"></div>
@@ -114,7 +115,10 @@
         </div>
 
         <div class="debug-data" id="debug">
-            <span>R: 0</span> <span>G: 0</span> <span>B: 0</span> <span>FPS: 0</span>
+            <div>Target: 0, 0, 0</div>
+            <div>FPS: 0</div>
+            <div>Mode: Wait</div>
+            <div>Valid Px: 0</div>
         </div>
 
         <div class="controls">
@@ -127,14 +131,16 @@
             </select>
 
             <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
-            <button class="btn-test" onclick="testFlash()">⚡ Quick Hardware Test (Flash Green)</button>
 
             <div class="slider-box">
+                <label><span>Brightness Boost</span> <span id="boostVal">1.5x</span></label>
+                <input type="range" id="brightnessGain" min="10" max="50" value="15" oninput="document.getElementById('boostVal').innerText=(this.value/10)+'x'">
+                
+                <label><span>Saturation Sensitivity</span> <span id="satVal">10%</span></label>
+                <input type="range" id="satThreshold" min="1" max="50" value="10" oninput="document.getElementById('satVal').innerText=this.value+'%'">
+
                 <label><span>Fade Smoothness</span></label>
                 <input type="range" id="lerpSpeed" min="5" max="95" value="40">
-                
-                <label style="margin-top:10px;"><span>Sensitivity (Lower = More Color)</span></label>
-                <input type="range" id="satThreshold" min="2" max="50" value="10">
             </div>
         </div>
 
@@ -159,18 +165,6 @@
         let frameCount = 0;
         let fpsTimer = Date.now();
 
-        // --- TEST FUNCTION ---
-        async function testFlash() {
-            if(!characteristic) return alert("Connect Bluetooth first!");
-            const p = PROTOCOLS[document.getElementById('protocol').value];
-            try {
-                await characteristic.writeValue(p.on);
-                await new Promise(r => setTimeout(r, 50));
-                await characteristic.writeValue(p.write(0, 255, 0));
-                setTimeout(() => characteristic.writeValue(p.off), 1000);
-            } catch(e) { alert("Test failed: " + e.message); }
-        }
-
         async function startCapture() {
             try {
                 const stream = await navigator.mediaDevices.getDisplayMedia({ 
@@ -180,7 +174,7 @@
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "SYNC ACTIVE";
+                document.getElementById('syncBtn').innerText = "LIVE SYNC";
                 document.getElementById('syncBtn').style.background = "#10b981";
                 requestAnimationFrame(processLoop);
             } catch(e) { console.error(e); }
@@ -194,81 +188,99 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Analysis grid (25x25 - faster, more "spatial")
-                canvas.width = 25; canvas.height = 25;
-                ctx.drawImage(video, 0, 0, 25, 25);
-                const data = ctx.getImageData(0, 0, 25, 25).data;
+                // Analysis grid
+                canvas.width = 30; canvas.height = 30;
+                ctx.drawImage(video, 0, 0, 30, 30);
+                const data = ctx.getImageData(0, 0, 30, 30).data;
 
                 const satThresh = parseInt(document.getElementById('satThreshold').value) / 100;
+                const gain = parseInt(document.getElementById('brightnessGain').value) / 10;
                 
-                // VIBRANCY SEARCH
-                // We look for pixels that are colorful. 
-                // We average the top 5% of most vibrant pixels to avoid "dark averages"
-                let candidates = [];
+                let rSum=0, gSum=0, bSum=0, count=0;
+                let fallbackR=0, fallbackG=0, fallbackB=0, fallbackCount=0;
 
                 for(let i=0; i<data.length; i+=4) {
                     let r = data[i], g = data[i+1], b = data[i+2];
+                    
+                    // Apply gain to see better
+                    r = Math.min(255, r * gain);
+                    g = Math.min(255, g * gain);
+                    b = Math.min(255, b * gain);
+
                     const max = Math.max(r, g, b);
                     const min = Math.min(r, g, b);
                     const sat = max === 0 ? 0 : (max - min) / max;
                     
-                    if (sat >= satThresh && max > 20) {
-                        candidates.push({r, g, b, score: sat * max});
+                    // Fallback collection (any bright pixel)
+                    if (max > 15) {
+                        fallbackR += r; fallbackG += g; fallbackB += b;
+                        fallbackCount++;
+                    }
+
+                    // Main collection (Vibrant pixels only)
+                    if (sat >= satThresh && max > 30) {
+                        rSum += r; gSum += g; bSum += b;
+                        count++;
                     }
                 }
 
                 let targetR = 0, targetG = 0, targetB = 0;
+                let activeMode = "Vibrant";
 
-                if (candidates.length > 0) {
-                    // Sort by impact and take the top performers
-                    candidates.sort((a,b) => b.score - a.score);
-                    const top = candidates.slice(0, Math.ceil(candidates.length * 0.2));
+                if (count > 5) {
+                    // We found vibrant colors! Use them.
+                    targetR = rSum / count;
+                    targetG = gSum / count;
+                    targetB = bSum / count;
                     
-                    let rSum=0, gSum=0, bSum=0;
-                    top.forEach(p => { rSum+=p.r; gSum+=p.g; bSum+=p.b; });
-                    
-                    targetR = rSum / top.length;
-                    targetG = gSum / top.length;
-                    targetB = bSum / top.length;
+                    // Push to full intensity
+                    const m = Math.max(targetR, targetG, targetB, 1);
+                    targetR = (targetR / m) * 255;
+                    targetG = (targetG / m) * 255;
+                    targetB = (targetB / m) * 255;
 
-                    // NORMALIZATION (The "Pop")
-                    const maxVal = Math.max(targetR, targetG, targetB, 1);
-                    const boost = 255 / maxVal;
-                    targetR *= boost; targetG *= boost; targetB *= boost;
-                    
-                    // Deep Hue Force
-                    const minVal = Math.min(targetR, targetG, targetB);
-                    targetR = Math.max(0, targetR - (minVal * 0.8));
-                    targetG = Math.max(0, targetG - (minVal * 0.8));
-                    targetB = Math.max(0, targetB - (minVal * 0.8));
+                } else if (fallbackCount > 10) {
+                    // No vibrant colors? Use the screen average.
+                    activeMode = "Average";
+                    targetR = fallbackR / fallbackCount;
+                    targetG = fallbackG / fallbackCount;
+                    targetB = fallbackB / fallbackCount;
                 }
 
-                // Smooth Fading
+                // Cinematic LERP (Smoothing)
                 const lerpBase = document.getElementById('lerpSpeed').value / 500;
                 curR += (targetR - curR) * lerpBase;
                 curG += (targetG - curG) * lerpBase;
                 curB += (targetB - curB) * lerpBase;
 
-                const outR = Math.floor(curR), outG = Math.floor(curG), outB = Math.floor(curB);
+                const outR = Math.max(0, Math.min(255, Math.floor(curR)));
+                const outG = Math.max(0, Math.min(255, Math.floor(curG)));
+                const outB = Math.max(0, Math.min(255, Math.floor(curB)));
+
+                // UI Feedback
                 const isOff = (outR + outG + outB) < 10;
                 const colStr = `rgb(${outR},${outG},${outB})`;
                 
-                // UI Update
                 document.getElementById('preview').style.background = isOff ? '#000' : colStr;
                 document.getElementById('preview').innerText = isOff ? "OFF" : "";
                 document.getElementById('bloom').style.background = colStr;
                 document.getElementById('bloom').style.opacity = isOff ? "0" : "0.7";
 
-                // FPS & Debug Stats
+                // Debug Stats
                 frameCount++;
                 if(Date.now() - fpsTimer > 1000) {
-                    document.getElementById('debug').innerHTML = `<span>R: ${outR}</span> <span>G: ${outG}</span> <span>B: ${outB}</span> <span>FPS: ${frameCount}</span>`;
+                    document.getElementById('debug').innerHTML = `
+                        <div>Target: ${outR}, ${outG}, ${outB}</div>
+                        <div>FPS: ${frameCount}</div>
+                        <div>Mode: ${activeMode}</div>
+                        <div>Valid Px: ${count}</div>
+                    `;
                     frameCount = 0; fpsTimer = Date.now();
                 }
 
-                // Bluetooth Send (Throttled for stability)
+                // Bluetooth Send
                 const now = Date.now();
-                if (now - lastSentTime > 85) {
+                if (now - lastSentTime > 90) {
                     sendToLight(outR, outG, outB);
                     lastSentTime = now;
                 }
@@ -290,7 +302,7 @@
                     if (!isPoweredOn) {
                         await characteristic.writeValue(p.on);
                         isPoweredOn = true;
-                        await new Promise(res => setTimeout(res, 30)); 
+                        await new Promise(res => setTimeout(res, 50)); 
                     }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
