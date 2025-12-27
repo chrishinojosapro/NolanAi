@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v9 (Exposure & Flow Fix)</title>
+    <title>AI Vision Scanner v10 (HSL Color Engine)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -161,7 +161,7 @@
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner (v9)</h1>
+    <h1>👁️ Vertical Strip Scanner (v10)</h1>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
@@ -181,7 +181,7 @@
                 <input type="range" id="dimmerRange" min="0.1" max="1.5" step="0.1" value="1.0" oninput="document.getElementById('dimVal').innerText=this.value">
                 <span id="dimVal" style="width:30px">1.0</span>
             </div>
-            <div style="font-size:0.7rem; color:#aaa; margin-top:-5px;">Slide Left if colors look White/Blown out.</div>
+            <div style="font-size:0.7rem; color:#aaa; margin-top:-5px;">Slide Left to see colors (prevent whiteout).</div>
 
             <button onclick="startCamera()">📷 Start Camera</button>
         </div>
@@ -279,24 +279,46 @@
             } catch(e) { alert("Camera error: " + e.message); }
         }
 
-        function getColorName(r, g, b) {
-            // New "Saturation" based logic for blown out LEDs
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            const l = (max + min) / 2;
-            const s = max === 0 ? 0 : (max - min) / max;
+        // HSL Conversion
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
 
-            if (max < 40) return "Off";
-            if (s < 0.2 && l > 100) return "White"; // Low saturation, high brightness
+            if (max === min) {
+                h = s = 0; // achromatic
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h * 360, s, l];
+        }
+
+        // Smart Color Classifier
+        function getColorName(r, g, b) {
+            const [h, s, l] = rgbToHsl(r, g, b);
             
-            // Hue Check
-            if (r > g + b) return "Red";
-            if (g > r + b) return "Green";
-            if (b > r + g) return "Blue";
+            // Brightness Check
+            if (l < 0.15) return "Off";
             
-            if (r > 100 && g > 100 && b < 80) return "Yellow";
-            if (r > 100 && b > 100 && g < 80) return "Purple"; 
-            if (g > 100 && b > 100 && r < 80) return "Cyan"; 
+            // White Check (Low Saturation + High Lightness)
+            // Stricter check to allow Orange (which has low sat sometimes) to pass
+            if (s < 0.15 && l > 0.3) return "White";
+            
+            // Hue Map (Degrees)
+            if (h >= 345 || h <= 15) return "Red";
+            if (h > 15 && h <= 45) return "Orange";
+            if (h > 45 && h <= 75) return "Yellow";
+            if (h > 75 && h <= 165) return "Green";
+            if (h > 165 && h <= 200) return "Cyan";
+            if (h > 200 && h <= 270) return "Blue";
+            if (h > 270 && h <= 345) return "Purple";
             
             return "Mix";
         }
@@ -407,65 +429,76 @@
             }, speed);
         }
         
-        // --- DEEP ANALYSIS (FLOW TRACKING) ---
+        // --- DEEP ANALYSIS ---
         async function analyzeBuffer(frames) {
             if(frames.length === 0) return "No Data";
             
-            // Color Detection (Snapshot)
+            // 1. Snapshot Analysis
+            const startF = frames[0];
+            const endF = frames[frames.length-1];
             const midF = frames[Math.floor(frames.length/2)];
-            const uniqueColors = new Set();
-            midF.forEach(p => { 
-                const n = getColorName(p.r,p.g,p.b); 
-                if(n!=='Off') uniqueColors.add(n); 
-            });
-            const colors = Array.from(uniqueColors).join("/");
             
-            // Motion Detection: Frame Difference + Direction
-            // We use simple "Shift Matching" to detect flow direction
+            const getColors = (f) => {
+                const s = new Set();
+                f.forEach(p => { 
+                    const n = getColorName(p.r,p.g,p.b); 
+                    if(n!=='Off') s.add(n); 
+                });
+                return Array.from(s);
+            };
             
-            let upScore = 0;
-            let downScore = 0;
-            let totalDiff = 0;
+            const colors = getColors(midF);
+            const mainColorStr = colors.join("/");
             
-            for(let t=1; t<frames.length; t++) {
-                const prev = frames[t-1];
-                const curr = frames[t];
-                
-                // Compare static diff
-                let diffStatic = 0;
-                for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(prev[i].r - curr[i].r);
-                totalDiff += diffStatic;
-                
-                // Compare Up Shift (Prev[i] moves to Curr[i-1]) -> Light moving up
-                let diffUp = 0;
-                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(prev[i].r - curr[i-1].r);
-                
-                // Compare Down Shift (Prev[i] moves to Curr[i+1]) -> Light moving down
-                let diffDown = 0;
-                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(prev[i].r - curr[i+1].r);
-                
-                // If shift matches better than static, we have motion
-                if (diffUp < diffStatic) upScore++;
-                if (diffDown < diffStatic) downScore++;
-            }
+            // 2. Motion Tracking
+            const getCentroid = (f) => {
+                let m=0, w=0;
+                f.forEach((p,i) => { 
+                    const b = p.r+p.g+p.b; 
+                    if(b>50) { m+=b; w+=i*b; } 
+                });
+                return m>0 ? w/m : -1;
+            };
+            
+            const c1 = getCentroid(startF);
+            const c2 = getCentroid(endF);
             
             let motion = "Static";
-            if (totalDiff > 1000) { // Threshold for dynamic
-                if (upScore > downScore && upScore > (frames.length/3)) motion = "Flow UP ⬆️";
-                else if (downScore > upScore && downScore > (frames.length/3)) motion = "Flow DOWN ⬇️";
-                else motion = "Random/Flash ✨";
+            
+            // Check Filling
+            const lit1 = countLitPixels(startF);
+            const lit2 = countLitPixels(endF);
+            if(Math.abs(lit2-lit1) > 2) {
+                motion = (lit2>lit1) ? "Filling Up" : "Draining";
+            } else if (c1 !== -1 && c2 !== -1) {
+                const delta = c2 - c1;
+                if (delta < -1.0) motion = "Chase UP ⬆️";
+                else if (delta > 1.0) motion = "Chase DOWN ⬇️";
+                else if (calculateDiff(startF, endF) > 1000) motion = "Random/Flash ✨";
             }
             
-            // Formatting
-            let desc = `${colors} ${motion}`;
+            let desc = `${mainColorStr} ${motion}`;
             if (colors.length === 0) desc = "Black/Off";
             
-            // AI Override
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
             if(useAi && apiKey) desc = await getAiDescription(frames, apiKey);
             
             return desc;
+        }
+        
+        function calculateDiff(f1, f2) {
+            let diff = 0;
+            for(let i=0; i<f1.length; i++) {
+                diff += Math.abs(f1[i].r - f2[i].r) + Math.abs(f1[i].g - f2[i].g) + Math.abs(f1[i].b - f2[i].b);
+            }
+            return diff;
+        }
+        
+        function countLitPixels(f) {
+            let count = 0;
+            f.forEach(p => { if(p.r+p.g+p.b > 50) count++; });
+            return count;
         }
         
         async function getAiDescription(frames, key) {
