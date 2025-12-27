@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v10 (HSL Color Engine)</title>
+    <title>AI Vision Scanner v11 (Hardware Control)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -60,14 +60,22 @@
             overflow: hidden;
             aspect-ratio: 16/9; 
         }
-        video, canvas#drawCanvas {
+        video {
             width: 100%;
             height: 100%;
-            object-fit: contain; 
+            object-fit: cover; /* Make sure video fills area */
+            opacity: 0.8; /* Dim video slightly to see overlay better */
+        }
+        
+        /* The drawing canvas sits EXACTLY on top of the video */
+        canvas#overlayCanvas {
             position: absolute;
             top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
         }
-        #analysisOverlay {
+
+        #analysisText {
             position: absolute;
             top: 10px; left: 10px;
             background: rgba(0,0,0,0.8);
@@ -78,25 +86,7 @@
             color: #0f0;
             pointer-events: none;
             white-space: pre-wrap;
-            z-index: 10;
-        }
-        
-        /* Strip Guide Overlay */
-        .strip-guide {
-            position: absolute;
-            left: 50%; top: 10%; bottom: 10%; width: 40px;
-            transform: translateX(-50%);
-            border: 2px dashed rgba(0, 255, 0, 0.5);
-            pointer-events: none;
-            z-index: 5;
-            display: flex;
-            flex-direction: column;
-        }
-        .strip-segment {
-            flex: 1;
-            border-bottom: 1px dotted rgba(0, 255, 0, 0.3);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 10px; color: rgba(255,255,255,0.5);
+            z-index: 20;
         }
 
         /* CONTROLS */
@@ -111,7 +101,8 @@
         }
 
         /* Ranges */
-        .range-wrap { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: #aaa; }
+        .range-wrap { display: flex; flex-direction:column; gap: 5px; font-size: 0.8rem; color: #aaa; background: #111; padding: 10px; border-radius: 6px;}
+        .range-row { display: flex; align-items: center; gap: 10px; }
         input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--accent); margin: 0; }
 
         button {
@@ -161,27 +152,25 @@
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner (v10)</h1>
+    <h1>👁️ Vertical Strip Scanner (v11)</h1>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
         <div class="panel">
             <div class="video-wrapper">
                 <video id="video" autoplay playsinline muted></video>
-                <canvas id="drawCanvas"></canvas>
-                <!-- The Green Box Guide -->
-                <div class="strip-guide" id="stripGuide">
-                    <!-- Segments injected by JS -->
-                </div>
-                <div id="analysisOverlay">Waiting for camera...</div>
+                <canvas id="overlayCanvas"></canvas>
+                <div id="analysisText">Waiting for camera...</div>
             </div>
             
             <div class="range-wrap">
-                <span>Dimmer:</span>
-                <input type="range" id="dimmerRange" min="0.1" max="1.5" step="0.1" value="1.0" oninput="document.getElementById('dimVal').innerText=this.value">
-                <span id="dimVal" style="width:30px">1.0</span>
+                <div class="range-row">
+                    <span>Hardware Exposure:</span>
+                    <input type="range" id="exposureRange" min="-10" max="10" step="1" value="0" disabled oninput="updateExposure(this.value)">
+                    <span id="expVal" style="width:30px">Auto</span>
+                </div>
+                <div style="font-size:0.7rem; color:#aaa;">IMPORTANT: Slide Left until "White" LEDs look Red/Blue.</div>
             </div>
-            <div style="font-size:0.7rem; color:#aaa; margin-top:-5px;">Slide Left to see colors (prevent whiteout).</div>
 
             <button onclick="startCamera()">📷 Start Camera</button>
         </div>
@@ -227,7 +216,7 @@
 
             <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Vision Scan</button>
 
-            <textarea id="log" readonly>// Detailed Library:
+            <textarea id="log" readonly>// Library will build here...
 {
   "modes": {}
 }</textarea>
@@ -235,7 +224,7 @@
         </div>
     </div>
 
-    <!-- Processing Canvas -->
+    <!-- Hidden Processing Canvas -->
     <canvas id="procCanvas" style="display:none;"></canvas>
 
     <script>
@@ -253,18 +242,11 @@
         let currentMode = 1;
         let isScanning = false;
         let stream = null;
+        let track = null;
         let detectedLibrary = { modes: {} };
         let frameBuffer = []; 
 
         // --- UI INIT ---
-        const guide = document.getElementById('stripGuide');
-        for(let i=0; i<SEGMENTS; i++) {
-            const div = document.createElement('div');
-            div.className = 'strip-segment';
-            div.innerText = i+1;
-            guide.appendChild(div);
-        }
-        
         document.getElementById('useAi').addEventListener('change', (e) => {
             document.getElementById('apiKey').style.display = e.target.checked ? 'block' : 'none';
         });
@@ -272,73 +254,116 @@
         // --- CAMERA LOGIC ---
         async function startCamera() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                // Request best possible video for CV
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: "environment",
+                        width: { ideal: 640 }, // Lower res is faster for analysis
+                        height: { ideal: 480 }
+                    } 
+                });
+                
                 const video = document.getElementById('video');
                 video.srcObject = stream;
+                
+                // Get Track for Hardware Controls
+                track = stream.getVideoTracks()[0];
+                const caps = track.getCapabilities();
+                
+                const expSlider = document.getElementById('exposureRange');
+                const expVal = document.getElementById('expVal');
+                
+                // Init Exposure Control if available
+                if (caps.exposureCompensation) {
+                    expSlider.min = caps.exposureCompensation.min;
+                    expSlider.max = caps.exposureCompensation.max;
+                    expSlider.step = caps.exposureCompensation.step;
+                    expSlider.value = track.getSettings().exposureCompensation || 0;
+                    expSlider.disabled = false;
+                    expVal.innerText = expSlider.value;
+                } else if (caps.exposureMode) {
+                    // Fallback try setting manual mode
+                    track.applyConstraints({ advanced: [{ exposureMode: "manual" }] }).catch(e=>{});
+                    expVal.innerText = "N/A";
+                } else {
+                    expVal.innerText = "Locked";
+                }
+
                 requestAnimationFrame(analyzeFrame);
             } catch(e) { alert("Camera error: " + e.message); }
         }
-
-        // HSL Conversion
-        function rgbToHsl(r, g, b) {
-            r /= 255; g /= 255; b /= 255;
-            const max = Math.max(r, g, b), min = Math.min(r, g, b);
-            let h, s, l = (max + min) / 2;
-
-            if (max === min) {
-                h = s = 0; // achromatic
-            } else {
-                const d = max - min;
-                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                switch (max) {
-                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                    case g: h = (b - r) / d + 2; break;
-                    case b: h = (r - g) / d + 4; break;
-                }
-                h /= 6;
-            }
-            return [h * 360, s, l];
+        
+        async function updateExposure(val) {
+            if(!track) return;
+            try {
+                document.getElementById('expVal').innerText = val;
+                await track.applyConstraints({
+                    advanced: [{ exposureCompensation: parseFloat(val) }]
+                });
+            } catch(e) { console.log("Exposure adjust failed", e); }
         }
 
-        // Smart Color Classifier
+        // Smart Color Classifier (Aggressive Recovery)
         function getColorName(r, g, b) {
-            const [h, s, l] = rgbToHsl(r, g, b);
+            const sum = r + g + b;
             
-            // Brightness Check
-            if (l < 0.15) return "Off";
+            // Darkness
+            if (sum < 40) return "Off";
             
-            // White Check (Low Saturation + High Lightness)
-            // Stricter check to allow Orange (which has low sat sometimes) to pass
-            if (s < 0.15 && l > 0.3) return "White";
+            // Recovery for Blown Out Channels (e.g. 255, 200, 200 -> Red)
+            // If Red is significantly higher than G/B even if G/B are high
+            const diffRG = r - g;
+            const diffRB = r - b;
+            const diffGB = g - b;
+            const diffBG = b - g;
             
-            // Hue Map (Degrees)
-            if (h >= 345 || h <= 15) return "Red";
-            if (h > 15 && h <= 45) return "Orange";
-            if (h > 45 && h <= 75) return "Yellow";
-            if (h > 75 && h <= 165) return "Green";
-            if (h > 165 && h <= 200) return "Cyan";
-            if (h > 200 && h <= 270) return "Blue";
-            if (h > 270 && h <= 345) return "Purple";
+            if (r > 200 && g > 200 && b > 200) return "White"; // True white
+            
+            // Warm Recovery
+            if (r > 150 && diffRG > 20 && diffRB > 20) return "Red";
+            if (r > 150 && g > 100 && diffRG > -30 && diffRB > 50) return "Orange"; // Red ~ Green > Blue
+            
+            // Standard HSL fallback
+            if (r > g + b) return "Red";
+            if (g > r + b) return "Green";
+            if (b > r + g) return "Blue";
+            if (r > 150 && g > 150 && b < 100) return "Yellow";
+            if (r > 150 && b > 150 && g < 100) return "Purple"; 
+            if (g > 150 && b > 150 && r < 100) return "Cyan"; 
             
             return "Mix";
+        }
+        
+        function getCssColor(name) {
+            const map = { "Red": "#ff0000", "Green": "#00ff00", "Blue": "#0000ff", "Yellow": "#ffff00", "Purple": "#ff00ff", "Cyan": "#00ffff", "Orange": "#ffa500", "White": "#ffffff", "Off": "#333", "Mix": "#888" };
+            return map[name] || "#fff";
         }
 
         function analyzeFrame() {
             if (!stream) return;
             const video = document.getElementById('video');
             const procCanvas = document.getElementById('procCanvas');
+            const overlayCanvas = document.getElementById('overlayCanvas');
+            
+            // Match overlay size to video size on screen
+            overlayCanvas.width = video.clientWidth;
+            overlayCanvas.height = video.clientHeight;
+            
             const ctx = procCanvas.getContext('2d');
-            const dimmer = parseFloat(document.getElementById('dimmerRange').value);
+            const overlayCtx = overlayCanvas.getContext('2d');
             
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                procCanvas.width = video.videoWidth;
-                procCanvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
+                // Process low-res for speed
+                procCanvas.width = 160; 
+                procCanvas.height = 120;
+                ctx.drawImage(video, 0, 0, 160, 120);
                 
-                const stripW = Math.floor(procCanvas.width * 0.1); 
-                const stripX = Math.floor((procCanvas.width - stripW) / 2);
-                const stripH = Math.floor(procCanvas.height * 0.8);
-                const stripY = Math.floor(procCanvas.height * 0.1);
+                // Define ROI: Center Column (50% height, 10% width)
+                const stripW = Math.floor(160 * 0.1); 
+                const stripX = Math.floor((160 - stripW) / 2);
+                const stripH = Math.floor(120 * 0.8);
+                const stripY = Math.floor(120 * 0.1);
+                
                 const segmentH = Math.floor(stripH / SEGMENTS);
                 
                 let segmentColors = []; 
@@ -346,13 +371,22 @@
                 
                 const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
                 
+                // Clear Overlay
+                overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+                
+                // Calculate scale factors for overlay drawing
+                const scaleX = overlayCanvas.width / 160;
+                const scaleY = overlayCanvas.height / 120;
+                
                 for(let i=0; i<SEGMENTS; i++) {
                     let rTot=0, gTot=0, bTot=0, count=0;
+                    
+                    // Analyze logic pixels
                     const startY = i * segmentH;
                     const endY = startY + segmentH;
                     
-                    for(let y=startY; y<endY; y+=5) { 
-                        for(let x=0; x<stripW; x+=5) {
+                    for(let y=startY; y<endY; y+=2) { 
+                        for(let x=0; x<stripW; x+=2) {
                             const idx = (y * stripW + x) * 4;
                             if (idx < stripData.data.length) {
                                 rTot += stripData.data[idx];
@@ -363,24 +397,33 @@
                         }
                     }
                     
-                    // Apply Dimmer Factor
-                    let r = (rTot/count) * dimmer;
-                    let g = (gTot/count) * dimmer;
-                    let b = (bTot/count) * dimmer;
+                    const r = Math.floor(rTot/count) || 0;
+                    const g = Math.floor(gTot/count) || 0;
+                    const b = Math.floor(bTot/count) || 0;
                     
-                    // Clamp
-                    r = Math.min(255, Math.floor(r));
-                    g = Math.min(255, Math.floor(g));
-                    b = Math.min(255, Math.floor(b));
-                    
-                    segmentColors.push(getColorName(r,g,b));
+                    const cName = getColorName(r,g,b);
+                    segmentColors.push(cName);
                     rawColors.push({r,g,b});
+                    
+                    // DRAW DEBUG OVERLAY
+                    // Draw a box for each segment representing detected color
+                    const boxX = (stripX + stripX) * scaleX / 2; // Center
+                    const boxY = (stripY + i * segmentH) * scaleY;
+                    const boxW = stripW * scaleX;
+                    const boxH = segmentH * scaleY;
+                    
+                    overlayCtx.fillStyle = getCssColor(cName);
+                    overlayCtx.globalAlpha = 0.5;
+                    overlayCtx.fillRect(boxX - (boxW), boxY, boxW*3, boxH-2); // Wider box for visibility
+                    overlayCtx.globalAlpha = 1.0;
+                    overlayCtx.strokeStyle = "rgba(255,255,255,0.5)";
+                    overlayCtx.strokeRect(boxX - (boxW), boxY, boxW*3, boxH-2);
                 }
                 
                 if(isScanning) frameBuffer.push(rawColors);
                 
-                const overlay = document.getElementById('analysisOverlay');
-                overlay.innerText = `Dimmer: ${dimmer.toFixed(1)}\nTop: ${segmentColors[0]} (${rawColors[0].r},${rawColors[0].g},${rawColors[0].b})\nMid: ${segmentColors[4]}\nBot: ${segmentColors[9]}`;
+                const txt = document.getElementById('analysisText');
+                txt.innerText = `Top: ${segmentColors[0]} (${rawColors[0].r},${rawColors[0].g},${rawColors[0].b})\nMid: ${segmentColors[4]}\nBot: ${segmentColors[9]}`;
             }
             if(!isScanning || stream) requestAnimationFrame(analyzeFrame);
         }
@@ -429,57 +472,67 @@
             }, speed);
         }
         
-        // --- DEEP ANALYSIS ---
+        // --- DEEP ANALYSIS (TRAJECTORY TRACKING) ---
         async function analyzeBuffer(frames) {
-            if(frames.length === 0) return "No Data";
+            if(frames.length < 5) return "No Data";
             
-            // 1. Snapshot Analysis
-            const startF = frames[0];
-            const endF = frames[frames.length-1];
-            const midF = frames[Math.floor(frames.length/2)];
+            // 1. Color Profile (What colors exist?)
+            const colorCounts = {};
+            frames.forEach(f => f.forEach(p => {
+                const n = getColorName(p.r, p.g, p.b);
+                if(n!=='Off') colorCounts[n] = (colorCounts[n] || 0) + 1;
+            }));
+            const sortedColors = Object.entries(colorCounts).sort((a,b)=>b[1]-a[1]);
+            const primaryColors = sortedColors.slice(0,2).map(x=>x[0]).join("/");
             
-            const getColors = (f) => {
-                const s = new Set();
-                f.forEach(p => { 
-                    const n = getColorName(p.r,p.g,p.b); 
-                    if(n!=='Off') s.add(n); 
-                });
-                return Array.from(s);
-            };
-            
-            const colors = getColors(midF);
-            const mainColorStr = colors.join("/");
-            
-            // 2. Motion Tracking
-            const getCentroid = (f) => {
+            // 2. Motion Trajectory
+            // Calculate center of mass for EACH frame to create a path
+            // path = [4.5, 4.6, 4.8, 5.0 ...] -> Moving down (Index increasing)
+            let path = [];
+            frames.forEach(f => {
                 let m=0, w=0;
                 f.forEach((p,i) => { 
                     const b = p.r+p.g+p.b; 
-                    if(b>50) { m+=b; w+=i*b; } 
+                    if(b>60) { m+=b; w+=i*b; } 
                 });
-                return m>0 ? w/m : -1;
-            };
+                if(m>0) path.push(w/m);
+            });
             
-            const c1 = getCentroid(startF);
-            const c2 = getCentroid(endF);
-            
-            let motion = "Static";
-            
-            // Check Filling
-            const lit1 = countLitPixels(startF);
-            const lit2 = countLitPixels(endF);
-            if(Math.abs(lit2-lit1) > 2) {
-                motion = (lit2>lit1) ? "Filling Up" : "Draining";
-            } else if (c1 !== -1 && c2 !== -1) {
-                const delta = c2 - c1;
-                if (delta < -1.0) motion = "Chase UP ⬆️";
-                else if (delta > 1.0) motion = "Chase DOWN ⬇️";
-                else if (calculateDiff(startF, endF) > 1000) motion = "Random/Flash ✨";
+            // Analyze Path slope (Linear Regression)
+            let slope = 0;
+            if(path.length > 2) {
+                let xSum=0, ySum=0, xxSum=0, xySum=0;
+                const n = path.length;
+                for(let i=0; i<n; i++) {
+                    xSum += i; ySum += path[i];
+                    xxSum += i*i; xySum += i*path[i];
+                }
+                slope = (n*xySum - xSum*ySum) / (n*xxSum - xSum*xSum);
             }
             
-            let desc = `${mainColorStr} ${motion}`;
-            if (colors.length === 0) desc = "Black/Off";
+            // Slope > 0 means Index increasing (Top->Bot) -> DOWN
+            // Slope < 0 means Index decreasing (Bot->Top) -> UP
             
+            let motion = "Static";
+            const variance = calculateVariance(path); // How jittery is it?
+            
+            if (Math.abs(slope) > 0.05) {
+                if (slope < 0) motion = "Chase UP ⬆️";
+                else motion = "Chase DOWN ⬇️";
+            } else if (variance > 1.0) {
+                motion = "Random/Flash ✨";
+            } else {
+                // Check if filling
+                const startLit = countLitPixels(frames[0]);
+                const endLit = countLitPixels(frames[frames.length-1]);
+                if (endLit > startLit + 2) motion = "Filling";
+                else if (endLit < startLit - 2) motion = "Draining";
+            }
+            
+            let desc = `${primaryColors} ${motion}`;
+            if(!primaryColors) desc = "Off/Black";
+
+            // AI Override
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
             if(useAi && apiKey) desc = await getAiDescription(frames, apiKey);
@@ -487,17 +540,15 @@
             return desc;
         }
         
-        function calculateDiff(f1, f2) {
-            let diff = 0;
-            for(let i=0; i<f1.length; i++) {
-                diff += Math.abs(f1[i].r - f2[i].r) + Math.abs(f1[i].g - f2[i].g) + Math.abs(f1[i].b - f2[i].b);
-            }
-            return diff;
+        function calculateVariance(arr) {
+            if(arr.length === 0) return 0;
+            const mean = arr.reduce((a,b)=>a+b)/arr.length;
+            return arr.reduce((a,b)=>a+Math.pow(b-mean,2),0)/arr.length;
         }
         
         function countLitPixels(f) {
             let count = 0;
-            f.forEach(p => { if(p.r+p.g+p.b > 50) count++; });
+            f.forEach(p => { if(p.r+p.g+p.b > 60) count++; });
             return count;
         }
         
@@ -506,8 +557,7 @@
                 const f = frames[Math.floor(p * (frames.length-1))];
                 return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
             });
-            const prompt = `LED Strip (10 Segs, Top=0). T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. Colors: R,G,B,Y,C,P,W,O(Off). Describe motion/texture (e.g. Red Chase Up, Multi Random).`;
-            
+            const prompt = `LED Strip (10 Segs, Top=0). T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe motion/texture (e.g. Red Chase Up, Multi Random).`;
             try {
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
