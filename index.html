@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: Master Performance v5</title>
+    <title>Carol of the Bells: Symphony v6</title>
     <style>
         :root {
             --bg: #020617;
@@ -35,42 +35,49 @@
             border-radius: 32px;
             border: 1px solid #1e293b;
             text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
         }
 
-        h1 { margin: 0; font-size: 1.6rem; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
-        .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.8rem; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; font-weight: 900; }
+        .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px;}
         
         /* PERFORMANCE VISUALIZER */
-        .visualizer-ring {
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
+        .visualizer-container {
+            position: relative;
+            width: 240px;
+            height: 240px;
             margin: 20px auto;
-            border: 12px solid #1e293b;
+        }
+        .visualizer-ring {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid #1e293b;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
             background: #000;
-            transition: border-color 0.1s;
+            transition: border-color 0.05s, transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             overflow: hidden;
+            z-index: 2;
+            position: relative;
         }
         .ring-glow {
-            position: absolute; width: 100%; height: 100%;
-            border-radius: 50%; filter: blur(60px); opacity: 0.8; z-index: 0;
-            transition: background 0.1s;
+            position: absolute; width: 120%; height: 120%;
+            top: -10%; left: -10%;
+            border-radius: 50%; filter: blur(60px); opacity: 0;
+            transition: opacity 0.1s, background 0.1s;
         }
 
-        .bpm-display { font-family: monospace; font-size: 2.8rem; font-weight: 900; z-index: 2; position: relative; color: white; text-shadow: 0 0 10px black;}
-        .mode-tag { font-size: 0.75rem; color: #fff; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 12px; border: 1px solid #333;}
+        .bpm-display { font-family: monospace; font-size: 3rem; font-weight: 900; z-index: 3; color: white; text-shadow: 0 0 15px rgba(0,0,0,0.8);}
+        .mode-tag { font-size: 0.7rem; color: #fff; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; z-index: 3; margin-top: 5px; background: rgba(0,0,0,0.8); padding: 4px 15px; border-radius: 20px; border: 1px solid #333;}
 
         /* SYNC CONTROLS */
         .sync-box {
             background: #020617;
             padding: 20px;
-            border-radius: 20px;
+            border-radius: 24px;
             margin: 20px 0;
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -80,56 +87,76 @@
 
         .tap-btn {
             grid-column: span 2;
-            padding: 20px;
-            background: var(--crimson);
+            padding: 22px;
+            background: linear-gradient(135deg, var(--crimson), #991b1b);
             color: white;
-            border-radius: 15px;
-            font-size: 1.1rem;
+            border-radius: 16px;
+            font-size: 1.3rem;
             font-weight: 900;
             border: none;
             cursor: pointer;
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.3);
             transition: 0.1s;
+            text-transform: uppercase;
         }
-        .tap-btn:active { transform: scale(0.96); background: white; color: black; }
+        .tap-btn:active { transform: scale(0.95); filter: brightness(1.3); }
 
         button {
             padding: 14px; border-radius: 12px; border: none; font-weight: 800;
             cursor: pointer; font-size: 0.95rem; transition: 0.2s;
         }
         .btn-connect { background: #334155; color: white; }
-        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.2rem; box-shadow: 0 10px 20px rgba(0,0,0,0.3);}
-        .connected { background: var(--emerald) !important; color: white !important; }
+        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.3rem; letter-spacing: 1px;}
+        .connected { background: var(--emerald) !important; color: white !important; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
 
-        .slider-row { grid-column: span 2; text-align: left; font-size: 0.75rem; color: #94a3b8; display: flex; flex-direction: column; gap: 5px; }
+        .slider-row { grid-column: span 2; text-align: left; font-size: 0.75rem; color: #94a3b8; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         input[type=range] { width: 100%; accent-color: var(--gold); cursor: pointer; }
 
-        #audioInput { margin: 20px 0; font-size: 0.8rem; background: #1e293b; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box;}
+        .audio-input-wrapper {
+            margin: 20px 0;
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 16px;
+            border: 1px dashed #334155;
+        }
+        input[type="file"] { font-size: 0.8rem; width: 100%; color: #94a3b8; }
         
-        .status-msg { font-size: 0.7rem; color: #4b5563; margin-top: 10px; font-style: italic; }
+        .beat-indicator {
+            position: absolute; bottom: 10px; display: flex; gap: 5px; z-index: 3;
+        }
+        .beat-dot { width: 8px; height: 8px; background: #334155; border-radius: 50%; transition: 0.1s; }
+        .beat-dot.active { background: var(--gold); box-shadow: 0 0 10px var(--gold); transform: scale(1.5); }
+
     </style>
 </head>
 <body>
 
     <div class="stage">
-        <h1>Christmas Performance</h1>
-        <div class="subtitle">Storyboarded Choreography (v5)</div>
+        <h1>Bells Symphony</h1>
+        <div class="subtitle">Phase-Locked Harmony Engine (v6)</div>
         
-        <div class="visualizer-ring" id="ring">
+        <div class="visualizer-container">
             <div class="ring-glow" id="glow"></div>
-            <div class="bpm-display" id="bpmText">160</div>
-            <div class="mode-tag" id="modeText">STANDBY</div>
+            <div class="visualizer-ring" id="ring">
+                <div class="bpm-display" id="bpmText">160</div>
+                <div class="mode-tag" id="modeText">Standby</div>
+                <div class="beat-indicator">
+                    <div class="beat-dot" id="dot-1"></div>
+                    <div class="beat-dot" id="dot-2"></div>
+                    <div class="beat-dot" id="dot-3"></div>
+                </div>
+            </div>
         </div>
 
         <div class="sync-box">
-            <button class="tap-btn" onclick="tapTempo()">TAP BEAT TO SYNC</button>
+            <button class="tap-btn" onclick="tapTempo()">TAP BEAT (4X)</button>
             
             <div class="slider-row">
-                <div style="display:flex; justify-content:space-between;">
-                    <span>MANUAL BPM: <b id="bpmVal">160</b></span>
-                    <span>OFFSET: <b id="offVal">0ms</b></span>
+                <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                    <span>BPM: <b id="bpmVal" style="color:var(--gold)">160</b></span>
+                    <span>DELAY COMP: <b id="offVal" style="color:var(--accent)">0ms</b></span>
                 </div>
-                <input type="range" id="bpmSlider" min="120" max="200" value="160" oninput="updateBPM(this.value)">
+                <input type="range" id="bpmSlider" min="100" max="220" value="160" oninput="updateBPM(this.value)">
                 <input type="range" id="offsetSlider" min="-500" max="500" value="0" step="10" oninput="document.getElementById('offVal').innerText=this.value+'ms'">
             </div>
             
@@ -137,41 +164,36 @@
                 <option value="1">Protocol: Lotus/Keepsmile</option>
                 <option value="0">Protocol: ELK-BLEDOM</option>
             </select>
-            <button class="btn-connect" id="connBtn" onclick="connect()">Connect Light</button>
+            <button class="btn-connect" id="connBtn" onclick="connect()">Link Light</button>
         </div>
 
-        <input type="file" id="audioInput" accept="audio/*" onchange="loadAudio(this)">
-        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ START SHOW</button>
+        <div class="audio-input-wrapper">
+            <input type="file" id="audioInput" accept="audio/*" onchange="loadAudio(this)">
+        </div>
         
-        <div class="status-msg" id="status">Connect and play to begin the masterpiece...</div>
+        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ LAUNCH SHOW</button>
     </div>
 
     <audio id="audioPlayer"></audio>
 
     <script>
-        // --- PERFORMANCE STORYBOARD ---
-        // intensity: 0 (soft) to 3 (peak)
-        const STORYBOARD = [
-            { t: 0,   mode: 165, color: "#003300", label: "Wintry Intro" },
-            { t: 15,  mode: 38,  color: "#10b981", label: "Theme: Emerald" },
-            { t: 30,  mode: 37,  color: "#ef4444", label: "Theme: Crimson" },
-            { t: 45,  mode: 45,  color: "#f59e0b", label: "Build: Golden Gradient" },
-            { t: 60,  mode: 182, color: "#ffffff", label: "High Energy: Bells" },
-            { t: 85,  mode: 3,   color: "#ff00ff", label: "Grand Crescendo" },
-            { t: 105, mode: 131, color: "#00e5ff", label: "Frost Finale" },
-            { t: 120, mode: 196, color: "#000000", label: "Blackout" }
-        ];
+        // --- PERFORMANCE CONFIG ---
+        const TIER = {
+            intro:   { modes: [165, 131, 140, 108], color: "#002200" },
+            melody:  { modes: [37, 38, 39, 40],     color: "#10b981" }, // Crimson/Emerald alternating
+            build:   { modes: [45, 181, 183, 115],  color: "#f59e0b" }, // Wipes and Gradients
+            storm:   { modes: [1, 3, 80, 89, 95],   color: "#ffffff" }  // Rainbow/Strobe Chaos
+        };
 
         // --- STATE ---
         let device, characteristic;
         let isPlaying = false;
         let isLightPoweredOn = false;
         let bpm = 160;
-        let beatInterval;
         let lastTap = 0;
         let tapTimes = [];
-        let beatCount = 0;
-
+        let performanceLoop;
+        
         const PROTOCOLS = [
             { 
                 name: "ELK", 
@@ -185,7 +207,7 @@
                 write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
-                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x05, 0xff, 0xff, 0x00, 0xef]) 
+                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) 
             }
         ];
 
@@ -195,7 +217,7 @@
             if (now - lastTap > 2000) tapTimes = [];
             lastTap = now;
             tapTimes.push(now);
-            if (tapTimes.length > 3) {
+            if (tapTimes.length >= 4) {
                 const diffs = [];
                 for(let i=1; i<tapTimes.length; i++) diffs.push(tapTimes[i] - tapTimes[i-1]);
                 const avg = diffs.reduce((a,b) => a+b) / diffs.length;
@@ -204,104 +226,124 @@
         }
 
         function updateBPM(val) {
-            bpm = val;
+            bpm = parseInt(val);
             document.getElementById('bpmText').innerText = bpm;
             document.getElementById('bpmVal').innerText = bpm;
             document.getElementById('bpmSlider').value = bpm;
-            if(isPlaying) restartRhythm();
         }
 
-        // --- AUDIO ---
         function loadAudio(input) {
             const file = input.files[0];
             if(!file) return;
             document.getElementById('audioPlayer').src = URL.createObjectURL(file);
             document.getElementById('startBtn').disabled = false;
-            document.getElementById('status').innerText = "Music Loaded. Ready to Perform.";
         }
 
-        // --- ENGINE ---
+        // --- CORE ENGINE ---
         function togglePlay() { if(isPlaying) stop(); else start(); }
 
         function start() {
             if(!characteristic) return alert("Connect light first!");
             isPlaying = true;
-            beatCount = 0;
             document.getElementById('audioPlayer').play();
-            document.getElementById('startBtn').innerText = "⏹ STOP PERFORMANCE";
+            document.getElementById('startBtn').innerText = "⏹ ABORT PERFORMANCE";
             document.getElementById('startBtn').style.background = "var(--crimson)";
             document.getElementById('startBtn').style.color = "white";
-            startRhythm();
+            
+            runEngine();
         }
 
         function stop() {
             isPlaying = false;
-            clearInterval(beatInterval);
+            cancelAnimationFrame(performanceLoop);
             document.getElementById('audioPlayer').pause();
             document.getElementById('audioPlayer').currentTime = 0;
-            document.getElementById('startBtn').innerText = "▶ START SHOW";
+            document.getElementById('startBtn').innerText = "▶ LAUNCH SHOW";
             document.getElementById('startBtn').style.background = "white";
             document.getElementById('startBtn').style.color = "black";
             sendOff();
         }
 
-        function startRhythm() {
-            const msPerBeat = 60000 / bpm;
-            // The Offset allows the user to delay/advance the light signal
-            const offset = parseInt(document.getElementById('offsetSlider').value);
-            beatInterval = setInterval(onBeat, msPerBeat);
-        }
+        let lastExecutedBeat = -1;
 
-        function restartRhythm() {
-            clearInterval(beatInterval);
-            startRhythm();
-        }
-
-        function onBeat() {
+        function runEngine() {
             if(!isPlaying) return;
-            beatCount++;
-            
+
             const player = document.getElementById('audioPlayer');
             const time = player.currentTime;
+            const offset = parseInt(document.getElementById('offsetSlider').value) / 1000;
             
-            // 1. Determine Current Storyboard Segment
-            let activeCue = STORYBOARD[0];
-            for (let cue of STORYBOARD) {
-                if (time >= cue.t) activeCue = cue;
+            const adjustedTime = time + offset;
+            const beatDuration = 60 / bpm;
+            
+            // Carol of the Bells is 3/4. 
+            // We calculate which beat (1, 2, or 3) we are currently on.
+            const totalBeats = adjustedTime / beatDuration;
+            const currentBeat = Math.floor(totalBeats);
+            const beatInMeasure = (currentBeat % 3) + 1; // 1, 2, 3
+
+            // SNAP LOGIC: Only fire commands when we cross into a new beat
+            if (currentBeat !== lastExecutedBeat) {
+                lastExecutedBeat = currentBeat;
+                onSymphonyBeat(beatInMeasure, adjustedTime);
             }
 
-            // 2. Performance Logic
+            performanceLoop = requestAnimationFrame(runEngine);
+        }
+
+        async function onSymphonyBeat(beatNum, time) {
             const ring = document.getElementById('ring');
             const glow = document.getElementById('glow');
             const modeText = document.getElementById('modeText');
             
-            // Carol of the Bells is 3/4 Time.
-            // Bar Start (Beat 1, 4, 7...): Force the White Bell Chime
-            const isBarStart = (beatCount % 3 === 1);
-            
-            if (isBarStart) {
-                // THE BELL CHIME
-                sendMode(180); // Pure White flash
-                ring.style.borderColor = "var(--white)";
-                glow.style.background = "var(--white)";
-                modeText.innerText = "🔔 CHIME";
-            } else {
-                // THE MAIN THEME SEQUENCE
-                // We alternate modes to create "Motion" on the beat
-                let targetMode = activeCue.mode;
-                
-                // For segments 15-45s, we alternate Red/Green stack
-                if (time > 15 && time < 45) {
-                    targetMode = (beatCount % 2 === 0) ? 37 : 38;
-                }
+            // Clear beat dots
+            document.querySelectorAll('.beat-dot').forEach(d => d.classList.remove('active'));
+            document.getElementById(`dot-${beatNum}`).classList.add('active');
 
-                sendMode(targetMode);
-                ring.style.borderColor = activeCue.color;
-                glow.style.background = activeCue.color;
-                modeText.innerText = activeCue.label;
+            // Select Intensity Tier based on Song Progress
+            let activeTier = TIER.intro;
+            if (time > 15) activeTier = TIER.melody;
+            if (time > 45) activeTier = TIER.build;
+            if (time > 80) activeTier = TIER.storm;
+            if (time > 110) activeTier = TIER.intro; // Fade out
+
+            // --- THE BEAT DANCE ---
+            let targetMode = 0;
+
+            if (beatNum === 1) {
+                // THE BELL CHIME (Beat 1)
+                // Force a high-intensity white spark
+                targetMode = 180;
+                ring.style.borderColor = "white";
+                ring.style.transform = "scale(1.1)";
+                glow.style.background = "white";
+                glow.style.opacity = "1";
+                modeText.innerText = "🔔 CHIME";
+            } 
+            else {
+                // MELODIC ROLL (Beats 2 and 3)
+                // Alternating Red and Green to create the "Christmas Look"
+                ring.style.transform = "scale(1.0)";
+                glow.style.opacity = "0.4";
+                
+                if (activeTier === TIER.melody) {
+                    // Precision Alternation for the "Gallop"
+                    targetMode = (beatNum % 2 === 0) ? 37 : 38; // Red Stack vs Green Stack
+                    const col = (beatNum % 2 === 0) ? "var(--crimson)" : "var(--emerald)";
+                    ring.style.borderColor = col;
+                    glow.style.background = col;
+                    modeText.innerText = (beatNum % 2 === 0) ? "CRIMSON" : "EMERALD";
+                } else {
+                    // Use a random mode from the current intensity pool
+                    targetMode = activeTier.modes[Math.floor(Math.random() * activeTier.modes.length)];
+                    ring.style.borderColor = activeTier.color;
+                    glow.style.background = activeTier.color;
+                    modeText.innerText = `TIER: Mode ${targetMode}`;
+                }
             }
 
-            if(player.ended) stop();
+            // Execute Bluetooth Command
+            sendMode(targetMode);
         }
 
         // --- BLUETOOTH ---
@@ -324,7 +366,7 @@
             try { 
                 await characteristic.writeValue(p.off); 
                 isLightPoweredOn = false; 
-                document.getElementById('modeText').innerText = "OFF";
+                document.getElementById('modeText').innerText = "BLACKOUT";
             } catch(e){}
         }
 
@@ -344,8 +386,7 @@
                 const btn = document.getElementById('connBtn');
                 btn.innerText = "CONNECTED";
                 btn.classList.add('connected');
-                document.getElementById('status').innerText = "Linked: " + device.name.toUpperCase();
-                sendMode(180); // Test Wake
+                sendMode(180); // Wake
             } catch(e) { alert(e.message); }
         }
     </script>
