@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v7 (Saber Ignition)</title>
+    <title>Universal LED Controller v9 (Ignition Fix)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -15,6 +15,7 @@
             --music-color: #f43f5e;
             --magic-color: #06b6d4;
             --battle-color: #eab308;
+            --duel-color: #a855f7;
         }
 
         body {
@@ -178,6 +179,24 @@
             margin-top: 10px;
             border-top: 1px solid #444;
         }
+
+        /* Toggle Switch for Duel Mode */
+        .duel-toggle-btn {
+            background: #333;
+            color: #888;
+            border: 1px solid #555;
+            padding: 10px;
+            width: 100%;
+            margin-top: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .duel-active {
+            background: var(--duel-color);
+            color: white;
+            border-color: var(--duel-color);
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -268,23 +287,34 @@
                     </div>
 
                     <button id="igniteBtn" class="btn-battle" style="font-size: 1.2rem; padding: 20px;">🔥 Ignite Saber</button>
+                    
+                    <button id="duelModeBtn" class="duel-toggle-btn" onclick="toggleDuelMode()">
+                        ⚔️ Mode: Blaster (Orange Flash)
+                    </button>
 
                     <!-- Ignition Tuner -->
                     <div class="tuning-panel">
-                        <h4 style="margin:0 0 10px 0; font-size:0.8rem; color:#aaa;">Ignition Tuning (Find 'Stacking' Mode)</h4>
+                        <h4 style="margin:0 0 10px 0; font-size:0.8rem; color:#aaa;">Ignition Tuning</h4>
                         
                         <div class="slider-row">
-                            <span>Ignition Mode: <span id="igniteModeVal">1</span></span>
+                            <span>Ignition Mode: <span id="igniteModeVal">181</span></span>
                         </div>
-                        <input type="range" id="igniteModeRange" min="1" max="200" value="15" oninput="updateIgniteSettings()">
+                        <input type="range" id="igniteModeRange" min="1" max="200" value="181" oninput="updateIgniteSettings()">
                         
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                             <button class="btn-secondary btn-small" onclick="stepIgniteMode(-1)">-</button>
                              <button class="btn-secondary btn-small" onclick="testIgnitionMode()">Test Mode</button>
-                             <span style="font-size:0.7rem; color:#666;">(Try 15, 26, 100)</span>
+                             <button class="btn-secondary btn-small" onclick="stepIgniteMode(1)">+</button>
                         </div>
+                        <p style="font-size:0.7rem; color:#888; margin-top:-5px;">Use +/- to find Black background (Try 180, 182)</p>
+
+                        <div class="slider-row" style="margin-top:10px;">
+                            <span>Chip Speed (1=Fast): <span id="igniteSpeedVal">1</span></span>
+                        </div>
+                        <input type="range" id="igniteSpeedRange" min="1" max="20" value="1" oninput="updateIgniteSettings()">
 
                         <div class="slider-row">
-                            <span>Fill Time (ms): <span id="igniteTimeVal">1500</span></span>
+                            <span>Lock Time (ms): <span id="igniteTimeVal">1500</span></span>
                         </div>
                         <input type="range" id="igniteTimeRange" min="100" max="4000" step="100" value="1500" oninput="updateIgniteSettings()">
                     </div>
@@ -295,11 +325,11 @@
                     <audio id="battlePlayer" controls style="width:100%; margin-top:5px;"></audio>
                     
                     <div class="slider-row" style="margin-top:15px;">
-                        <span>Clash Sensitivity</span>
+                        <span>Clash (Bass) Sens.</span>
                         <input type="range" id="clashSens" min="150" max="250" value="200" style="direction:rtl">
                     </div>
                     <div class="slider-row">
-                        <span>Blaster Sensitivity</span>
+                        <span>Strike (Highs) Sens.</span>
                         <input type="range" id="blasterSens" min="50" max="200" value="120" style="direction:rtl">
                     </div>
                 </div>
@@ -324,8 +354,8 @@
             {
                 name: "Lotus/Keepsmile (0x7E)",
                 writeColor: (r, g, b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
-                // Protocol 2 specific mode setting
-                setMode: (mode, speed) => new Uint8Array([0x7e, 0x05, 0x03, mode, 0x03, 0xff, 0xff, 0x00, 0xef]),
+                // Protocol 2 specific mode setting - FIXED: Now uses 'speed' argument instead of hardcoded 0x03
+                setMode: (mode, speed) => new Uint8Array([0x7e, 0x05, 0x03, mode, speed, 0xff, 0xff, 0x00, 0xef]),
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef])
             },
@@ -374,11 +404,14 @@
 
         // --- BATTLE STATE ---
         let isBattleActive = false;
+        let isDuelMode = false;
         let saberColor = [255, 0, 0]; 
+        let opponentColor = [0, 0, 255]; 
         let clashColor = [255, 255, 255]; 
         let blasterColor = [255, 150, 0];
-        let igniteMode = 15;
+        let igniteMode = 181;
         let igniteDuration = 1500;
+        let igniteSpeed = 1;
 
         // --- UI ELEMENTS ---
         const logBox = document.getElementById('log');
@@ -565,12 +598,15 @@
                 const blasterThresh = document.getElementById('blasterSens').value;
 
                 if (bassAvg > clashThresh && (now - lastBeatTime > 150)) {
+                    // BASS HIT (Clash)
                     send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
                     lastBeatTime = now;
                     setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 100);
 
                 } else if (trebleAvg > blasterThresh && (now - lastBeatTime > 100)) {
-                    send(proto.writeColor(blasterColor[0], blasterColor[1], blasterColor[2]));
+                    // HIGH HIT (Blaster or Saber Strike)
+                    const flashColor = isDuelMode ? opponentColor : blasterColor;
+                    send(proto.writeColor(flashColor[0], flashColor[1], flashColor[2]));
                     lastBeatTime = now;
                     setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 80);
                 }
@@ -591,28 +627,61 @@
             document.querySelectorAll('.saber-btn').forEach(b => b.classList.remove('selected'));
             document.getElementById('saber-'+type).classList.add('selected');
 
-            if (type === 'jedi') saberColor = [0, 0, 255]; 
-            else if (type === 'sith') saberColor = [255, 0, 0]; 
-            else if (type === 'green') saberColor = [0, 255, 0]; 
+            if (type === 'jedi') {
+                saberColor = [0, 0, 255]; // Blue
+                opponentColor = [255, 0, 0]; // Vs Red
+            }
+            else if (type === 'sith') {
+                saberColor = [255, 0, 0]; // Red
+                opponentColor = [0, 0, 255]; // Vs Blue
+            }
+            else if (type === 'green') {
+                saberColor = [0, 255, 0]; // Green
+                opponentColor = [255, 0, 0]; // Vs Red
+            }
             
             const proto = getActiveProtocol();
             send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+        }
+
+        window.toggleDuelMode = function() {
+            isDuelMode = !isDuelMode;
+            const btn = document.getElementById('duelModeBtn');
+            if (isDuelMode) {
+                btn.classList.add('duel-active');
+                btn.innerText = "⚔️ Mode: Duel (Enemy Color Flash)";
+            } else {
+                btn.classList.remove('duel-active');
+                btn.innerText = "⚔️ Mode: Blaster (Orange Flash)";
+            }
         }
 
         // Ignition Settings Updates
         window.updateIgniteSettings = function() {
             igniteMode = parseInt(document.getElementById('igniteModeRange').value);
             igniteDuration = parseInt(document.getElementById('igniteTimeRange').value);
+            igniteSpeed = parseInt(document.getElementById('igniteSpeedRange').value);
+            
             document.getElementById('igniteModeVal').innerText = igniteMode;
             document.getElementById('igniteTimeVal').innerText = igniteDuration;
+            document.getElementById('igniteSpeedVal').innerText = igniteSpeed;
+        }
+        
+        window.stepIgniteMode = function(delta) {
+             let newVal = igniteMode + delta;
+             if(newVal < 1) newVal = 200;
+             if(newVal > 200) newVal = 1;
+             document.getElementById('igniteModeRange').value = newVal;
+             updateIgniteSettings();
+             testIgnitionMode();
         }
 
         window.testIgnitionMode = function() {
             const proto = getActiveProtocol();
             if(proto.setMode) {
-                send(proto.on); // Ensure on
+                send(proto.on); 
                 setTimeout(() => {
-                    send(proto.setMode(igniteMode, 3)); // Trigger mode
+                    send(proto.setMode(igniteMode, igniteSpeed)); 
                 }, 100);
             }
         }
@@ -630,7 +699,7 @@
                  
                  setTimeout(() => {
                     // 3. Trigger "Fill" Mode (The Bottom-Up Effect)
-                    if(proto.setMode) send(proto.setMode(igniteMode, 3));
+                    if(proto.setMode) send(proto.setMode(igniteMode, igniteSpeed));
 
                     // 4. Wait for fill, then Lock Saber Color
                     setTimeout(() => {
