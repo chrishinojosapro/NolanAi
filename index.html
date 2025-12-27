@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v20 (Crash Fix)</title>
+    <title>AI Vision Scanner v21 (High-Fi Description)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -105,7 +105,7 @@
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Fixed Bounds)</h1>
+    <h1>👁️ Light Scanner (Hi-Fi Detail)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -385,16 +385,18 @@
         async function analyzeBuffer(frames) {
             if(!frames || frames.length < 5) return { hex: "#000", desc: "No Video Data", motion: "NO DATA", type: "Unknown" };
             
-            // 1. Dominant Color (Middle Frame)
             const midF = frames[Math.floor(frames.length/2)];
-            let counts = {};
-            midF.forEach(p => {
-                const n = getColorName(p.r,p.g,p.b);
-                if(n!=='Off') counts[n] = (counts[n]||0)+1;
-            });
-            const topColors = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-            const mainColor = topColors[0] || "Black";
             
+            // 1. Color Analysis (Top, Mid, Bot)
+            const topC = getColorName(midF[0].r, midF[0].g, midF[0].b);
+            const midC = getColorName(midF[4].r, midF[4].g, midF[4].b);
+            const botC = getColorName(midF[9].r, midF[9].g, midF[9].b);
+            
+            // Collect all unique
+            const allColors = new Set();
+            midF.forEach(p => { const n = getColorName(p.r,p.g,p.b); if(n!=='Off') allColors.add(n); });
+            const colorList = Array.from(allColors);
+
             // Calc Hex
             let maxBri=0, hex="#000000";
             midF.forEach(p => {
@@ -408,46 +410,49 @@
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
-                if (!prev || !curr || prev.length !== SEGMENTS || curr.length !== SEGMENTS) continue;
-                
                 let diffStatic=0, diffUp=0, diffDown=0;
-                
-                // Static
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
-                
-                // Up: Content at i+1 moved to i
-                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
-                
-                // Down: Content at i-1 moved to i
-                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
+                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
                 totalDiff += diffStatic;
                 if(diffUp < diffStatic) upScore++;
                 if(diffDown < diffStatic) downScore++;
             }
             
-            let motion = "STATIC";
+            let motion = "Static";
             const litStart = countLitPixels(frames[0]);
             const litEnd = countLitPixels(frames[frames.length-1]);
             
-            if (litEnd > litStart + 2) motion = "UP (Fill)";
-            else if (litEnd < litStart - 2) motion = "DOWN (Drain)";
+            if (litEnd > litStart + 2) motion = "Filling UP";
+            else if (litEnd < litStart - 2) motion = "Draining DOWN";
             else if (totalDiff > 1000) {
-                if (upScore > downScore && upScore > frames.length/4) motion = "UP";
-                else if (downScore > upScore && downScore > frames.length/4) motion = "DOWN";
-                else motion = "RANDOM";
+                if (upScore > downScore && upScore > frames.length/4) motion = "Flowing UP";
+                else if (downScore > upScore && downScore > frames.length/4) motion = "Flowing DOWN";
+                else motion = "Random/Flash";
             }
 
-            // Description
-            let texture = topColors.length > 1 ? "Multicolor" : "Solid";
-            if (motion.includes("Flash")) texture = "Sparkle";
+            // 3. Construct Description
+            let desc = "";
             let type = "Solid";
-            if (motion.includes("UP") || motion.includes("DOWN")) type = "Chase";
-            if (motion.includes("RANDOM")) type = "Flash";
-            if (topColors.length > 1) type = "Multicolor";
 
-            let desc = `${mainColor} ${texture} ${motion}`;
-            if(mainColor === "Black") desc = "Off";
+            if (colorList.length === 0) {
+                desc = "Blackout/Off";
+                type = "Off";
+            } else if (colorList.length === 1) {
+                desc = `Solid ${colorList[0]}`;
+                if(motion !== "Static") desc = `${colorList[0]} ${motion}`;
+            } else {
+                // Multi
+                type = "Multicolor";
+                if(colorList.includes("Red") && colorList.includes("Blue") && colorList.includes("Green")) {
+                    desc = `Rainbow ${motion}`;
+                } else if (topC !== botC) {
+                    desc = `${botC}-to-${topC} Gradient ${motion}`;
+                } else {
+                    desc = `${colorList.slice(0,3).join("/")} ${motion}`;
+                }
+            }
 
             // AI Override
             const useAi = document.getElementById('useAi').checked;
