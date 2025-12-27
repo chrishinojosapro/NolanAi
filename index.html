@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v2</title>
+    <title>Universal Screen Sync v3</title>
     <style>
         :root {
             --bg: #050505;
@@ -34,12 +34,10 @@
 
         h1 { margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem; background: linear-gradient(90deg, #f00, #fff, #00f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
         
-        /* VIDEO ELEMENT (Must be visible to render, but hidden from view) */
         #captureVideo {
             position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1;
         }
 
-        /* MAIN PREVIEW AREA */
         .preview-box {
             background: var(--panel);
             border: 2px solid #333;
@@ -74,7 +72,6 @@
             width: 100%; height: 40px; background: black; border-radius: 4px; border: 1px solid #444; transition: background 0.1s;
         }
 
-        /* METERS */
         .meter-row { width: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
         .meter { flex: 1; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
         .fill { height: 100%; width: 0%; transition: width 0.1s; }
@@ -82,7 +79,6 @@
         .fill.blue { background: var(--blue); }
         .fill.white { background: white; }
 
-        /* CONTROLS */
         .controls {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -117,7 +113,7 @@
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         #overlay-flash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; background: white; transition: opacity 0.05s;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; background: black; transition: opacity 0.05s;
         }
         
         .instructions {
@@ -138,7 +134,7 @@
     <div id="overlay-flash"></div>
 
     <div class="container">
-        <h1>Universal Screen Sync v2</h1>
+        <h1>Universal Screen Sync v3</h1>
         
         <div class="instructions">
             <strong>How to use:</strong><br>
@@ -180,12 +176,12 @@
                 <label>2. Tuning</label>
                 
                 <label>Color Boost (Saturation)</label>
-                <input type="range" id="colorBoost" min="10" max="30" value="15" oninput="document.getElementById('boostVal').innerText=this.value/10">
-                <span style="font-size:0.7rem; color:#666; float:right;" id="boostVal">1.5</span>
+                <input type="range" id="colorBoost" min="10" max="40" value="25" oninput="document.getElementById('boostVal').innerText=this.value/10">
+                <span style="font-size:0.7rem; color:#666; float:right;" id="boostVal">2.5</span>
                 
-                <label style="margin-top:15px;">Clash Threshold (White Flash)</label>
+                <label style="margin-top:15px;">White Cutoff (Sensitivity)</label>
                 <input type="range" id="whiteThresh" min="150" max="255" value="230">
-                <span style="font-size:0.7rem; color:#666;">Lower = More Sensitive</span>
+                <span style="font-size:0.7rem; color:#666;">Lower = More likely to turn OFF</span>
             </div>
         </div>
     </div>
@@ -253,64 +249,85 @@
                 ctx.drawImage(video, 0, 0, 50, 50);
                 
                 const frame = ctx.getImageData(0, 0, 50, 50).data;
+                const pixelCount = frame.length / 4;
                 
                 let rTot=0, gTot=0, bTot=0;
-                let activePixels = 0;
-                let maxBri = 0;
+                let vibrantPixels = 0;
                 let whitePixels = 0;
                 
                 // User settings
                 const wThresh = parseInt(document.getElementById('whiteThresh').value); 
                 const gain = parseInt(document.getElementById('colorBoost').value) / 10;
                 
-                // Track dominant colors for UI meters
-                let rCount=0, bCount=0, wCount=0;
+                // Stats for meters
+                let rCount=0, bCount=0;
                 
+                // --- PIXEL SCAN ---
                 for(let i=0; i<frame.length; i+=4) {
                     const r = frame[i];
                     const g = frame[i+1];
                     const b = frame[i+2];
-                    const bri = (r+g+b)/3;
                     
-                    if(bri > maxBri) maxBri = bri;
-                    if(bri > wThresh) { whitePixels++; wCount++; }
-
-                    // Only count "glowing" pixels (ignore dark background)
-                    if (bri > 30) {  // Lowered threshold to 30 for dark scenes
+                    const max = Math.max(r, g, b);
+                    const min = Math.min(r, g, b);
+                    const sat = max === 0 ? 0 : (max - min) / max;
+                    
+                    // 1. WHITE/CLASH DETECTION
+                    // High brightness AND Low saturation (White)
+                    if (max > wThresh && sat < 0.2) {
+                        whitePixels++;
+                    }
+                    
+                    // 2. VIBRANT COLOR DETECTION
+                    // Ignore dark pixels (<60) and desaturated pixels (<40%)
+                    else if (max > 60 && sat > 0.4) {
                         rTot += r; gTot += g; bTot += b;
-                        activePixels++;
+                        vibrantPixels++;
                         
                         if (r > g+b) rCount++;
                         if (b > r+g) bCount++;
                     }
                 }
                 
-                const pixelCount = frame.length / 4;
-                
                 // Update Meters
-                const safeActive = activePixels || 1; // Prevent div/0
-                document.getElementById('meterR').style.width = Math.min(100, (rCount/safeActive)*100) + "%";
-                document.getElementById('meterB').style.width = Math.min(100, (bCount/safeActive)*100) + "%";
-                document.getElementById('meterW').style.width = Math.min(100, (whitePixels/pixelCount)*1000) + "%";
+                const activeTotal = vibrantPixels || 1;
+                document.getElementById('meterR').style.width = Math.min(100, (rCount/activeTotal)*100) + "%";
+                document.getElementById('meterB').style.width = Math.min(100, (bCount/activeTotal)*100) + "%";
+                document.getElementById('meterW').style.width = Math.min(100, (whitePixels/pixelCount)*1000) + "%"; // Scale up
                 
                 let sendR = 0, sendG = 0, sendB = 0;
                 
-                // 1. CLASH DETECT (White Flash)
-                if (maxBri >= 250 && whitePixels > (pixelCount * 0.01)) { 
-                     sendR = 255; sendG = 255; sendB = 255;
-                     document.getElementById('overlay-flash').style.opacity = 0.5;
-                     setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
+                // --- LOGIC TREE ---
+                
+                // 1. WHITE = OFF (Inverse Clash)
+                if (whitePixels > (pixelCount * 0.05)) { 
+                     sendR = 0; sendG = 0; sendB = 0;
+                     // UI Flash (Black overlay for user feedback on tool)
+                     // document.getElementById('overlay-flash').style.opacity = 0.5;
+                     // setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
                 } 
-                // 2. COLOR AVERAGE
-                else if (activePixels > 0) {
-                     const avgR = rTot / activePixels;
-                     const avgG = gTot / activePixels;
-                     const avgB = bTot / activePixels;
+                // 2. COLOR FOUND
+                else if (vibrantPixels > 0) {
+                     // Get Average
+                     let avgR = rTot / vibrantPixels;
+                     let avgG = gTot / vibrantPixels;
+                     let avgB = bTot / vibrantPixels;
+                     
+                     // DEEP COLOR BOOST: Remove the white component
+                     // If RGB is (200, 50, 50), min is 50. Subtract 50 from all -> (150, 0, 0). Pure Red.
+                     const minVal = Math.min(avgR, avgG, avgB);
+                     avgR = Math.max(0, avgR - (minVal * 0.8));
+                     avgG = Math.max(0, avgG - (minVal * 0.8));
+                     avgB = Math.max(0, avgB - (minVal * 0.8));
                      
                      // Apply Gain
                      sendR = Math.min(255, avgR * gain);
                      sendG = Math.min(255, avgG * gain);
                      sendB = Math.min(255, avgB * gain);
+                }
+                // 3. DARKNESS
+                else {
+                    sendR = 0; sendG = 0; sendB = 0;
                 }
                 
                 sendR = Math.floor(sendR);
@@ -343,10 +360,12 @@
             
             try {
                 if (r < 10 && g < 10 && b < 10) {
+                    // Only send OFF if we aren't already OFF to save bandwidth
                     if (lastSent.r >= 10 || lastSent.g >= 10 || lastSent.b >= 10) {
                         await characteristic.writeValue(p.off);
                     }
                 } else {
+                    // Auto-Wake: If coming from black, send ON
                     if ((lastSent.r < 10 && lastSent.g < 10 && lastSent.b < 10) && p.on) {
                          await characteristic.writeValue(p.on);
                     }
