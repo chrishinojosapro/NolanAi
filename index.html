@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v13 (Motion Correlation)</title>
+    <title>AI Vision Scanner v15 (Hex & Motion)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -146,11 +146,32 @@
             margin-top: 10px;
         }
 
+        /* BT ERROR BANNER */
+        #btError {
+            display: none;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid var(--danger);
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        #btError strong { color: var(--danger); }
+
     </style>
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner (v13)</h1>
+    <h1>👁️ Vertical Strip Scanner (v15)</h1>
+
+    <!-- Browser Support Warning -->
+    <div id="btError">
+        <strong>⚠️ Bluetooth Not Supported</strong><br>
+        • <strong>iPhone/iPad:</strong> Use <u>Bluefy</u> app.<br>
+        • <strong>Android/PC:</strong> Use Chrome/Edge.
+    </div>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
@@ -210,16 +231,15 @@
             <div class="ai-config">
                 <label style="display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:0.9rem;">
                     <input type="checkbox" id="useAi" style="width:auto;"> 
-                    Use DeepSeek AI (OpenRouter)?
+                    Use DeepSeek AI (Optional)?
                 </label>
                 <input type="password" id="apiKey" placeholder="OpenRouter API Key (sk-or-...)" style="display:none;">
             </div>
 
             <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Vision Scan</button>
 
-            <textarea id="log" readonly>// Library will build here...
+            <textarea id="log" readonly>// Copy this JSON when done:
 {
-  "modes": {}
 }</textarea>
             <button onclick="copyLog()">Copy Library JSON</button>
         </div>
@@ -229,6 +249,14 @@
     <canvas id="procCanvas" style="display:none;"></canvas>
 
     <script>
+        // --- BROWSER CHECK ---
+        if (!navigator.bluetooth) {
+            document.getElementById('btError').style.display = 'block';
+            document.getElementById('connectBtn').disabled = true;
+            document.getElementById('connectBtn').style.opacity = '0.5';
+            document.getElementById('statusText').innerText = "Not Supported";
+        }
+
         // --- CONSTANTS ---
         const SEGMENTS = 10; 
         const PROTOCOLS = [
@@ -244,7 +272,7 @@
         let isScanning = false;
         let stream = null;
         let track = null;
-        let detectedLibrary = { modes: {} };
+        let detectedLibrary = {};
         let frameBuffer = []; 
 
         // --- UI INIT ---
@@ -300,6 +328,7 @@
             } catch(e) { console.log("Exposure adjust failed", e); }
         }
 
+        // HSL Conversion
         function rgbToHsl(r, g, b) {
             r /= 255; g /= 255; b /= 255;
             const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -320,8 +349,6 @@
         // BOOSTED Color Classifier
         function getColorName(r, g, b) {
             const minChannel = Math.min(r, g, b);
-            
-            // Saturation Boost for washed out colors
             let boostR = r - (minChannel * 0.8); 
             let boostG = g - (minChannel * 0.8);
             let boostB = b - (minChannel * 0.8);
@@ -351,6 +378,14 @@
         function getCssColor(name) {
             const map = { "Red": "#ff0000", "Green": "#00ff00", "Blue": "#0000ff", "Yellow": "#ffff00", "Purple": "#ff00ff", "Cyan": "#00ffff", "Orange": "#ffa500", "White": "#ffffff", "Off": "#333", "Mix": "#888" };
             return map[name] || "#fff";
+        }
+
+        // Helper to convert RGB to Hex
+        function rgbToHex(r, g, b) {
+            return "#" + [r, g, b].map(x => {
+                const hex = x.toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            }).join('');
         }
 
         function analyzeFrame() {
@@ -403,7 +438,6 @@
                     let g = Math.floor(gTot/count) || 0;
                     let b = Math.floor(bTot/count) || 0;
                     
-                    // Pre-calc visual boost for overlay only
                     const cName = getColorName(r,g,b);
                     segmentColors.push(cName);
                     rawColors.push({r,g,b});
@@ -450,7 +484,7 @@
                 const speed = parseInt(document.getElementById('scanSpeed').value) * 1000;
                 
                 currentMode = start;
-                detectedLibrary = { modes: {} };
+                detectedLibrary = {}; // Reset library
                 performScanStep(end, speed); 
             }
         }
@@ -459,8 +493,8 @@
             frameBuffer = [];
             testMode(currentMode);
             setTimeout(async () => {
-                const description = await analyzeBuffer(frameBuffer);
-                detectedLibrary.modes[currentMode] = description;
+                const result = await analyzeBuffer(frameBuffer);
+                detectedLibrary[currentMode] = result;
                 updateLog();
                 currentMode++;
                 if (currentMode <= endMode && isScanning) {
@@ -471,86 +505,96 @@
             }, speed);
         }
         
-        // --- MOTION CORRELATION ANALYSIS ---
+        // --- DEEP ANALYSIS ---
         async function analyzeBuffer(frames) {
-            if(frames.length < 5) return "No Data";
+            if(frames.length < 5) return { hex: "#000000", motion: "NO DATA", type: "Unknown" };
             
-            // 1. Color Identification
+            // 1. Identify Dominant Hex Color
+            // We look at the middle frame, find the brightest segment, capture its color.
             const midF = frames[Math.floor(frames.length/2)];
+            let maxBright = 0;
+            let bestPixel = {r:0,g:0,b:0};
+            
+            // Check all segments in middle frame
+            midF.forEach(p => {
+                const b = p.r + p.g + p.b;
+                if(b > maxBright) { maxBright = b; bestPixel = p; }
+            });
+            
+            // If completely dark, maybe check other frames?
+            // For now, use that best pixel.
+            const primaryHex = rgbToHex(bestPixel.r, bestPixel.g, bestPixel.b);
+            
+            // 2. Identify Secondary Colors (Multicolor?)
             const uniqueColors = new Set();
             midF.forEach(p => { 
                 const n = getColorName(p.r,p.g,p.b); 
                 if(n!=='Off') uniqueColors.add(n); 
             });
-            const colors = Array.from(uniqueColors).sort().join("/");
-            
-            // 2. Motion Direction (Pixel Shift Correlation)
+            const isMulti = uniqueColors.size > 1;
+
+            // 3. Motion Tracking
+            let totalDiff = 0;
             let upScore = 0;
             let downScore = 0;
-            let staticScore = 0;
-            let totalMotion = 0;
             
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
-                // Compare: Curr[i] vs Prev[i] (Static)
                 let diffStatic = 0;
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
+                totalDiff += diffStatic;
                 
-                // Compare: Curr[i] vs Prev[i+1] (Moved UP)
-                // If light moves UP, index 9 moves to 8. So Curr[8] should look like Prev[9].
-                // Generally: Curr[i] ~ Prev[i+1]
                 let diffUp = 0;
-                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
+                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
                 
-                // Compare: Curr[i] vs Prev[i-1] (Moved DOWN)
-                // If light moves DOWN, index 0 moves to 1. So Curr[1] should look like Prev[0].
-                // Generally: Curr[i] ~ Prev[i-1]
                 let diffDown = 0;
-                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
-                totalMotion += diffStatic;
-                
-                // Vote
-                const minDiff = Math.min(diffStatic, diffUp, diffDown);
-                
-                // Only vote if there is significant change to analyze
-                if (diffStatic > 100) {
-                    if (minDiff === diffUp) upScore++;
-                    else if (minDiff === diffDown) downScore++;
-                    else staticScore++;
-                } else {
-                    staticScore++; // No motion is static
+                if (diffUp < diffStatic) upScore++;
+                if (diffDown < diffStatic) downScore++;
+            }
+            
+            let motion = "STATIC";
+            let type = "Solid";
+            
+            if (isMulti) type = "Multicolor/Gradient";
+            
+            const litStart = countLitPixels(frames[0]);
+            const litEnd = countLitPixels(frames[frames.length-1]);
+            
+            if (litEnd > litStart + 2) {
+                motion = "UP";
+                type = "Filling";
+            } else if (litEnd < litStart - 2) {
+                motion = "DOWN"; // Draining usually looks like down
+                type = "Draining";
+            } else if (totalDiff > 500) { 
+                if (upScore > downScore && upScore > (frames.length/4)) {
+                    motion = "UP";
+                    type = "Chase";
+                }
+                else if (downScore > upScore && downScore > (frames.length/4)) {
+                    motion = "DOWN";
+                    type = "Chase";
+                }
+                else {
+                    motion = "RANDOM";
+                    type = "Flash/Sparkle";
                 }
             }
             
-            let motion = "Static";
-            const totalFrames = frames.length - 1;
-            
-            // Fill detection logic override (Dark -> Lit)
-            const startLit = countLitPixels(frames[0]);
-            const endLit = countLitPixels(frames[frames.length-1]);
-            
-            if (endLit > startLit + 2) {
-                motion = "Fill/Stacking";
-            } else if (totalMotion > 1000) {
-                // If mostly UP votes
-                if (upScore > downScore && upScore > totalFrames * 0.3) motion = "Flow UP ⬆️";
-                // If mostly DOWN votes
-                else if (downScore > upScore && downScore > totalFrames * 0.3) motion = "Flow DOWN ⬇️";
-                // If lots of motion but no clear direction
-                else motion = "Random/Flash ✨";
-            }
-            
-            let desc = `${colors} ${motion}`;
-            if(colors.length === 0) desc = "Off/Black";
-
+            // AI Override (Optional)
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
-            if(useAi && apiKey) desc = await getAiDescription(frames, apiKey);
+            let aiDesc = "";
+            if(useAi && apiKey) aiDesc = await getAiDescription(frames, apiKey);
             
-            return desc;
+            const res = { hex: primaryHex, motion: motion, type: type };
+            if(aiDesc) res.desc = aiDesc;
+            
+            return res;
         }
         
         function countLitPixels(f) {
@@ -564,7 +608,7 @@
                 const f = frames[Math.floor(p * (frames.length-1))];
                 return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
             });
-            const prompt = `LED Strip (10 Segs, Top=0, Bot=9). T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe motion/texture (e.g. Red Chase Up, Multi Random).`;
+            const prompt = `LED Strip. T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe visual. Max 3 words.`;
             try {
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
@@ -572,12 +616,12 @@
                     body: JSON.stringify({
                         model: "deepseek/deepseek-chat",
                         messages: [{role: "user", content: prompt}],
-                        max_tokens: 15
+                        max_tokens: 10
                     })
                 });
                 const data = await res.json();
                 return data.choices[0].message.content.trim();
-            } catch(e) { return "AI Error"; }
+            } catch(e) { return ""; }
         }
 
         function updateLog() {
