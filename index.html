@@ -3,594 +3,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Control Hub v2</title>
+    <title>Light Capability Scanner</title>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-blue: #3b82f6;
-            --accent-purple: #8b5cf6;
-            --accent-orange: #f97316;
-            --accent-yellow: #eab308;
-            --danger: #ef4444;
+            --bg-color: #111;
+            --panel-bg: #222;
+            --text-color: #eee;
+            --accent: #0ea5e9;
             --success: #22c55e;
+            --danger: #ef4444;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
+            font-family: monospace;
+            background: var(--bg-color);
+            color: var(--text-color);
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
-        /* HEADER */
-        header {
-            width: 100%;
-            max-width: 800px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #334155;
-        }
-
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; }
-        .status { font-size: 0.8rem; color: var(--text-muted); display:flex; align-items:center; gap:5px;}
-        .dot { width: 8px; height: 8px; background: #64748b; border-radius: 50%; }
-        .dot.connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
-
-        /* PROTOCOL SELECTOR */
-        select {
-            background: var(--card-bg);
-            color: var(--text-main);
-            border: 1px solid #475569;
-            padding: 5px 10px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-        }
-
-        /* DASHBOARD GRID */
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            width: 100%;
-            max-width: 800px;
-            margin-bottom: 30px;
-        }
-
-        .card {
-            background: var(--card-bg);
+        /* CARD STYLE */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid #333;
+            border-radius: 8px;
             padding: 20px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 2px solid transparent;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .card:hover { transform: translateY(-2px); background: #334155; }
-        .card.active { border-color: var(--active-color); background: #334155; box-shadow: 0 0 20px rgba(0,0,0,0.3); }
-        
-        .card-icon { font-size: 2rem; }
-        .card-title { font-weight: 600; font-size: 1rem; }
-
-        /* ACTIVE CONTROLS AREA */
-        .control-panel {
-            width: 100%;
-            max-width: 800px;
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 30px;
-            min-height: 200px;
-            display: none; /* Hidden until mode selected */
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             margin-bottom: 20px;
         }
-        .control-panel.visible { display: flex; }
 
-        .panel-header { width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid #334155; padding-bottom:10px; }
-        .panel-title { font-size: 1.2rem; font-weight:bold; color: var(--active-color); display:flex; align-items:center; gap:10px;}
-
-        /* SLIDERS & INPUTS */
-        .setting-row {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-        input[type="range"] { flex: 1; margin: 0 15px; accent-color: var(--active-color); cursor: pointer; }
+        h2 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 10px; font-size: 1.2rem; }
         
-        /* VISUALIZER */
-        canvas {
-            width: 100%;
-            height: 80px;
-            background: #0f172a;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        /* AUDIO PLAYER */
-        .audio-dock {
-            width: 100%;
-            max-width: 800px;
-            background: #111;
-            border-radius: 12px;
-            padding: 15px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            border: 1px solid #333;
-        }
-        
-        /* CONNECT BUTTON */
-        .btn-connect {
-            background: var(--accent-blue);
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+            background: #333;
             color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
+            border: 1px solid #555;
+            border-radius: 4px;
+            font-family: inherit;
         }
-        .btn-connect:hover { opacity: 0.9; }
-
-        /* HIDE FILE INPUT */
-        .file-upload {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-        }
-        .btn-upload {
-            border: 1px solid #444;
-            color: #ccc;
-            background: #222;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        .file-upload input[type=file] {
-            font-size: 100px;
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            cursor: pointer;
+        button:hover { background: #444; }
+        button.primary { background: var(--accent); border-color: var(--accent); }
+        button.success { background: var(--success); border-color: var(--success); }
+        
+        input, select {
+            background: #111;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: inherit;
         }
 
-        /* CONTROL BUTTONS */
-        .btn-stop { background: var(--danger); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-on { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        /* GRID LAYOUTS */
+        .control-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        /* OUTPUT BOX */
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #333;
+            font-family: monospace;
+            font-size: 0.8rem;
+            padding: 10px;
+            box-sizing: border-box;
+        }
 
+        .highlight { color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <header>
-        <div style="display:flex; flex-direction:column;">
-            <h1>Light Control Hub</h1>
-            <div class="status"><div class="dot" id="statusDot"></div> <span id="statusText">Disconnected</span></div>
-        </div>
-        <div style="display:flex; gap:10px;">
-            <select id="protocolSelect">
-                <option value="1">Protocol: Lotus/Keepsmile</option>
-                <option value="0">Protocol: ELK-BLEDOM</option>
+    <h1>🔦 Light Scanner</h1>
+    
+    <!-- 1. CONNECT -->
+    <div class="panel">
+        <h2>1. Connection & Protocol</h2>
+        <div class="control-row">
+            <select id="protocol" style="flex:1">
+                <option value="1">Protocol: Lotus (Keepsmile)</option>
+                <option value="0">Protocol: ELK (Standard)</option>
                 <option value="2">Protocol: Triones</option>
             </select>
-            <button class="btn-connect" id="connectBtn">📡 Connect</button>
+            <button id="connectBtn" class="primary">Connect</button>
         </div>
-    </header>
-
-    <!-- MODE CARDS -->
-    <div class="dashboard">
-        <div class="card" onclick="activateMode('music')" style="--active-color: var(--accent-purple)">
-            <div class="card-icon">🎵</div>
-            <div class="card-title">Beat Sync</div>
-        </div>
-        <div class="card" onclick="activateMode('thunder')" style="--active-color: var(--accent-blue)">
-            <div class="card-icon">🌩️</div>
-            <div class="card-title">Thunderstorm</div>
-        </div>
-        <div class="card" onclick="activateMode('sunrise')" style="--active-color: var(--accent-orange)">
-            <div class="card-icon">🌅</div>
-            <div class="card-title">Sunrise</div>
-        </div>
-        <div class="card" onclick="activateMode('manual')" style="--active-color: var(--success)">
-            <div class="card-icon">🎨</div>
-            <div class="card-title">Manual Color</div>
-        </div>
+        <div id="status" style="color: #666; font-size: 0.8rem;">Status: Disconnected</div>
     </div>
 
-    <!-- PANEL: MUSIC SYNC -->
-    <div id="panel-music" class="control-panel" style="--active-color: var(--accent-purple)">
-        <div class="panel-header">
-            <div class="panel-title">🎵 Beat Sync</div>
-            <button class="btn-stop" onclick="stopAll()">⏹ STOP</button>
+    <!-- 2. COLOR CALIBRATION -->
+    <div class="panel">
+        <h2>2. Color Calibration</h2>
+        <p style="font-size:0.8rem; color:#aaa;">Click RED. If light is not Red, change Byte Order.</p>
+        <div class="control-row">
+            <button onclick="sendColor(255,0,0)" style="border-left: 5px solid red;">Send RED</button>
+            <button onclick="sendColor(0,255,0)" style="border-left: 5px solid green;">Send GREEN</button>
+            <button onclick="sendColor(0,0,255)" style="border-left: 5px solid blue;">Send BLUE</button>
         </div>
-        <p style="color:#aaa; font-size:0.9rem; margin-top:0;">Lights pulse to the bass automatically. Upload audio below for best results.</p>
-        
-        <div class="setting-row">
-            <span>Bass Sensitivity</span>
-            <input type="range" id="musicSens" min="150" max="250" value="210" style="direction:rtl">
-        </div>
-        <div class="setting-row">
-            <span>Color Palette</span>
-            <select id="musicPalette" style="flex:1; margin-left:15px;">
-                <option value="party">Party (RGBY)</option>
-                <option value="cool">Cool (Blue/Cyan/Purple)</option>
-                <option value="warm">Warm (Red/Orange/Yellow)</option>
+        <div class="control-row">
+            <label>Byte Order:</label>
+            <select id="byteOrder" onchange="testColor()">
+                <option value="RGB">RGB (Standard)</option>
+                <option value="GRB">GRB (Swapped)</option>
+                <option value="BGR">BGR (Swapped)</option>
             </select>
         </div>
     </div>
 
-    <!-- PANEL: THUNDERSTORM -->
-    <div id="panel-thunder" class="control-panel" style="--active-color: var(--accent-blue)">
-        <div class="panel-header">
-            <div class="panel-title">🌩️ Thunderstorm</div>
-            <button class="btn-stop" onclick="stopAll()">⏹ STOP</button>
-        </div>
-        <p id="thunderStatus" style="color:#aaa; font-size:0.9rem; margin-top:0;">Mode: Random (Auto-switches if audio plays)</p>
-
-        <div class="setting-row">
-            <span>Storm Intensity (Random Mode)</span>
-            <input type="range" id="thunderFreq" min="100" max="3000" value="1000" style="direction:rtl">
-        </div>
-        <div class="setting-row">
-            <span>Audio Trigger Sensitivity</span>
-            <input type="range" id="thunderSens" min="50" max="200" value="120" style="direction:rtl">
-        </div>
-        <div class="setting-row">
-            <span>Flash Color</span>
-            <input type="color" id="thunderColor" value="#a5f3fc" style="width:50px; height:30px; border:none;">
-        </div>
-    </div>
-
-    <!-- PANEL: SUNRISE -->
-    <div id="panel-sunrise" class="control-panel" style="--active-color: var(--accent-orange)">
-        <div class="panel-header">
-            <div class="panel-title">🌅 Sunrise</div>
-            <button class="btn-stop" onclick="stopAll()">⏹ STOP</button>
-        </div>
-        <p id="sunriseStatus" style="color:#aaa; font-size:0.9rem; margin-top:0;">Gradual fade: Blue -> Purple -> Orange -> White</p>
-
-        <div class="setting-row">
-            <span>Duration</span>
-            <input type="range" id="sunriseDur" min="10" max="300" value="60" oninput="document.getElementById('durVal').innerText = this.value + 's'">
-            <span id="durVal" style="width:40px; text-align:right;">60s</span>
-        </div>
+    <!-- 3. MODE DISCOVERY -->
+    <div class="panel">
+        <h2>3. Mode Discovery</h2>
         
-        <button class="btn-connect" style="background:var(--accent-orange); width:100%; margin-top:10px;" onclick="startSunrise()">☀️ Start Sunrise</button>
-    </div>
+        <div class="control-row" style="justify-content: space-between; background: #000; padding: 10px; border-radius: 6px;">
+            <button onclick="changeMode(-1)">◀ Prev</button>
+            <span style="font-size:1.5rem; font-weight:bold;" id="modeDisplay">Mode 1</span>
+            <button onclick="changeMode(1)">Next ▶</button>
+        </div>
 
-    <!-- PANEL: MANUAL -->
-    <div id="panel-manual" class="control-panel" style="--active-color: var(--success)">
-        <div class="panel-header">
-            <div class="panel-title">🎨 Manual Control</div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn-on" onclick="sendOn()">🟢 ON</button>
-                <button class="btn-stop" onclick="sendOff()">⚫ OFF</button>
+        <div class="control-row">
+            <button onclick="testMode()" style="flex:1">Test Again</button>
+            <button id="scanBtn" onclick="toggleScan()" style="flex:1">▶ Auto-Scan</button>
+        </div>
+
+        <div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 15px;">
+            <label style="font-size:0.8rem; display:block; margin-bottom:5px;">What do you see?</label>
+            <div class="control-row">
+                <input type="text" id="descInput" placeholder="e.g. Red Stacking, Blue Fire..." style="flex:1;">
+                <button class="success" onclick="saveEntry()">Save Entry</button>
             </div>
         </div>
-        <input type="color" id="manualColor" value="#ff0000" style="width:100%; height:100px; border:none; cursor:pointer;" oninput="sendHex(this.value)">
     </div>
 
-    <!-- AUDIO DOCK -->
-    <div class="audio-dock">
-        <div class="file-upload">
-            <button class="btn-upload">📂 Upload Audio</button>
-            <input type="file" id="audioFile" accept="audio/*">
+    <!-- 4. LIBRARY OUTPUT -->
+    <div class="panel">
+        <h2>4. Library Output</h2>
+        <p style="font-size:0.8rem; color:#aaa;">Copy this code and paste it to the AI.</p>
+        <textarea id="outputArea" readonly>// Detected Capabilities:
+{
+  "protocol": "lotus",
+  "order": "RGB",
+  "modes": {}
+}</textarea>
+        <div class="control-row" style="margin-top:10px;">
+            <button onclick="copyToClipboard()" style="width:100%">Copy to Clipboard</button>
         </div>
-        <audio id="audioPlayer" controls style="flex:1; height:40px;"></audio>
     </div>
-    
-    <canvas id="visualizer"></canvas>
 
     <script>
-        // --- CONFIG ---
+        // --- DATA ---
+        let device, characteristic;
+        let currentMode = 1;
+        let library = {
+            protocol: "lotus",
+            order: "RGB",
+            modes: {}
+        };
+        let scanInterval = null;
+
+        // --- PROTOCOLS ---
         const PROTOCOLS = [
-            { 
-                name: "ELK", 
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]),
-                on: new Uint8Array([0xcc, 0x23, 0x33]) 
-            },
-            { 
-                name: "Lotus", 
-                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
-                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]),
-                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef])
-            },
-            { 
-                name: "Triones", 
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]),
-                on: new Uint8Array([0xcc, 0x23, 0x33])
-            }
+            { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
+            { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
+            { name: "triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
         ];
 
-        // --- STATE ---
-        let device, characteristic;
-        let activeMode = null; 
-        let loopId = null;
-        let audioCtx, analyser, dataArray;
-        let isAudioInit = false;
-        let lastBeatTime = 0;
-        
-        // --- UI LOGIC ---
-        function activateMode(mode) {
-            // Reset UI
-            stopAll();
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.control-panel').forEach(p => p.classList.remove('visible'));
-            
-            // Set Active
-            activeMode = mode;
-            document.getElementById('panel-'+mode).classList.add('visible');
-            // Find card
-            const cards = document.querySelectorAll('.card');
-            if(mode === 'music') cards[0].classList.add('active');
-            if(mode === 'thunder') cards[1].classList.add('active');
-            if(mode === 'sunrise') cards[2].classList.add('active');
-            if(mode === 'manual') cards[3].classList.add('active');
-
-            // Force ON when entering any mode
-            sendOn();
-
-            // Start Logic
-            if(mode === 'music' || mode === 'thunder') startLoop();
-        }
-
-        function stopAll() {
-            if(loopId) cancelAnimationFrame(loopId);
-            loopId = null;
-            activeMode = null;
-        }
-
         // --- BLUETOOTH ---
-        async function connect() {
+        document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
-                if (!navigator.bluetooth) throw new Error("Bluetooth not supported in this browser.");
+                if (!navigator.bluetooth) throw new Error("Bluetooth not supported.");
+                document.getElementById('status').innerText = "Status: Scanning...";
+                
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
+
                 const server = await device.gatt.connect();
-                // Scan services
+                
+                // Find service (Standard UUIDs)
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
-                if(!service) throw new Error("Service not found");
-                
+                if(!service) throw new Error("No service found");
+
                 const charUUIDs = ['0000ffd9-0000-1000-8000-00805f9b34fb', '0000ffe9-0000-1000-8000-00805f9b34fb', '0000fff3-0000-1000-8000-00805f9b34fb'];
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
-                
+
                 if(characteristic) {
-                    document.getElementById('statusDot').classList.add('connected');
-                    document.getElementById('statusText').innerText = "Connected: " + device.name;
-                    document.getElementById('connectBtn').style.display = 'none';
+                    document.getElementById('status').innerText = "Status: Connected to " + device.name;
+                    document.getElementById('status').style.color = "#22c55e";
                     
-                    // AUTO-WAKE: Send ON immediately upon connection
-                    setTimeout(() => sendOn(), 500);
+                    // Update library protocol
+                    const pIndex = document.getElementById('protocol').value;
+                    library.protocol = PROTOCOLS[pIndex].name;
+                    updateOutput();
                 }
-            } catch(e) { alert(e.message); }
-        }
-        document.getElementById('connectBtn').addEventListener('click', connect);
-
-        async function sendRGB(r, g, b) {
-            if(!characteristic) return;
-            const pid = document.getElementById('protocolSelect').value;
-            const data = PROTOCOLS[pid].write(r,g,b);
-            try { await characteristic.writeValue(data); } catch(e){}
-        }
-        async function sendOff() {
-            if(!characteristic) return;
-            const pid = document.getElementById('protocolSelect').value;
-            try { await characteristic.writeValue(PROTOCOLS[pid].off); } catch(e){}
-        }
-        async function sendOn() {
-            if(!characteristic) return;
-            const pid = document.getElementById('protocolSelect').value;
-            try { 
-                await characteristic.writeValue(PROTOCOLS[pid].on); 
-                console.log("Sent ON command");
-            } catch(e){}
-        }
-        function sendHex(hex) {
-            const r = parseInt(hex.substring(1,3),16);
-            const g = parseInt(hex.substring(3,5),16);
-            const b = parseInt(hex.substring(5,7),16);
-            sendRGB(r,g,b);
-        }
-
-        // --- AUDIO ENGINE ---
-        const audioPlayer = document.getElementById('audioPlayer');
-        document.getElementById('audioFile').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if(file) {
-                audioPlayer.src = URL.createObjectURL(file);
-                if(!isAudioInit) initAudio();
+            } catch(e) { 
+                document.getElementById('status').innerText = "Error: " + e.message;
             }
         });
 
-        function initAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            const source = audioCtx.createMediaElementSource(audioPlayer);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            analyser.fftSize = 256;
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            isAudioInit = true;
+        // --- COMMANDS ---
+        async function sendColor(r, g, b) {
+            if(!characteristic) return;
+            
+            // Apply Byte Order
+            const order = document.getElementById('byteOrder').value;
+            let finalR = r, finalG = g, finalB = b;
+            
+            if(order === 'GRB') { finalR = g; finalG = r; finalB = b; }
+            if(order === 'BGR') { finalR = b; finalG = g; finalB = r; }
+            
+            library.order = order;
+            updateOutput();
+
+            const pIndex = document.getElementById('protocol').value;
+            const data = PROTOCOLS[pIndex].write(finalR, finalG, finalB);
+            try { await characteristic.writeValue(data); } catch(e){}
         }
 
-        // --- MAIN LOOP ---
-        function startLoop() {
-            if(loopId) cancelAnimationFrame(loopId);
+        async function testMode() {
+            if(!characteristic) return;
+            const pIndex = document.getElementById('protocol').value;
+            const data = PROTOCOLS[pIndex].setMode(currentMode);
+            try { await characteristic.writeValue(data); } catch(e){}
+        }
+
+        // --- UI LOGIC ---
+        function changeMode(delta) {
+            currentMode += delta;
+            if(currentMode < 1) currentMode = 200;
+            if(currentMode > 200) currentMode = 1;
             
-            // Shared Vars
-            let thunderNextFlash = Date.now() + Math.random() * 2000;
-            const canvas = document.getElementById('visualizer');
-            const ctx = canvas.getContext('2d');
-            const beatColors = {
-                'party': [[255,0,0], [0,255,0], [0,0,255], [255,255,0]],
-                'cool': [[0,0,255], [0,255,255], [138,43,226]],
-                'warm': [[255,0,0], [255,165,0], [255,255,0]]
-            };
-            let beatIdx = 0;
+            document.getElementById('modeDisplay').innerText = "Mode " + currentMode;
+            document.getElementById('descInput').value = library.modes[currentMode] || ""; // Load existing if saved
+            testMode();
+        }
 
-            function loop() {
-                const now = Date.now();
-                
-                // Audio Data
-                let bassAvg = 0;
-                let trebleAvg = 0;
-                let isPlaying = !audioPlayer.paused;
+        function saveEntry() {
+            const desc = document.getElementById('descInput').value;
+            if(!desc) return;
+            
+            library.modes[currentMode] = desc;
+            updateOutput();
+            
+            // Visual feedback
+            const btn = document.querySelector('button.success');
+            const originalText = btn.innerText;
+            btn.innerText = "Saved!";
+            setTimeout(() => btn.innerText = originalText, 1000);
+        }
 
-                if (isAudioInit) {
-                    analyser.getByteFrequencyData(dataArray);
-                    // Draw Vis
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(0,0,canvas.width, canvas.height);
-                    const barW = canvas.width / dataArray.length * 2.5;
-                    for(let i=0; i<dataArray.length; i++) {
-                        const h = dataArray[i]/2;
-                        ctx.fillStyle = `rgb(${h+50}, ${100}, ${200})`;
-                        ctx.fillRect(i*barW, canvas.height-h, barW, h);
-                    }
-                    
-                    // Calc Levels
-                    for(let i=0; i<5; i++) bassAvg += dataArray[i];
-                    bassAvg /= 5;
-                    for(let i=80; i<100; i++) trebleAvg += dataArray[i];
-                    trebleAvg /= 20;
-                }
+        function updateOutput() {
+            document.getElementById('outputArea').value = JSON.stringify(library, null, 2);
+        }
 
-                // --- MODE LOGIC ---
-                
-                if (activeMode === 'music') {
-                    const sens = document.getElementById('musicSens').value;
-                    const paletteName = document.getElementById('musicPalette').value;
-                    const palette = beatColors[paletteName];
+        function copyToClipboard() {
+            const copyText = document.getElementById("outputArea");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Copied to clipboard!");
+        }
 
-                    if (bassAvg > sens && (now - lastBeatTime > 150)) {
-                        const col = palette[beatIdx % palette.length];
-                        sendRGB(col[0], col[1], col[2]);
-                        beatIdx++;
-                        lastBeatTime = now;
-                    }
-                }
-                
-                else if (activeMode === 'thunder') {
-                    const statusTxt = document.getElementById('thunderStatus');
-                    const stormColorHex = document.getElementById('thunderColor').value;
-                    const r = parseInt(stormColorHex.substring(1,3),16);
-                    const g = parseInt(stormColorHex.substring(3,5),16);
-                    const b = parseInt(stormColorHex.substring(5,7),16);
-
-                    if (isPlaying) {
-                        // AUDIO SYNC THUNDER
-                        statusTxt.innerText = "Mode: Audio Sync (Listening for cracks...)";
-                        const sens = document.getElementById('thunderSens').value;
-                        
-                        // Thunder is usually a mix of low rumble and high crack. We check spikes.
-                        // Simplified: High volume + Treble spike
-                        if (bassAvg > sens && trebleAvg > (sens/2) && (now - lastBeatTime > 200)) {
-                            // FLASH
-                            sendRGB(255, 255, 255); // Bright white flash
-                            setTimeout(() => sendRGB(r, g, b), 50); // Fade to storm color
-                            setTimeout(() => sendOff(), 150); // Then off (or dim)
-                            lastBeatTime = now;
-                        }
-                    } else {
-                        // RANDOM THUNDER
-                        statusTxt.innerText = "Mode: Random (Auto-generating...)";
-                        const freq = document.getElementById('thunderFreq').value; // 100(fast) to 3000(slow)
-                        
-                        // Logic: Wait for timer
-                        if (now > thunderNextFlash) {
-                            // Flash sequence
-                            sendRGB(255, 255, 255);
-                            setTimeout(() => sendRGB(r,g,b), 60);
-                            setTimeout(() => sendOff(), 150);
-                            
-                            // Double strike chance
-                            if(Math.random() > 0.7) {
-                                setTimeout(() => sendRGB(255,255,255), 250);
-                                setTimeout(() => sendOff(), 350);
-                            }
-
-                            thunderNextFlash = now + parseInt(freq) + (Math.random() * 2000);
-                        }
-                    }
-                }
-
-                loopId = requestAnimationFrame(loop);
+        function toggleScan() {
+            const btn = document.getElementById('scanBtn');
+            if(scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+                btn.innerText = "▶ Auto-Scan";
+                btn.style.background = "#333";
+            } else {
+                btn.innerText = "⏹ STOP";
+                btn.style.background = "#ef4444";
+                scanInterval = setInterval(() => {
+                    changeMode(1);
+                }, 2000); // 2 seconds per mode
             }
-            loop();
-        }
-
-        // --- SUNRISE LOGIC (Separate Timer) ---
-        let sunriseInterval = null;
-        function startSunrise() {
-            if(sunriseInterval) clearInterval(sunriseInterval);
-            
-            const totalDur = parseInt(document.getElementById('sunriseDur').value) * 1000;
-            // Or use audio duration if playing
-            const dur = (!audioPlayer.paused && audioPlayer.duration) ? (audioPlayer.duration * 1000) : totalDur;
-            
-            const startTime = Date.now();
-            
-            // Gradient Keyframes (Percent -> Color)
-            // 0: #000022 (Dark Blue)
-            // 25: #4b0082 (Purple)
-            // 50: #ff4500 (Orange Red)
-            // 75: #ffd700 (Gold)
-            // 100: #ffffff (White)
-            
-            sunriseInterval = setInterval(() => {
-                const elapsed = Date.now() - startTime;
-                let prog = elapsed / dur;
-                if(prog > 1) { prog = 1; clearInterval(sunriseInterval); }
-                
-                // Simple lerp logic for smooth transition
-                let r, g, b;
-                
-                if (prog < 0.25) { // Dark Blue -> Purple
-                    const p = prog / 0.25;
-                    r = p * 75; g = 0; b = 34 + (p * 96);
-                } else if (prog < 0.5) { // Purple -> Orange
-                    const p = (prog - 0.25) / 0.25;
-                    r = 75 + (p * 180); g = p * 69; b = 130 - (p * 130);
-                } else if (prog < 0.75) { // Orange -> Gold
-                    const p = (prog - 0.5) / 0.25;
-                    r = 255; g = 69 + (p * 146); b = 0;
-                } else { // Gold -> White
-                    const p = (prog - 0.75) / 0.25;
-                    r = 255; g = 215 + (p * 40); b = p * 255;
-                }
-                
-                sendRGB(Math.floor(r), Math.floor(g), Math.floor(b));
-                
-            }, 100); // Update every 100ms
         }
 
     </script>
