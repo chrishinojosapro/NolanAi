@@ -3,131 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lotus Protocol Fuzzer</title>
+    <title>Touch Sync Bridge v1</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
-            --bg: #050505;
-            --panel: #111111;
-            --accent: #ff0055;
-            --text: #ffffff;
+            --bg: #09090b;
+            --panel: #18181b;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --touch: #ef4444;
+            --text: #f4f4f5;
         }
 
         body {
-            font-family: monospace;
+            font-family: system-ui, -apple-system, sans-serif;
             background: var(--bg);
             color: var(--text);
+            margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        .terminal {
-            width: 100%;
-            max-width: 500px;
-            background: var(--panel);
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 0 50px rgba(255, 0, 85, 0.1);
-        }
+        /* LANDING */
+        #setup { display: flex; flex-direction: column; gap: 20px; text-align: center; padding: 50px 20px; }
+        .btn-big { padding: 20px 40px; font-size: 1.2rem; border-radius: 16px; border: none; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .btn-host { background: var(--accent); color: white; }
+        .btn-client { background: var(--success); color: white; }
 
-        .byte-display {
-            display: grid;
-            grid-template-columns: repeat(9, 1fr);
-            gap: 5px;
-            margin: 20px 0;
-        }
-
-        .byte-box {
-            background: #000;
-            border: 1px solid #444;
-            padding: 10px 0;
-            text-align: center;
-            font-size: 0.8rem;
-            border-radius: 4px;
-        }
-        .byte-box.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 10px rgba(255, 0, 85, 0.3); }
-
-        button {
-            width: 100%;
-            padding: 15px;
-            background: #222;
-            color: white;
-            border: 1px solid #444;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        button.primary { background: var(--accent); border-color: var(--accent); }
+        /* HOST UI */
+        #hostUI { display: none; width: 100%; max-width: 600px; padding: 30px; }
+        .card { background: var(--panel); border: 1px solid #27272a; padding: 25px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #qrbox { background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0; }
         
-        .log {
-            height: 120px;
-            background: #000;
-            border: 1px solid #222;
-            padding: 10px;
-            font-size: 0.7rem;
-            overflow-y: auto;
-            color: #666;
-            margin-top: 20px;
+        /* CLIENT UI */
+        #clientUI { display: none; width: 100%; height: 100vh; position: relative; background: #000; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #sensorOverlay {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px; height: 120px;
+            border: 4px dashed white;
+            border-radius: 20px;
+            box-shadow: 0 0 0 5000px rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.1s;
         }
-
-        .slider-group {
-            text-align: left;
-            margin-bottom: 20px;
-        }
-        label { font-size: 0.7rem; color: #888; display: block; margin-bottom: 5px;}
-        input[type=range] { width: 100%; accent-color: var(--accent); }
+        #sensorOverlay.detected { border-color: var(--touch); border-style: solid; transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 50px var(--touch), 0 0 0 5000px rgba(239, 68, 68, 0.2); }
+        
+        .hud { position: absolute; bottom: 30px; left: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px; font-family: monospace; font-size: 0.8rem; }
+        
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 10px; border: 2px solid #fff; }
+        
+        #log { height: 100px; overflow-y: auto; background: #000; padding: 10px; border-radius: 8px; font-size: 0.7rem; color: #71717a; margin-top: 15px; text-align: left;}
     </style>
 </head>
 <body>
 
-    <div class="terminal">
-        <h1 style="font-size:1rem; margin:0; letter-spacing:2px;">PROTOCOL FUZZER</h1>
-        <p style="font-size:0.7rem; color:#666; margin-bottom:20px;">Searching for hidden Segment/Pixel bytes...</p>
+    <!-- Setup Choice -->
+    <div id="setup">
+        <h1>Touch Sync Bridge</h1>
+        <p style="color: #71717a;">Create an optical touch sensor for your light bar.</p>
+        <button class="btn-big btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
+        <p style="font-size: 0.8rem; color: #3f3f46;">Point your phone at the light bar to detect touch.</p>
+    </div>
 
-        <button class="primary" onclick="connect()" id="connBtn">1. INITIALIZE LINK</button>
-
-        <div class="byte-display" id="byteContainer">
-            <!-- 9 Bytes -->
-            <div class="byte-box" id="b0">7E</div>
-            <div class="byte-box" id="b1">07</div>
-            <div class="byte-box" id="b2">05</div>
-            <div class="byte-box" id="b3">03</div>
-            <div class="byte-box" id="b4">FF</div>
-            <div class="byte-box" id="b5">00</div>
-            <div class="byte-box" id="b6">00</div>
-            <div class="byte-box" id="b7">00</div>
-            <div class="byte-box" id="b8">EF</div>
+    <!-- HOST INTERFACE -->
+    <div id="hostUI">
+        <div class="card">
+            <h2 style="margin:0 0 10px 0;">1. Connect Light</h2>
+            <select id="protocol" style="width:100%; padding:12px; background:#000; color:#fff; border:1px solid #3f3f46; border-radius:8px; margin-bottom:10px;">
+                <option value="1">Protocol: Lotus (Keepsmile)</option>
+                <option value="0">Protocol: ELK-BLEDOM</option>
+            </select>
+            <button class="btn-big btn-host" style="width:100%; padding:12px;" onclick="connectBT()" id="btBtn">📡 Connect Bluetooth</button>
         </div>
 
-        <div class="slider-group">
-            <label>FUZZ SPEED (Current: <span id="spdVal">200</span>ms)</label>
-            <input type="range" id="speed" min="50" max="1000" value="200" oninput="document.getElementById('spdVal').innerText=this.value">
+        <div class="card" style="text-align:center;">
+            <h2 style="margin:0;">2. Link Phone Sensor</h2>
+            <div id="qrbox"></div>
+            <p id="connStatus" style="color:var(--touch); font-weight:bold;">Waiting for connection...</p>
         </div>
 
-        <button onclick="toggleFuzz()" id="fuzzBtn">🎲 START DEEP FUZZ</button>
-        <button style="color:var(--accent)" onclick="resetLights()">RESET LIGHTS</button>
+        <div class="card">
+            <h2 style="margin:0;">Active Color</h2>
+            <div style="margin-top:15px; font-size:1.5rem; font-weight:bold; display:flex; align-items:center; justify-content:center;">
+                <div id="colorIndicator" class="color-dot" style="background:#ff0000; width:40px; height:40px;"></div>
+                <span id="colorName">RED</span>
+            </div>
+            <div id="log">SYSTEM LOG: Ready</div>
+        </div>
+    </div>
 
-        <div class="log" id="log">SYSTEM READY...</div>
+    <!-- CLIENT INTERFACE -->
+    <div id="clientUI">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="sensorOverlay">
+            <div style="color:white; font-size:0.6rem; text-align:center; font-weight:bold; text-transform:uppercase;">Sensor Area</div>
+        </div>
+        <div class="hud">
+            <div id="hudStatus">Initializing Camera...</div>
+            <div style="margin-top:5px; display:flex; justify-content:space-between;">
+                <span>LUM: <b id="lumVal">0</b></span>
+                <span>THRESH: <b id="threshVal">0</b></span>
+            </div>
+        </div>
+        <canvas id="procCanvas" style="display:none;"></canvas>
     </div>
 
     <script>
-        let device, characteristic;
-        let isFuzzing = false;
-        let fuzzInt;
-        let currentByteToFuzz = 7; // We start at Byte 7 (Address/Index)
-        let val = 0;
+        // --- CONSTANTS ---
+        const COLORS = [
+            { name: "RED", rgb: [255, 0, 0] },
+            { name: "GREEN", rgb: [0, 255, 0] },
+            { name: "BLUE", rgb: [0, 0, 255] },
+            { name: "PURPLE", rgb: [255, 0, 255] },
+            { name: "CYAN", rgb: [0, 255, 255] },
+            { name: "YELLOW", rgb: [255, 255, 0] },
+            { name: "WHITE", rgb: [255, 255, 255] }
+        ];
 
-        function log(msg) {
-            const l = document.getElementById('log');
-            l.innerHTML = `> ${msg}<br>` + l.innerHTML;
+        const PROTOCOLS = [
+            { name: "ELK", on: [0xcc, 0x23, 0x33], write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]) },
+            { name: "Lotus", on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef], write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]) }
+        ];
+
+        // --- STATE ---
+        let peer, conn, bleChar;
+        let currentColorIdx = 0;
+        let isHost = false;
+
+        // --- INIT ---
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('host')) initClient(urlParams.get('host'));
+
+        // --- HOST LOGIC ---
+        function initHost() {
+            isHost = true;
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('hostUI').style.display = 'block';
+            
+            peer = new Peer();
+            peer.on('open', (id) => {
+                const url = `${window.location.href.split('?')[0]}?host=${id}`;
+                new QRCode(document.getElementById("qrbox"), { text: url, width: 160, height: 160 });
+                console.log("Host ID:", id);
+            });
+
+            peer.on('connection', (c) => {
+                conn = c;
+                document.getElementById('connStatus').innerText = "📱 PHONE SENSOR LINKED";
+                document.getElementById('connStatus').style.color = "#22c55e";
+                setupDataListener();
+            });
         }
 
-        async function connect() {
+        function setupDataListener() {
+            conn.on('data', (data) => {
+                if (data === 'TOUCH') {
+                    cycleColor();
+                }
+            });
+        }
+
+        async function connectBT() {
             try {
-                device = await navigator.bluetooth.requestDevice({
+                const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb']
                 });
@@ -136,78 +180,109 @@
                 for(let s of services) {
                     const chars = await s.getCharacteristics();
                     for(let c of chars) {
-                        if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; }
+                        if(c.properties.write || c.properties.writeWithoutResponse) { bleChar = c; break; }
                     }
                 }
-                document.getElementById('connBtn').innerText = "CONNECTED";
-                document.getElementById('connBtn').style.background = "#22c55e";
-                log("Connected to hardware.");
-            } catch(e) { log("ERR: " + e.message); }
+                if(bleChar) {
+                    document.getElementById('btBtn').innerText = "CONNECTED";
+                    document.getElementById('btBtn').style.background = "#22c55e";
+                    const p = PROTOCOLS[document.getElementById('protocol').value];
+                    await bleChar.writeValue(new Uint8Array(p.on));
+                    cycleColor(); // Set initial red
+                }
+            } catch(e) { alert(e.message); }
         }
 
-        function toggleFuzz() {
-            if(isFuzzing) stop(); else start();
-        }
-
-        function start() {
-            if(!characteristic) return alert("Connect first!");
-            isFuzzing = true;
-            document.getElementById('fuzzBtn').innerText = "⏹ STOP (WATCH LIGHTS!)";
-            document.getElementById('fuzzBtn').style.background = "white";
-            document.getElementById('fuzzBtn').style.color = "black";
+        async function cycleColor() {
+            currentColorIdx = (currentColorIdx + 1) % COLORS.length;
+            const c = COLORS[currentColorIdx];
             
-            // Fuzz through potential command bytes (Byte 4, 5, 6, 7)
-            // 7E 07 05 03 [R] [G] [B] [IDX] EF
-            runFuzz();
-        }
+            // UI
+            document.getElementById('colorIndicator').style.background = `rgb(${c.rgb.join(',')})`;
+            document.getElementById('colorName').innerText = c.name;
+            const log = document.getElementById('log');
+            log.innerHTML = `> TOUCH DETECTED: Switched to ${c.name}<br>` + log.innerHTML;
 
-        function stop() {
-            isFuzzing = false;
-            clearTimeout(fuzzInt);
-            document.getElementById('fuzzBtn').innerText = "🎲 START DEEP FUZZ";
-            document.getElementById('fuzzBtn').style.background = "";
-            document.getElementById('fuzzBtn').style.color = "";
-            log("Fuzz Halted.");
-        }
-
-        async function runFuzz() {
-            if(!isFuzzing) return;
-
-            // Generate Fuzz Data
-            // We keep Red on [Byte 4] and rotate Byte 7
-            val++;
-            if(val > 255) {
-                val = 0;
-                currentByteToFuzz--;
-                if(currentByteToFuzz < 5) currentByteToFuzz = 7;
+            // BT
+            if (bleChar) {
+                const p = PROTOCOLS[document.getElementById('protocol').value];
+                await bleChar.writeValue(p.write(c.rgb[0], c.rgb[1], c.rgb[2]));
             }
-
-            const cmd = new Uint8Array([0x7e, 0x07, 0x05, 0x03, 0xff, 0x00, 0x00, 0x00, 0xef]);
-            cmd[currentByteToFuzz] = val;
-
-            // Update UI
-            for(let i=0; i<9; i++) {
-                const el = document.getElementById('b'+i);
-                el.innerText = cmd[i].toString(16).toUpperCase().padStart(2, '0');
-                el.classList.remove('active');
-            }
-            document.getElementById('b'+currentByteToFuzz).classList.add('active');
-
-            try {
-                await characteristic.writeValue(cmd);
-            } catch(e){}
-
-            const spd = parseInt(document.getElementById('speed').value);
-            fuzzInt = setTimeout(runFuzz, spd);
         }
 
-        async function resetLights() {
-            if(!characteristic) return;
-            // Send standard "ON" and "RED" to clear glitches
+        // --- CLIENT LOGIC ---
+        let baselineLum = 0;
+        let touchLock = false;
+
+        async function initClient(hostId) {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('clientUI').style.display = 'block';
+
+            // Connect to Peer
+            peer = new Peer();
+            peer.on('open', () => {
+                conn = peer.connect(hostId);
+                conn.on('open', () => {
+                    document.getElementById('hudStatus').innerText = "LINKED TO LAPTOP";
+                    startVision();
+                });
+            });
+        }
+
+        async function startVision() {
             try {
-                await characteristic.writeValue(new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]));
-                await characteristic.writeValue(new Uint8Array([0x7e, 0x07, 0x05, 0x03, 0xff, 0x00, 0x00, 0x00, 0xef]));
-            } catch(e){}
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: 640, height: 480 } 
+                });
+                document.getElementById('video').srcObject = stream;
+                requestAnimationFrame(visionLoop);
+            } catch(e) { alert(e); }
+        }
+
+        function visionLoop() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('procCanvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const overlay = document.getElementById('sensorOverlay');
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Focus on center square
+                canvas.width = 50; canvas.height = 50;
+                const size = 100;
+                const startX = (video.videoWidth / 2) - (size / 2);
+                const startY = (video.videoHeight / 2) - (size / 2);
+                
+                ctx.drawImage(video, startX, startY, size, size, 0, 0, 50, 50);
+                const data = ctx.getImageData(0,0,50,50).data;
+                
+                let totalLum = 0;
+                for(let i=0; i<data.length; i+=4) {
+                    totalLum += (data[i] + data[i+1] + data[i+2]) / 3;
+                }
+                const currentLum = totalLum / (50 * 50);
+                
+                // Calibration
+                if (baselineLum === 0) baselineLum = currentLum;
+                // Slow drift adjustment (to handle ambient light changes)
+                baselineLum = (baselineLum * 0.99) + (currentLum * 0.01);
+
+                // TOUCH DETECTION
+                // If light drops significantly below average, it's blocked by a hand
+                const threshold = baselineLum * 0.45; // 55% drop in light
+                
+                if (currentLum < threshold && currentLum > 5) {
+                    if (!touchLock) {
+                        overlay.classList.add('detected');
+                        conn.send('TOUCH');
+                        touchLock = true;
+                        setTimeout(() => { touchLock = false; overlay.classList.remove('detected'); }, 800);
+                    }
+                }
+
+                document.getElementById('lumVal').innerText = Math.round(currentLum);
+                document.getElementById('threshVal').innerText = Math.round(threshold);
+            }
+            requestAnimationFrame(visionLoop);
         }
     </script>
 </body>
