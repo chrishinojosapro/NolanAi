@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v4 (Music Edition)</title>
+    <title>Universal LED Controller v5 (Magic Effects)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -13,6 +13,7 @@
             --danger-color: #ef4444;
             --success-color: #22c55e;
             --music-color: #f43f5e;
+            --magic-color: #06b6d4;
         }
 
         body {
@@ -59,24 +60,18 @@
         .btn-success { background-color: var(--success-color); color: white; }
         .btn-secondary { background-color: #444; color: white; }
         .btn-music { background-color: var(--music-color); color: white; }
+        .btn-magic { background-color: var(--magic-color); color: white; }
 
         .hidden { display: none; }
 
-        /* Light Show & Builder Styles */
-        .show-controls {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #333;
-        }
-        
-        /* Music Visualizer Styles */
-        .music-area {
-            background: #2a1b1b;
+        /* Sections */
+        .section-box {
+            background: #2a2a2a;
             padding: 15px;
             border-radius: 12px;
             margin-top: 15px;
             margin-bottom: 15px;
-            border: 1px solid #442222;
+            border: 1px solid #333;
         }
 
         .visualizer-canvas {
@@ -94,45 +89,17 @@
             width: 100%;
         }
 
-        .builder-area {
-            background: #252525;
-            padding: 15px;
-            border-radius: 12px;
-            margin-top: 15px;
-            margin-bottom: 15px;
-        }
-
-        .sequence-display {
-            display: flex;
-            gap: 5px;
-            height: 30px;
-            margin: 10px 0;
-            background: #111;
-            border-radius: 6px;
-            padding: 5px;
-            overflow-x: auto;
-            justify-content: flex-start;
-        }
-
-        .seq-dot {
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            border: 1px solid #555;
-            flex-shrink: 0;
-        }
-
-        .speed-control {
-            margin: 15px 0;
+        .slider-row {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            margin: 10px 0;
             gap: 10px;
+            font-size: 0.85rem;
             color: #aaa;
-            font-size: 0.9rem;
         }
         input[type="range"] {
-            width: 100px;
+            flex-grow: 1;
             accent-color: var(--accent-color);
         }
 
@@ -171,13 +138,23 @@
             overflow-y: auto;
             font-family: monospace;
         }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 0.8rem;
+            background: #333;
+            border-radius: 8px;
+            margin: 0 2px;
+        }
+        .active-tab { background: var(--accent-color); }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>Universal Controller</h1>
-        <p>Protocol 2 Active | Music Ready</p>
+        <p>Protocol 2 (Lotus) Active</p>
 
         <!-- Connect Screen -->
         <div id="connectScreen">
@@ -194,44 +171,69 @@
                 <option value="3">Protocol 4: QHM Variant</option>
             </select>
 
-            <!-- MUSIC SECTION -->
-            <div class="music-area">
-                <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--music-color);">🎵 Music Sync</h3>
-                <input type="file" id="audioFile" accept="audio/*">
-                <audio id="audioPlayer" controls style="width:100%; margin-top:5px;"></audio>
-                <canvas id="visualizer" class="visualizer-canvas"></canvas>
-                <div style="margin-top:10px; font-size:0.8rem; color:#aaa;">
-                    Upload MP3 -> Play -> Lights React to Bass
-                </div>
-            </div>
-
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <button id="offBtn" class="btn-danger">OFF</button>
                 <button id="onBtn" class="btn-success">ON</button>
             </div>
 
-            <input type="color" id="colorPicker" value="#ff0000">
-            
-            <!-- Standard Shows -->
-            <div class="show-controls">
-                <h3 style="margin:0 0 10px 0; font-size:1rem;">Presets</h3>
-                <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                    <button onclick="startShow('rgb')" style="flex:1; background:#444;">RGB Fade</button>
-                    <button onclick="startShow('police')" style="flex:1; background:#0044cc;">Police</button>
-                    <button onclick="startShow('strobe')" style="flex:1; background:#cccc00; color:black;">Strobe</button>
-                </div>
-                
-                <div class="speed-control">
-                    <span>Fast</span>
-                    <input type="range" id="speedRange" min="100" max="2000" value="500" step="50">
-                    <span>Slow</span>
-                </div>
+            <!-- TABS -->
+            <div style="display:flex; margin-bottom:10px;">
+                <button onclick="showTab('color')" class="tab-btn active-tab" id="tab-color">Color</button>
+                <button onclick="showTab('magic')" class="tab-btn" id="tab-magic" style="background:var(--magic-color); color:white;">✨ Magic</button>
+                <button onclick="showTab('music')" class="tab-btn" id="tab-music" style="background:var(--music-color); color:white;">🎵 Music</button>
+            </div>
 
-                <button id="stopShowBtn" class="hidden btn-danger" style="margin-top:10px;">⏹ Stop Show</button>
+            <!-- TAB: SOLID COLOR -->
+            <div id="section-color">
+                <input type="color" id="colorPicker" value="#ff0000">
+                <div class="section-box">
+                    <h3 style="margin:0 0 10px 0; font-size:1rem;">Presets</h3>
+                    <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                        <button onclick="startShow('rgb')" style="flex:1; background:#444;">Fade</button>
+                        <button onclick="startShow('police')" style="flex:1; background:#0044cc;">Police</button>
+                        <button onclick="startShow('strobe')" style="flex:1; background:#cccc00; color:black;">Strobe</button>
+                    </div>
+                    <button id="stopShowBtn" class="hidden btn-danger" style="margin-top:10px;">⏹ Stop Show</button>
+                </div>
+            </div>
+
+            <!-- TAB: MAGIC EFFECTS -->
+            <div id="section-magic" class="hidden">
+                <div class="section-box" style="border-color: var(--magic-color);">
+                    <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--magic-color);">✨ Magic Effects</h3>
+                    <p style="font-size:0.8rem; margin-bottom:15px;">Cycle through built-in modes (Rainbow, Stacking, etc.)</p>
+                    
+                    <div class="slider-row">
+                        <span>Mode ID: <span id="modeVal">1</span></span>
+                    </div>
+                    <input type="range" id="modeRange" min="1" max="200" value="1" oninput="updateMode(this.value)">
+                    
+                    <div style="display:flex; gap:10px; margin-top:5px;">
+                        <button class="btn-secondary" onclick="changeMode(-1)">Prev</button>
+                        <button class="btn-magic" onclick="changeMode(1)">Next</button>
+                    </div>
+
+                    <div class="slider-row" style="margin-top:15px;">
+                        <span>Speed</span>
+                        <input type="range" id="effectSpeed" min="1" max="100" value="80" onchange="updateSpeed(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: MUSIC -->
+            <div id="section-music" class="hidden">
+                <div class="section-box" style="border-color: var(--music-color);">
+                    <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--music-color);">🎵 Music Sync</h3>
+                    <input type="file" id="audioFile" accept="audio/*">
+                    <audio id="audioPlayer" controls style="width:100%; margin-top:5px;"></audio>
+                    <canvas id="visualizer" class="visualizer-canvas"></canvas>
+                    <div style="margin-top:10px; font-size:0.8rem; color:#aaa;">
+                        Play audio to sync lights to bass.
+                    </div>
+                </div>
             </div>
             
             <button id="disconnectBtn" style="background: #333; margin-top: 20px;">Disconnect</button>
-            <p id="protocol-info" style="margin-top:10px; font-size:0.8rem; color: #8b5cf6;"></p>
         </div>
 
         <div id="log">Logs will appear here...</div>
@@ -243,24 +245,29 @@
             {
                 name: "Standard (ELK/BLEDOM)",
                 writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
+                setMode: (mode, speed) => new Uint8Array([0xBB, mode, speed, 0x44]), // Generic
                 on: new Uint8Array([0xcc, 0x23, 0x33]),
                 off: new Uint8Array([0xcc, 0x24, 0x33])
             },
             {
                 name: "Lotus/Keepsmile (0x7E)",
                 writeColor: (r, g, b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
+                // Addressable Mode Command: 7E 05 03 <Mode> <Speed> FF FF 00 EF
+                setMode: (mode, speed) => new Uint8Array([0x7e, 0x05, 0x03, mode, 0x03, 0xff, 0xff, 0x00, 0xef]),
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef])
             },
             {
                 name: "Triones/Zengge",
                 writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
+                setMode: (mode, speed) => new Uint8Array([0xBB, mode, speed, 0x44]),
                 on: new Uint8Array([0xcc, 0x23, 0x33]),
                 off: new Uint8Array([0xcc, 0x24, 0x33])
             },
             {
                 name: "QHM Variant",
                 writeColor: (r, g, b) => new Uint8Array([0x56, 0x00, r, g, b, 0xf0, 0xaa]),
+                setMode: (mode, speed) => new Uint8Array([0xBB, mode, speed, 0x44]),
                 on: new Uint8Array([0xcc, 0x23, 0x33]),
                 off: new Uint8Array([0xcc, 0x24, 0x33])
             }
@@ -284,6 +291,7 @@
         // --- STATE ---
         let device, characteristic;
         let showInterval = null; 
+        let currentMode = 1;
         
         // --- AUDIO STATE ---
         let audioCtx, analyser, dataArray;
@@ -298,6 +306,16 @@
 
         function log(msg) {
             logBox.innerText = `> ${msg}\n` + logBox.innerText;
+        }
+
+        // --- TABS ---
+        window.showTab = function(tabName) {
+            ['color', 'magic', 'music'].forEach(t => {
+                document.getElementById('section-' + t).classList.add('hidden');
+                document.getElementById('tab-' + t).style.opacity = '0.6';
+            });
+            document.getElementById('section-' + tabName).classList.remove('hidden');
+            document.getElementById('tab-' + tabName).style.opacity = '1.0';
         }
 
         // --- CONNECTION LOGIC ---
@@ -348,7 +366,7 @@
                 characteristic = char;
                 document.getElementById('connectScreen').classList.add('hidden');
                 document.getElementById('controlScreen').classList.remove('hidden');
-                log("Ready.");
+                log("Connected.");
 
             } catch (err) {
                 log("Error: " + err.message);
@@ -364,9 +382,7 @@
             if (!characteristic) return;
             try {
                 await characteristic.writeValue(data);
-            } catch (e) {
-                // Squelch errors during music playback to avoid lag
-            }
+            } catch (e) { }
         }
 
         function getActiveProtocol() {
@@ -378,6 +394,31 @@
             stopShow();
             send(getActiveProtocol().off);
         });
+
+        // --- MAGIC EFFECTS LOGIC ---
+        window.updateMode = function(val) {
+            currentMode = parseInt(val);
+            document.getElementById('modeVal').innerText = currentMode;
+            // Debounce slightly to avoid flooding
+            if(window.modeTimeout) clearTimeout(window.modeTimeout);
+            window.modeTimeout = setTimeout(() => {
+                const proto = getActiveProtocol();
+                if(proto.setMode) send(proto.setMode(currentMode, 3)); // Default speed 3
+            }, 50);
+        };
+
+        window.changeMode = function(delta) {
+            let newVal = currentMode + delta;
+            if(newVal < 1) newVal = 200;
+            if(newVal > 200) newVal = 1;
+            document.getElementById('modeRange').value = newVal;
+            updateMode(newVal);
+        };
+
+        window.updateSpeed = function(val) {
+            // Some protocols support speed setting
+            // For now we just resend the mode with new speed might work for some
+        };
 
         const colorPicker = document.getElementById('colorPicker');
         let debounce;
@@ -440,10 +481,9 @@
             let x = 0;
 
             // Simple Beat Detection Algorithm
-            // We check the lower frequencies (Bass)
             let bassTotal = 0;
             let bassCount = 0;
-            for(let i = 0; i < 10; i++) { // First 10 bins = Bass
+            for(let i = 0; i < 10; i++) { 
                  bassTotal += dataArray[i];
                  bassCount++;
             }
@@ -458,8 +498,6 @@
             }
 
             // --- LIGHT SYNC LOGIC ---
-            // Threshold for beat detection (adjust based on song volume)
-            // Limit commands to every 150ms to prevent Bluetooth jamming
             const now = Date.now();
             if (bassLevel > 180 && (now - lastBeatTime > 150)) {
                 
@@ -467,21 +505,15 @@
                 const proto = getActiveProtocol();
                 if(proto && characteristic) {
                     const col = beatColors[beatColorIndex % beatColors.length];
-                    
-                    // Send color command
-                    // Note: We use .catch() to ignore errors if the previous write is still busy
                     characteristic.writeValue(proto.writeColor(col[0], col[1], col[2])).catch(e => {});
-                    
                     beatColorIndex++;
                     lastBeatTime = now;
                 }
             }
         }
 
-        // --- LIGHT SHOW ENGINE (Legacy) ---
-        
+        // --- LEGACY SHOWS ---
         const stopBtn = document.getElementById('stopShowBtn');
-        const speedRange = document.getElementById('speedRange');
 
         window.stopShow = function() {
             if (showInterval) {
@@ -501,11 +533,9 @@
             const proto = getActiveProtocol();
             if(!proto) { log("Connect first!"); return; }
 
-            const speed = parseInt(speedRange.value);
             let step = 0;
             let sequence = [];
 
-            // Preset Patterns
             const patterns = {
                 'rgb': [
                     [255, 0, 0], [0, 255, 0], [0, 0, 255], 
@@ -524,7 +554,7 @@
                 const color = sequence[step % sequence.length];
                 send(proto.writeColor(color[0], color[1], color[2]));
                 step++;
-            }, speed);
+            }, 500);
         };
 
     </script>
