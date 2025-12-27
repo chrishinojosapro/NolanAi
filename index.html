@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller</title>
+    <title>Universal LED Controller v2</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -71,6 +71,17 @@
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: none; border-radius: 12px; }
 
+        select {
+            width: 100%;
+            padding: 12px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
         #log {
             margin-top: 1rem;
             font-size: 0.75rem;
@@ -93,11 +104,19 @@
 
         <!-- Connect Screen -->
         <div id="connectScreen">
-            <button id="connectBtn" class="btn-primary">🔍 Scan & Auto-Connect</button>
+            <button id="connectBtn" class="btn-primary">🔍 Scan & Connect</button>
         </div>
 
         <!-- Control Screen -->
         <div id="controlScreen" class="hidden">
+            <label for="protocolSelect" style="display:block; text-align:left; margin-bottom:5px; color:#aaa; font-size:0.8rem;">Command Protocol:</label>
+            <select id="protocolSelect">
+                <option value="0">Protocol 1: Standard (ELK/BLEDOM)</option>
+                <option value="1">Protocol 2: Lotus/Keepsmile (0x7E)</option>
+                <option value="2">Protocol 3: Triones/Zengge</option>
+                <option value="3">Protocol 4: QHM Variant</option>
+            </select>
+
             <input type="color" id="colorPicker" value="#ff0000">
             
             <div style="display: flex; gap: 10px;">
@@ -106,69 +125,85 @@
             </div>
             
             <button id="disconnectBtn" style="background: #333; margin-top: 10px;">Disconnect</button>
-            <p id="protocol-info" style="margin-top:10px; font-size:0.8rem; color: #8b5cf6;"></p>
         </div>
 
         <div id="log">Logs will appear here...</div>
     </div>
 
     <script>
-        // --- KNOWN PROTOCOLS ---
-        // We will try these one by one until we find a match
-        const PROTOCOLS = [
+        // --- COMMAND PROTOCOLS ---
+        // Different lights use different byte sequences. We define them here.
+        const COMMAND_SETS = [
             {
-                name: "Standard (ELK-BLEDOM)",
-                service: '0000ffd5-0000-1000-8000-00805f9b34fb',
-                char:    '0000ffd9-0000-1000-8000-00805f9b34fb',
-                on:      [0xcc, 0x23, 0x33],
-                off:     [0xcc, 0x24, 0x33],
-                // Header 0x56, R, G, B, 0x00, 0xF0, 0xAA
-                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
+                name: "Standard (ELK/BLEDOM)",
+                // Common for 0xFFD5/0xFFD9
+                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                off: new Uint8Array([0xcc, 0x24, 0x33])
             },
             {
-                name: "Variant 2 (ZENGGE/FFE5)",
-                service: '0000ffe5-0000-1000-8000-00805f9b34fb',
-                char:    '0000ffe9-0000-1000-8000-00805f9b34fb',
-                on:      [0xcc, 0x23, 0x33],
-                off:     [0xcc, 0x24, 0x33],
-                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
+                name: "Lotus/Keepsmile (0x7E)",
+                // Common for 0xFFF0/0xFFF3 - often found in "Lotus Lantern" apps
+                writeColor: (r, g, b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
+                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
+                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef])
             },
             {
-                name: "Variant 3 (Triones/FFF0)",
-                service: '0000fff0-0000-1000-8000-00805f9b34fb',
-                char:    '0000fff3-0000-1000-8000-00805f9b34fb',
-                on:      [0xcc, 0x23, 0x33],
-                off:     [0xcc, 0x24, 0x33],
-                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
+                name: "Triones/Zengge",
+                // Sometimes uses no padding or specific checksums
+                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), // Often same as standard
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                off: new Uint8Array([0xcc, 0x24, 0x33])
+            },
+            {
+                name: "QHM Variant",
+                // Slightly different padding
+                writeColor: (r, g, b) => new Uint8Array([0x56, 0x00, r, g, b, 0xf0, 0xaa]),
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                off: new Uint8Array([0xcc, 0x24, 0x33])
             }
         ];
 
-        // Collect all service UUIDs for the scanner
-        const ALL_SERVICES = PROTOCOLS.map(p => p.service);
+        // Known Service UUIDs to scan for
+        const SERVICES = [
+            '0000ffd5-0000-1000-8000-00805f9b34fb', // Standard ELK
+            '0000ffe5-0000-1000-8000-00805f9b34fb', // Zengge
+            '0000fff0-0000-1000-8000-00805f9b34fb', // Triones/Lotus
+            '0000ffe0-0000-1000-8000-00805f9b34fb'  // Generic
+        ];
+        
+        // Known Characteristic UUIDs to write to (we try to find one of these)
+        const CHARACTERISTICS = [
+            '0000ffd9-0000-1000-8000-00805f9b34fb',
+            '0000ffe9-0000-1000-8000-00805f9b34fb',
+            '0000fff3-0000-1000-8000-00805f9b34fb',
+            '0000ffe1-0000-1000-8000-00805f9b34fb'
+        ];
 
         // --- STATE ---
-        let device, characteristic;
-        let currentProtocol = null; // To store which protocol worked
+        let device, server, service, characteristic;
 
-        // --- UI ---
+        // --- UI ELEMENTS ---
         const logBox = document.getElementById('log');
+        const protocolSelect = document.getElementById('protocolSelect');
+
         function log(msg) {
             logBox.innerText = `> ${msg}\n` + logBox.innerText;
         }
 
+        // --- CONNECTION LOGIC ---
         document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
                 if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported (Use Bluefy App)");
 
                 log("Scanning...");
                 
-                // 1. Scan for ANY device, but ask for access to our known services
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
-                    optionalServices: ALL_SERVICES
+                    optionalServices: SERVICES
                 });
 
-                log(`Selected: ${device.name || "Unknown Device"}`);
+                log(`Connecting to ${device.name}...`);
                 
                 device.addEventListener('gattserverdisconnected', () => {
                     log("Disconnected.");
@@ -176,34 +211,49 @@
                     document.getElementById('controlScreen').classList.add('hidden');
                 });
 
-                const server = await device.gatt.connect();
-                log("GATT Connected. Searching for protocol...");
+                server = await device.gatt.connect();
+                log("Connected! Finding Service...");
 
-                // 2. Hunt for the correct Service
-                for (let proto of PROTOCOLS) {
+                // Find the first available service from our list
+                let foundService = null;
+                for (let uuid of SERVICES) {
                     try {
-                        log(`Trying ${proto.name}...`);
-                        const service = await server.getPrimaryService(proto.service);
-                        characteristic = await service.getCharacteristic(proto.char);
-                        
-                        // If we get here, we found it!
-                        currentProtocol = proto;
-                        log(`MATCH! Using ${proto.name}`);
-                        document.getElementById('protocol-info').innerText = `Protocol: ${proto.name}`;
-                        break; // Stop looking
-                    } catch (e) {
-                        // Service not found on this device, try next
-                        console.log(`Not ${proto.name}`);
-                    }
+                        foundService = await server.getPrimaryService(uuid);
+                        log(`Found Service: ...${uuid.substring(4,8)}`);
+                        break;
+                    } catch (e) { /* continue */ }
                 }
 
-                if (!currentProtocol) {
-                    throw new Error("Connected, but no compatible service found.");
+                if (!foundService) throw new Error("No compatible service found.");
+                service = foundService;
+
+                // Find the first available characteristic
+                let foundChar = null;
+                for (let uuid of CHARACTERISTICS) {
+                    try {
+                        foundChar = await service.getCharacteristic(uuid);
+                        log(`Found Char: ...${uuid.substring(4,8)}`);
+                        break;
+                    } catch (e) { /* continue */ }
                 }
 
-                // 3. Success UI
+                if (!foundChar) {
+                     // Fallback: Just get the FIRST characteristic available if unknown
+                     const chars = await service.getCharacteristics();
+                     if(chars.length > 0) {
+                        foundChar = chars[0];
+                        log(`Using fallback char: ${foundChar.uuid}`);
+                     } else {
+                        throw new Error("No characteristic found.");
+                     }
+                }
+                
+                characteristic = foundChar;
+
+                // Success UI
                 document.getElementById('connectScreen').classList.add('hidden');
                 document.getElementById('controlScreen').classList.remove('hidden');
+                log("Ready! Try changing protocols if color fails.");
 
             } catch (err) {
                 log("Error: " + err.message);
@@ -214,24 +264,28 @@
             if (device && device.gatt.connected) device.gatt.disconnect();
         });
 
-        // --- CONTROLS ---
-
-        async function write(data) {
+        // --- SEND COMMANDS ---
+        async function send(data) {
             if (!characteristic) return;
             try {
-                await characteristic.writeValue(new Uint8Array(data));
-                log(`Sent: ${data}`);
+                await characteristic.writeValue(data);
+                log(`Sent: ${data.length} bytes`);
             } catch (e) {
                 log("Write failed: " + e.message);
             }
         }
 
+        function getActiveProtocol() {
+            const index = protocolSelect.value;
+            return COMMAND_SETS[index];
+        }
+
         document.getElementById('onBtn').addEventListener('click', () => {
-            if(currentProtocol) write(currentProtocol.on);
+            send(getActiveProtocol().on);
         });
 
         document.getElementById('offBtn').addEventListener('click', () => {
-            if(currentProtocol) write(currentProtocol.off);
+            send(getActiveProtocol().off);
         });
 
         const colorPicker = document.getElementById('colorPicker');
@@ -245,10 +299,8 @@
                 const g = parseInt(hex.substring(3, 5), 16);
                 const b = parseInt(hex.substring(5, 7), 16);
                 
-                if(currentProtocol) {
-                    const command = currentProtocol.writeColor(r, g, b);
-                    characteristic.writeValue(command).catch(e => console.log(e));
-                }
+                const proto = getActiveProtocol();
+                send(proto.writeColor(r, g, b));
             }, 100);
         });
 
