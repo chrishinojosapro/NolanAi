@@ -3,130 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Calibration Probe</title>
+    <title>Lotus Protocol Fuzzer</title>
     <style>
         :root {
-            --bg: #0a0a0c;
-            --panel: #16161d;
-            --accent: #3b82f6;
-            --text: #e0e0e6;
+            --bg: #050505;
+            --panel: #111111;
+            --accent: #ff0055;
+            --text: #ffffff;
         }
 
         body {
-            font-family: -apple-system, system-ui, sans-serif;
+            font-family: monospace;
             background: var(--bg);
             color: var(--text);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
             padding: 20px;
         }
 
-        .card {
-            background: var(--panel);
-            border: 1px solid #333;
-            border-radius: 24px;
-            padding: 30px;
+        .terminal {
             width: 100%;
             max-width: 500px;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
-        }
-
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
-        p { color: #888; font-size: 0.85rem; margin-bottom: 25px; }
-
-        .led-strip-preview {
-            display: flex;
-            gap: 4px;
-            justify-content: center;
-            margin-bottom: 30px;
-            background: #000;
-            padding: 15px;
+            background: var(--panel);
+            border: 1px solid #333;
             border-radius: 12px;
-            border: 1px solid #222;
+            padding: 25px;
+            box-shadow: 0 0 50px rgba(255, 0, 85, 0.1);
         }
-        .pixel {
-            width: 12px; height: 12px; background: #222; border-radius: 2px;
-            transition: background 0.1s;
-        }
-        .pixel.active { background: #ff0000; box-shadow: 0 0 8px #ff0000; }
 
-        .control-grid {
+        .byte-display {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            text-align: left;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 5px;
+            margin: 20px 0;
         }
 
-        .slider-box {
-            grid-column: span 2;
+        .byte-box {
             background: #000;
+            border: 1px solid #444;
+            padding: 10px 0;
+            text-align: center;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+        .byte-box.active { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 10px rgba(255, 0, 85, 0.3); }
+
+        button {
+            width: 100%;
             padding: 15px;
-            border-radius: 12px;
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
             margin-bottom: 10px;
         }
-        label { display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
+        button.primary { background: var(--accent); border-color: var(--accent); }
         
-        button {
-            padding: 15px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.9rem;
+        .log {
+            height: 120px;
+            background: #000;
+            border: 1px solid #222;
+            padding: 10px;
+            font-size: 0.7rem;
+            overflow-y: auto;
+            color: #666;
+            margin-top: 20px;
         }
-        .btn-connect { background: #333; color: white; border: 1px solid #444; }
-        .btn-probe { background: var(--accent); color: white; grid-column: span 2; }
-        .btn-stop { background: #ef4444; color: white; grid-column: span 2; }
 
-        #log {
-            font-family: monospace; font-size: 0.75rem; background: #000; padding: 10px; border-radius: 8px; margin-top: 20px;
-            height: 80px; overflow-y: auto; color: #3b82f6; text-align: left; border: 1px solid #222;
+        .slider-group {
+            text-align: left;
+            margin-bottom: 20px;
         }
+        label { font-size: 0.7rem; color: #888; display: block; margin-bottom: 5px;}
+        input[type=range] { width: 100%; accent-color: var(--accent); }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h1>Pixel Probe</h1>
-        <p>Testing for Individual LED Addressing</p>
+    <div class="terminal">
+        <h1 style="font-size:1rem; margin:0; letter-spacing:2px;">PROTOCOL FUZZER</h1>
+        <p style="font-size:0.7rem; color:#666; margin-bottom:20px;">Searching for hidden Segment/Pixel bytes...</p>
 
-        <div class="led-strip-preview" id="stripPreview">
-            <!-- 15 pixels for preview -->
-            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
-            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
-            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
-            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
-            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+        <button class="primary" onclick="connect()" id="connBtn">1. INITIALIZE LINK</button>
+
+        <div class="byte-display" id="byteContainer">
+            <!-- 9 Bytes -->
+            <div class="byte-box" id="b0">7E</div>
+            <div class="byte-box" id="b1">07</div>
+            <div class="byte-box" id="b2">05</div>
+            <div class="byte-box" id="b3">03</div>
+            <div class="byte-box" id="b4">FF</div>
+            <div class="byte-box" id="b5">00</div>
+            <div class="byte-box" id="b6">00</div>
+            <div class="byte-box" id="b7">00</div>
+            <div class="byte-box" id="b8">EF</div>
         </div>
 
-        <div class="control-grid">
-            <select id="protocol" style="background:#000; color:white; border-radius:8px; padding:10px; border:1px solid #333;">
-                <option value="1">Protocol: Lotus (Keepsmile)</option>
-                <option value="0">Protocol: ELK (Standard)</option>
-            </select>
-            <button class="btn-connect" onclick="connect()" id="connBtn">Connect</button>
-
-            <div class="slider-box">
-                <label><span>Current Index Target</span> <span id="idxVal">0</span></label>
-                <input type="range" id="indexRange" min="0" max="255" value="0" oninput="manualTarget(this.value)">
-            </div>
-
-            <button class="btn-probe" id="actionBtn" onclick="toggleProbe()">🔭 Start Auto-Probe</button>
+        <div class="slider-group">
+            <label>FUZZ SPEED (Current: <span id="spdVal">200</span>ms)</label>
+            <input type="range" id="speed" min="50" max="1000" value="200" oninput="document.getElementById('spdVal').innerText=this.value">
         </div>
 
-        <div id="log">> System Idle...</div>
+        <button onclick="toggleFuzz()" id="fuzzBtn">🎲 START DEEP FUZZ</button>
+        <button style="color:var(--accent)" onclick="resetLights()">RESET LIGHTS</button>
+
+        <div class="log" id="log">SYSTEM READY...</div>
     </div>
 
     <script>
-        const PROTOCOLS = [
-            { name: "ELK", write: (r,g,b,idx) => new Uint8Array([0x56, r, g, b, idx, 0xf0, 0xaa]), on: [0xcc, 0x23, 0x33] },
-            { name: "Lotus", write: (r,g,b,idx) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, idx, 0xef]), on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef] }
-        ];
-
         let device, characteristic;
-        let isProbing = false;
-        let probeInterval;
-        let currentIndex = 0;
+        let isFuzzing = false;
+        let fuzzInt;
+        let currentByteToFuzz = 7; // We start at Byte 7 (Address/Index)
+        let val = 0;
 
         function log(msg) {
             const l = document.getElementById('log');
@@ -146,71 +138,76 @@
                     for(let c of chars) {
                         if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; }
                     }
-                    if(characteristic) break;
                 }
-                document.getElementById('connBtn').innerText = "LINKED";
+                document.getElementById('connBtn').innerText = "CONNECTED";
                 document.getElementById('connBtn').style.background = "#22c55e";
-                log("Connected to " + device.name);
-                
-                const p = PROTOCOLS[document.getElementById('protocol').value];
-                await characteristic.writeValue(new Uint8Array(p.on));
+                log("Connected to hardware.");
             } catch(e) { log("ERR: " + e.message); }
         }
 
-        function manualTarget(val) {
-            currentIndex = parseInt(val);
-            document.getElementById('idxVal').innerText = val;
-            updateVisualizer(currentIndex);
-            sendProbe(currentIndex);
+        function toggleFuzz() {
+            if(isFuzzing) stop(); else start();
         }
 
-        function updateVisualizer(idx) {
-            const pixels = document.querySelectorAll('.pixel');
-            pixels.forEach(p => p.classList.remove('active'));
-            // Maps 0-255 to 15 preview pixels
-            const mappedIdx = Math.floor((idx / 255) * 14);
-            pixels[mappedIdx].classList.add('active');
-        }
-
-        function toggleProbe() {
-            if(isProbing) stopProbe(); else startProbe();
-        }
-
-        function startProbe() {
-            if(!characteristic) return alert("Connect light first!");
-            isProbing = true;
-            document.getElementById('actionBtn').innerText = "⏹ Stop Probe";
-            document.getElementById('actionBtn').className = "btn-stop";
-            currentIndex = 0;
+        function start() {
+            if(!characteristic) return alert("Connect first!");
+            isFuzzing = true;
+            document.getElementById('fuzzBtn').innerText = "⏹ STOP (WATCH LIGHTS!)";
+            document.getElementById('fuzzBtn').style.background = "white";
+            document.getElementById('fuzzBtn').style.color = "black";
             
-            probeInterval = setInterval(() => {
-                currentIndex++;
-                if(currentIndex > 255) currentIndex = 0;
-                
-                document.getElementById('indexRange').value = currentIndex;
-                document.getElementById('idxVal').innerText = currentIndex;
-                updateVisualizer(currentIndex);
-                sendProbe(currentIndex);
-                
-                if(currentIndex % 10 === 0) log("Probing Index: " + currentIndex);
-            }, 150);
+            // Fuzz through potential command bytes (Byte 4, 5, 6, 7)
+            // 7E 07 05 03 [R] [G] [B] [IDX] EF
+            runFuzz();
         }
 
-        function stopProbe() {
-            isProbing = false;
-            clearInterval(probeInterval);
-            document.getElementById('actionBtn').innerText = "🔭 Start Auto-Probe";
-            document.getElementById('actionBtn').className = "btn-probe";
-            log("Probe Halted at Index: " + currentIndex);
+        function stop() {
+            isFuzzing = false;
+            clearTimeout(fuzzInt);
+            document.getElementById('fuzzBtn').innerText = "🎲 START DEEP FUZZ";
+            document.getElementById('fuzzBtn').style.background = "";
+            document.getElementById('fuzzBtn').style.color = "";
+            log("Fuzz Halted.");
         }
 
-        async function sendProbe(idx) {
-            if(!characteristic) return;
-            const p = PROTOCOLS[document.getElementById('protocol').value];
-            // Send Red [255,0,0] with the current Index byte
+        async function runFuzz() {
+            if(!isFuzzing) return;
+
+            // Generate Fuzz Data
+            // We keep Red on [Byte 4] and rotate Byte 7
+            val++;
+            if(val > 255) {
+                val = 0;
+                currentByteToFuzz--;
+                if(currentByteToFuzz < 5) currentByteToFuzz = 7;
+            }
+
+            const cmd = new Uint8Array([0x7e, 0x07, 0x05, 0x03, 0xff, 0x00, 0x00, 0x00, 0xef]);
+            cmd[currentByteToFuzz] = val;
+
+            // Update UI
+            for(let i=0; i<9; i++) {
+                const el = document.getElementById('b'+i);
+                el.innerText = cmd[i].toString(16).toUpperCase().padStart(2, '0');
+                el.classList.remove('active');
+            }
+            document.getElementById('b'+currentByteToFuzz).classList.add('active');
+
             try {
-                await characteristic.writeValue(p.write(255, 0, 0, idx));
-            } catch(e) {}
+                await characteristic.writeValue(cmd);
+            } catch(e){}
+
+            const spd = parseInt(document.getElementById('speed').value);
+            fuzzInt = setTimeout(runFuzz, spd);
+        }
+
+        async function resetLights() {
+            if(!characteristic) return;
+            // Send standard "ON" and "RED" to clear glitches
+            try {
+                await characteristic.writeValue(new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]));
+                await characteristic.writeValue(new Uint8Array([0x7e, 0x07, 0x05, 0x03, 0xff, 0x00, 0x00, 0x00, 0xef]));
+            } catch(e){}
         }
     </script>
 </body>
