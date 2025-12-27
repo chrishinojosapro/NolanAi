@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: GOD MODE v4</title>
+    <title>Carol of the Bells: Master Performance v5</title>
     <style>
         :root {
             --bg: #020617;
@@ -11,7 +11,6 @@
             --crimson: #ef4444;
             --emerald: #10b981;
             --gold: #f59e0b;
-            --ice: #3b82f6;
             --white: #ffffff;
             --accent: #8b5cf6;
         }
@@ -39,15 +38,16 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
         }
 
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+        h1 { margin: 0; font-size: 1.6rem; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+        .subtitle { font-size: 0.8rem; color: #64748b; margin-bottom: 20px; }
         
         /* PERFORMANCE VISUALIZER */
         .visualizer-ring {
-            width: 200px;
-            height: 200px;
+            width: 220px;
+            height: 220px;
             border-radius: 50%;
             margin: 20px auto;
-            border: 10px solid #1e293b;
+            border: 12px solid #1e293b;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -55,14 +55,16 @@
             position: relative;
             background: #000;
             transition: border-color 0.1s;
+            overflow: hidden;
         }
         .ring-glow {
             position: absolute; width: 100%; height: 100%;
-            border-radius: 50%; filter: blur(50px); opacity: 0.7; z-index: 0;
+            border-radius: 50%; filter: blur(60px); opacity: 0.8; z-index: 0;
+            transition: background 0.1s;
         }
 
-        .bpm-display { font-family: monospace; font-size: 2.5rem; font-weight: 900; z-index: 2; position: relative; }
-        .mode-tag { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px;}
+        .bpm-display { font-family: monospace; font-size: 2.8rem; font-weight: 900; z-index: 2; position: relative; color: white; text-shadow: 0 0 10px black;}
+        .mode-tag { font-size: 0.75rem; color: #fff; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 12px; border: 1px solid #333;}
 
         /* SYNC CONTROLS */
         .sync-box {
@@ -72,94 +74,110 @@
             margin: 20px 0;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 15px;
             border: 1px solid #334155;
         }
 
         .tap-btn {
             grid-column: span 2;
             padding: 20px;
-            background: var(--accent);
+            background: var(--crimson);
             color: white;
             border-radius: 15px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 900;
             border: none;
             cursor: pointer;
-            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            transition: 0.1s;
         }
-        .tap-btn:active { transform: scale(0.95); background: white; color: black; }
+        .tap-btn:active { transform: scale(0.96); background: white; color: black; }
 
         button {
-            padding: 12px; border-radius: 12px; border: none; font-weight: 800;
-            cursor: pointer; font-size: 0.9rem; transition: 0.2s;
+            padding: 14px; border-radius: 12px; border: none; font-weight: 800;
+            cursor: pointer; font-size: 0.95rem; transition: 0.2s;
         }
         .btn-connect { background: #334155; color: white; }
-        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.2rem;}
-        .connected { background: var(--emerald) !important; }
+        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.2rem; box-shadow: 0 10px 20px rgba(0,0,0,0.3);}
+        .connected { background: var(--emerald) !important; color: white !important; }
 
-        .slider-row { grid-column: span 2; text-align: left; font-size: 0.7rem; color: #64748b; margin-top: 10px;}
+        .slider-row { grid-column: span 2; text-align: left; font-size: 0.75rem; color: #94a3b8; display: flex; flex-direction: column; gap: 5px; }
         input[type=range] { width: 100%; accent-color: var(--gold); cursor: pointer; }
 
-        #audioInput { margin: 20px 0; font-size: 0.8rem; }
+        #audioInput { margin: 20px 0; font-size: 0.8rem; background: #1e293b; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box;}
+        
+        .status-msg { font-size: 0.7rem; color: #4b5563; margin-top: 10px; font-style: italic; }
     </style>
 </head>
 <body>
 
     <div class="stage">
-        <h1>Bells: God Mode</h1>
+        <h1>Christmas Performance</h1>
+        <div class="subtitle">Storyboarded Choreography (v5)</div>
         
         <div class="visualizer-ring" id="ring">
             <div class="ring-glow" id="glow"></div>
             <div class="bpm-display" id="bpmText">160</div>
-            <div class="mode-tag" id="modeText">IDLE</div>
+            <div class="mode-tag" id="modeText">STANDBY</div>
         </div>
 
         <div class="sync-box">
-            <button class="tap-btn" onclick="tapTempo()">BEAT SYNC (TAP 4X)</button>
+            <button class="tap-btn" onclick="tapTempo()">TAP BEAT TO SYNC</button>
+            
             <div class="slider-row">
-                MANUAL BPM: <span id="bpmVal">160</span>
-                <input type="range" id="bpmSlider" min="100" max="220" value="160" oninput="updateBPM(this.value)">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>MANUAL BPM: <b id="bpmVal">160</b></span>
+                    <span>OFFSET: <b id="offVal">0ms</b></span>
+                </div>
+                <input type="range" id="bpmSlider" min="120" max="200" value="160" oninput="updateBPM(this.value)">
+                <input type="range" id="offsetSlider" min="-500" max="500" value="0" step="10" oninput="document.getElementById('offVal').innerText=this.value+'ms'">
             </div>
             
-            <select id="protocol" style="background:#1e293b; color:white; border-radius:8px; padding:10px; border:1px solid #334155;">
-                <option value="1">Protocol: Lotus</option>
-                <option value="0">Protocol: ELK</option>
+            <select id="protocol" style="background:#1e293b; color:white; border-radius:10px; padding:12px; border:1px solid #334155;">
+                <option value="1">Protocol: Lotus/Keepsmile</option>
+                <option value="0">Protocol: ELK-BLEDOM</option>
             </select>
-            <button class="btn-connect" id="connBtn" onclick="connect()">Connect</button>
+            <button class="btn-connect" id="connBtn" onclick="connect()">Connect Light</button>
         </div>
 
         <input type="file" id="audioInput" accept="audio/*" onchange="loadAudio(this)">
-        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ BEGIN PERFORMANCE</button>
+        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ START SHOW</button>
         
-        <div id="status" style="font-size:0.7rem; color:#444; margin-top:10px;">Load Audio & Connect Light to Unlock Intensity</div>
+        <div class="status-msg" id="status">Connect and play to begin the masterpiece...</div>
     </div>
 
     <audio id="audioPlayer"></audio>
 
     <script>
-        // --- MODE POOLS (Based on your scan data) ---
-        const POOLS = {
-            intro: [165, 131, 108, 140, 180], // Slow flows
-            rhythm: [37, 38, 39, 40, 45, 181, 182], // Wipes and Stacks
-            epic: [1, 2, 3, 4, 5, 80, 89, 95, 100, 110], // Rainbows and Chaos
-            frost: [161, 180, 200, 131] // White/Blue spikes
-        };
+        // --- PERFORMANCE STORYBOARD ---
+        // intensity: 0 (soft) to 3 (peak)
+        const STORYBOARD = [
+            { t: 0,   mode: 165, color: "#003300", label: "Wintry Intro" },
+            { t: 15,  mode: 38,  color: "#10b981", label: "Theme: Emerald" },
+            { t: 30,  mode: 37,  color: "#ef4444", label: "Theme: Crimson" },
+            { t: 45,  mode: 45,  color: "#f59e0b", label: "Build: Golden Gradient" },
+            { t: 60,  mode: 182, color: "#ffffff", label: "High Energy: Bells" },
+            { t: 85,  mode: 3,   color: "#ff00ff", label: "Grand Crescendo" },
+            { t: 105, mode: 131, color: "#00e5ff", label: "Frost Finale" },
+            { t: 120, mode: 196, color: "#000000", label: "Blackout" }
+        ];
 
         // --- STATE ---
         let device, characteristic;
         let isPlaying = false;
-        let isLightOn = false;
+        let isLightPoweredOn = false;
         let bpm = 160;
         let beatInterval;
         let lastTap = 0;
         let tapTimes = [];
-        
+        let beatCount = 0;
+
         const PROTOCOLS = [
             { 
                 name: "ELK", 
                 write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]),
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
                 setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
             },
             { 
@@ -167,11 +185,11 @@
                 write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
-                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) 
+                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x05, 0xff, 0xff, 0x00, 0xef]) 
             }
         ];
 
-        // --- TEMPO LOGIC ---
+        // --- TEMPO ---
         function tapTempo() {
             const now = Date.now();
             if (now - lastTap > 2000) tapTimes = [];
@@ -199,17 +217,19 @@
             if(!file) return;
             document.getElementById('audioPlayer').src = URL.createObjectURL(file);
             document.getElementById('startBtn').disabled = false;
+            document.getElementById('status').innerText = "Music Loaded. Ready to Perform.";
         }
 
-        // --- PERFORMANCE ENGINE ---
+        // --- ENGINE ---
         function togglePlay() { if(isPlaying) stop(); else start(); }
 
         function start() {
             if(!characteristic) return alert("Connect light first!");
             isPlaying = true;
+            beatCount = 0;
             document.getElementById('audioPlayer').play();
             document.getElementById('startBtn').innerText = "⏹ STOP PERFORMANCE";
-            document.getElementById('startBtn').style.background = "#ef4444";
+            document.getElementById('startBtn').style.background = "var(--crimson)";
             document.getElementById('startBtn').style.color = "white";
             startRhythm();
         }
@@ -219,7 +239,7 @@
             clearInterval(beatInterval);
             document.getElementById('audioPlayer').pause();
             document.getElementById('audioPlayer').currentTime = 0;
-            document.getElementById('startBtn').innerText = "▶ BEGIN PERFORMANCE";
+            document.getElementById('startBtn').innerText = "▶ START SHOW";
             document.getElementById('startBtn').style.background = "white";
             document.getElementById('startBtn').style.color = "black";
             sendOff();
@@ -227,7 +247,8 @@
 
         function startRhythm() {
             const msPerBeat = 60000 / bpm;
-            // The Carol of the Bells is in 3/4, so we cycle every 3 or 6 beats
+            // The Offset allows the user to delay/advance the light signal
+            const offset = parseInt(document.getElementById('offsetSlider').value);
             beatInterval = setInterval(onBeat, msPerBeat);
         }
 
@@ -236,43 +257,51 @@
             startRhythm();
         }
 
-        let beatCount = 0;
         function onBeat() {
             if(!isPlaying) return;
             beatCount++;
             
             const player = document.getElementById('audioPlayer');
-            const t = player.currentTime;
+            const time = player.currentTime;
+            
+            // 1. Determine Current Storyboard Segment
+            let activeCue = STORYBOARD[0];
+            for (let cue of STORYBOARD) {
+                if (time >= cue.t) activeCue = cue;
+            }
+
+            // 2. Performance Logic
             const ring = document.getElementById('ring');
             const glow = document.getElementById('glow');
             const modeText = document.getElementById('modeText');
             
-            let pool = POOLS.intro;
-            let intensity = "Intro";
-
-            // Song Structure Cues
-            if(t > 15) { pool = POOLS.rhythm; intensity = "The Build"; }
-            if(t > 45) { pool = POOLS.epic; intensity = "Crescendo"; }
-            if(t > 80) { pool = POOLS.epic; intensity = "MAX CHAOS"; }
-            if(t > 110) { pool = POOLS.frost; intensity = "Finale"; }
-
-            // Pick a random mode from the pool
-            const mode = pool[Math.floor(Math.random() * pool.length)];
+            // Carol of the Bells is 3/4 Time.
+            // Bar Start (Beat 1, 4, 7...): Force the White Bell Chime
+            const isBarStart = (beatCount % 3 === 1);
             
-            // Visual Feedback
-            const colors = ["#ef4444", "#10b981", "#f59e0b", "#ffffff"];
-            const col = colors[beatCount % colors.length];
-            ring.style.borderColor = col;
-            glow.style.background = col;
-            modeText.innerText = `${intensity} | Mode ${mode}`;
+            if (isBarStart) {
+                // THE BELL CHIME
+                sendMode(180); // Pure White flash
+                ring.style.borderColor = "var(--white)";
+                glow.style.background = "var(--white)";
+                modeText.innerText = "🔔 CHIME";
+            } else {
+                // THE MAIN THEME SEQUENCE
+                // We alternate modes to create "Motion" on the beat
+                let targetMode = activeCue.mode;
+                
+                // For segments 15-45s, we alternate Red/Green stack
+                if (time > 15 && time < 45) {
+                    targetMode = (beatCount % 2 === 0) ? 37 : 38;
+                }
 
-            // Bluetooth Send
-            sendMode(mode);
-
-            // Every 4th beat, add a "Bell Strobe"
-            if(beatCount % 4 === 0) {
-                setTimeout(() => sendMode(180), 50); // Hard Flash
+                sendMode(targetMode);
+                ring.style.borderColor = activeCue.color;
+                glow.style.background = activeCue.color;
+                modeText.innerText = activeCue.label;
             }
+
+            if(player.ended) stop();
         }
 
         // --- BLUETOOTH ---
@@ -280,7 +309,11 @@
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
             try {
-                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; }
+                if(!isLightPoweredOn) { 
+                    await characteristic.writeValue(p.on); 
+                    isLightPoweredOn = true; 
+                    await new Promise(r => setTimeout(r, 40));
+                }
                 await characteristic.writeValue(p.setMode(m));
             } catch(e){}
         }
@@ -288,7 +321,11 @@
         async function sendOff() {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            try { await characteristic.writeValue(p.off); isLightOn = false; } catch(e){}
+            try { 
+                await characteristic.writeValue(p.off); 
+                isLightPoweredOn = false; 
+                document.getElementById('modeText').innerText = "OFF";
+            } catch(e){}
         }
 
         async function connect() {
@@ -305,9 +342,10 @@
                     if(characteristic) break;
                 }
                 const btn = document.getElementById('connBtn');
-                btn.innerText = "LINKED";
+                btn.innerText = "CONNECTED";
                 btn.classList.add('connected');
-                sendMode(180); // Wake up
+                document.getElementById('status').innerText = "Linked: " + device.name.toUpperCase();
+                sendMode(180); // Test Wake
             } catch(e) { alert(e.message); }
         }
     </script>
