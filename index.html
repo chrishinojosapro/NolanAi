@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v5 (Deep Analysis)</title>
+    <title>AI Vision Scanner v8 (Direction & Texture)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -157,7 +157,7 @@
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner</h1>
+    <h1>👁️ Vertical Strip Scanner (v8)</h1>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
@@ -231,7 +231,7 @@
 
     <script>
         // --- CONSTANTS ---
-        const SEGMENTS = 10; // Number of vertical analysis zones
+        const SEGMENTS = 10; 
         const PROTOCOLS = [
             { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
             { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
@@ -267,22 +267,30 @@
                 const video = document.getElementById('video');
                 video.srcObject = stream;
                 requestAnimationFrame(analyzeFrame);
-            } catch(e) {
-                alert("Camera error: " + e.message);
-            }
+            } catch(e) { alert("Camera error: " + e.message); }
         }
 
         function getColorName(r, g, b) {
             const sum = r + g + b;
-            if (sum < 50) return "Off";
+            if (sum < 40) return "Off";
             if (r > 200 && g > 200 && b > 200) return "White";
-            if (r > g*1.5 && r > b*1.5) return "Red";
-            if (g > r*1.5 && g > b*1.5) return "Green";
-            if (b > r*1.5 && b > g*1.5) return "Blue";
-            if (r>150 && g>150 && b<100) return "Yellow";
-            if (r>150 && b>150 && g<100) return "Purple";
-            if (g>150 && b>150 && r<100) return "Cyan";
-            return "Mix";
+            
+            // Check for Blends
+            const maxVal = Math.max(r,g,b);
+            const minVal = Math.min(r,g,b);
+            const diff = maxVal - minVal;
+            
+            if (diff < 30 && sum > 150) return "White/Mix";
+            
+            if (r > g + b) return "Red";
+            if (g > r + b) return "Green";
+            if (b > r + g) return "Blue";
+            
+            if (r > 120 && g > 120 && b < 100) return "Yellow";
+            if (r > 120 && b > 120 && g < 100) return "Purple"; 
+            if (g > 120 && b > 120 && r < 100) return "Cyan"; 
+            
+            return "Blended";
         }
 
         function analyzeFrame() {
@@ -305,23 +313,38 @@
                 let segmentColors = []; 
                 let rawColors = []; 
                 
+                // Get full strip image data
+                const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
+                
                 for(let i=0; i<SEGMENTS; i++) {
-                    const y = stripY + (i * segmentH);
-                    const frame = ctx.getImageData(stripX + (stripW/2), y + (segmentH/2), 1, 1);
-                    const [r,g,b] = frame.data;
+                    let rTot=0, gTot=0, bTot=0, count=0;
+                    const startY = i * segmentH;
+                    const endY = startY + segmentH;
+                    
+                    for(let y=startY; y<endY; y+=5) { 
+                        for(let x=0; x<stripW; x+=5) {
+                            const idx = (y * stripW + x) * 4;
+                            if (idx < stripData.data.length) {
+                                rTot += stripData.data[idx];
+                                gTot += stripData.data[idx+1];
+                                bTot += stripData.data[idx+2];
+                                count++;
+                            }
+                        }
+                    }
+                    
+                    const r = Math.floor(rTot/count) || 0;
+                    const g = Math.floor(gTot/count) || 0;
+                    const b = Math.floor(bTot/count) || 0;
+                    
                     segmentColors.push(getColorName(r,g,b));
                     rawColors.push({r,g,b});
                 }
                 
-                if(isScanning) {
-                    frameBuffer.push(rawColors);
-                }
+                if(isScanning) frameBuffer.push(rawColors);
                 
                 const overlay = document.getElementById('analysisOverlay');
-                const topColor = segmentColors[0];
-                const botColor = segmentColors[SEGMENTS-1];
-                const fullDesc = segmentColors.join(", ");
-                overlay.innerText = `Segments (Top->Bot):\n${fullDesc}`;
+                overlay.innerText = `Top: ${segmentColors[0]}\nMid: ${segmentColors[4]}\nBot: ${segmentColors[9]}`;
             }
             if(!isScanning || stream) requestAnimationFrame(analyzeFrame);
         }
@@ -374,65 +397,89 @@
         async function analyzeBuffer(frames) {
             if(frames.length === 0) return "No Data";
             
-            // 1. Snapshot Analysis
             const startF = frames[0];
             const endF = frames[frames.length-1];
             const midF = frames[Math.floor(frames.length/2)];
             
-            // Helper to summarize frame color
-            const summarizeFrame = (f) => {
-                let colors = [];
-                let lastC = "";
-                let count = 0;
-                
-                for(let i=0; i<f.length; i++) {
-                    const c = getColorName(f[i].r, f[i].g, f[i].b);
-                    if(c !== lastC) {
-                        if(lastC) colors.push(`${lastC}(${count})`);
-                        lastC = c;
-                        count = 1;
-                    } else {
-                        count++;
-                    }
-                }
-                colors.push(`${lastC}(${count})`);
-                return colors.join(",");
+            // Helper: Get dominant color set
+            const getColors = (f) => {
+                const s = new Set();
+                f.forEach(p => { 
+                    const n = getColorName(p.r,p.g,p.b); 
+                    if(n!=='Off') s.add(n); 
+                });
+                return Array.from(s);
             };
             
-            const startDesc = summarizeFrame(startF);
-            const midDesc = summarizeFrame(midF);
-            const endDesc = summarizeFrame(endF);
+            // 1. Uniformity Check (Solid Color?)
+            let isUniform = true;
+            const baseC = getColorName(midF[0].r, midF[0].g, midF[0].b);
+            for(let i=1; i<SEGMENTS; i++) {
+                if(getColorName(midF[i].r, midF[i].g, midF[i].b) !== baseC) isUniform = false;
+            }
+
+            const colors = getColors(midF);
+            const mainColorStr = colors.join("/");
             
-            // 2. Motion Detection
-            let motionType = "Static";
-            const diffStartEnd = calculateDiff(startF, endF);
+            // 2. Motion Tracking (Centroid)
+            const getCentroid = (f) => {
+                let m=0, w=0;
+                f.forEach((p,i) => { 
+                    const b = p.r+p.g+p.b; 
+                    if(b>50) { m+=b; w+=i*b; } 
+                });
+                return m>0 ? w/m : -1;
+            };
             
-            // Heuristic for Fill/Stacking
-            const litCountStart = countLitPixels(startF);
-            const litCountEnd = countLitPixels(endF);
+            const c1 = getCentroid(startF);
+            const c2 = getCentroid(endF);
             
-            if (litCountEnd > litCountStart + 2) motionType = "Filling Up";
-            else if (litCountEnd < litCountStart - 2) motionType = "Draining";
-            else if (diffStartEnd > 1500) motionType = "Dynamic Pattern";
+            // 3. Chaos/Texture Detection
+            let colorVariance = 0;
+            for(let i=1; i<frames.length; i++) {
+                const p1 = frames[i-1][5]; // Mid segment
+                const p2 = frames[i][5];
+                colorVariance += Math.abs(p1.r-p2.r) + Math.abs(p1.g-p2.g) + Math.abs(p1.b-p2.b);
+            }
+            const avgVar = colorVariance / frames.length;
+            const isRandom = avgVar > 50;
+
+            let motion = "Static";
+            if (c1 !== -1 && c2 !== -1) {
+                const delta = c2 - c1;
+                if (delta < -1.0) motion = "Chase UP ⬆️";
+                else if (delta > 1.0) motion = "Chase DOWN ⬇️";
+                else if (isRandom) motion = "Random/Sparkle ✨";
+                else {
+                    const lit1 = countLitPixels(startF);
+                    const lit2 = countLitPixels(endF);
+                    if(Math.abs(lit2-lit1) > 2) {
+                        motion = (lit2>lit1) ? "Filling Up" : "Draining";
+                    }
+                }
+            } else if (countLitPixels(endF) > countLitPixels(startF) + 2) {
+                motion = "Filling";
+            }
             
-            // Construct detailed string
-            let desc = `${motionType} | Start:[${startDesc}] -> End:[${endDesc}]`;
-            
-            // AI
+            let desc = "";
+            if (isUniform && motion === "Static" && !isRandom) {
+                desc = `Solid ${baseC}`;
+            } else {
+                let texture = "";
+                if (isRandom) texture = "Random ";
+                else if (colors.includes("Blended")) texture = "Blended ";
+                
+                const cleanColors = mainColorStr.replace('Blended','').replace('//','/').replace(/^[/]|[/]$/g, '');
+                const colorDisplay = cleanColors || "Multi";
+                
+                desc = `${texture}${colorDisplay} ${motion}`;
+            }
+
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
-            if(useAi && apiKey) {
-                desc = await getAiDescription(frames, apiKey);
-            }
+            if(useAi && apiKey) desc = await getAiDescription(frames, apiKey);
+            
             return desc;
-        }
-        
-        function calculateDiff(f1, f2) {
-            let diff = 0;
-            for(let i=0; i<f1.length; i++) {
-                diff += Math.abs(f1[i].r - f2[i].r) + Math.abs(f1[i].g - f2[i].g) + Math.abs(f1[i].b - f2[i].b);
-            }
-            return diff;
         }
         
         function countLitPixels(f) {
@@ -446,8 +493,10 @@
                 const f = frames[Math.floor(p * (frames.length-1))];
                 return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
             });
-            
-            const prompt = `LED Strip (10 segments Top-Bot). Time0:${snap[0]} Time1:${snap[1]} Time2:${snap[2]}. R=Red,G=Green,B=Blue,W=White,O=Off. Describe effect in 4 words (e.g., Red Filling Up).`;
+            const prompt = `LED Strip (10 Segments Top-Bot). TimeSteps: T1=${snap[0]}, T2=${snap[1]}, T3=${snap[2]}. 
+            Codes: R=Red, G=Green, B=Blue, Y=Yellow, P=Purple, C=Cyan, W=White, O=Off, M=Blended/Mix.
+            Describe: Colors, Texture (Blended/Solid/Random), and Motion (Up/Down/Fill). 
+            Example: "Blended Red/Blue Random Up". Max 5 words.`;
             
             try {
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
