@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Bridge Calibrator v3 (Auto-Wake Fix)</title>
+    <title>Light Bridge Calibrator v4 (HUD Fix)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -92,6 +92,18 @@
             resize: vertical;
             box-sizing: border-box;
         }
+        
+        #rxIndicator {
+            margin-top: 10px;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            text-align: center;
+            background: #333;
+            color: #aaa;
+            transition: background 0.2s;
+        }
+        #rxIndicator.flash { background: var(--success); color: white; }
 
         /* CLIENT UI (Phone) */
         #clientUI {
@@ -121,13 +133,14 @@
 
         .hud-overlay {
             position: absolute;
-            top: 20px; left: 20px;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
+            top: 20px; left: 20px; right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
             border-radius: 8px;
             pointer-events: none;
             font-family: monospace;
-            white-space: pre;
+            font-size: 1rem;
+            white-space: pre-wrap;
             color: #0f0;
             z-index: 10;
         }
@@ -168,7 +181,7 @@
 
     <!-- LANDING -->
     <div id="landing">
-        <h1>Light Bridge</h1>
+        <h1>Light Bridge v4</h1>
         <p style="color:#94a3b8">Select your role:</p>
         <button class="btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
         <p style="font-size:0.8rem; color:#666">OR</p>
@@ -206,6 +219,7 @@
             <!-- Right: Log -->
             <div class="panel">
                 <h3>3. Live Library</h3>
+                <div id="rxIndicator">Waiting for data...</div>
                 <textarea id="libraryLog" readonly>// Library will populate from phone data...
 {
 }</textarea>
@@ -229,7 +243,7 @@
                 <span style="font-size:0.8rem; color:#aaa; align-self:center;">Dimmer</span>
             </div>
             <button class="btn-host" id="scanToggle" onclick="toggleScan()">🤖 Auto-Scan</button>
-            <button style="background:#333; color:white;" onclick="manualNext()">Next Mode ></button>
+            <button style="background:#333; color:white;" onclick="manualNext()">Skip ></button>
         </div>
     </div>
 
@@ -266,7 +280,7 @@
         
         // Host State
         let bleDevice, bleChar;
-        let library = { modes: {} };
+        let library = {};
 
         // Client State
         let stream;
@@ -315,9 +329,15 @@
                 if (data.cmd === 'setMode') {
                     setLightMode(data.val);
                 } else if (data.cmd === 'log') {
-                    library.modes[data.mode] = data.data;
+                    library[data.mode] = data.data;
                     document.getElementById('libraryLog').value = JSON.stringify(library, null, 2);
                     document.getElementById('libraryLog').scrollTop = document.getElementById('libraryLog').scrollHeight;
+                    
+                    // Flash indicator
+                    const ind = document.getElementById('rxIndicator');
+                    ind.innerText = `Received Mode ${data.mode}`;
+                    ind.classList.add('flash');
+                    setTimeout(() => ind.classList.remove('flash'), 500);
                 }
             });
         }
@@ -355,6 +375,8 @@
             try { 
                 // Auto-wake before setting mode
                 if(p.on) await bleChar.writeValue(p.on);
+                // Slight delay
+                await new Promise(r => setTimeout(r, 50));
                 await bleChar.writeValue(p.setMode(m)); 
             } catch(e){}
         }
@@ -393,12 +415,16 @@
                     document.getElementById('hud').innerText = "Connected to Laptop";
                     document.getElementById('hud').style.color = "#22c55e";
                 });
+                conn.on('close', () => {
+                    document.getElementById('hud').innerText = "DISCONNECTED!";
+                    document.getElementById('hud').style.color = "#ef4444";
+                });
             });
         }
 
         async function startCamera() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } });
                 const video = document.getElementById('video');
                 video.srcObject = stream;
                 requestAnimationFrame(analyzeLoop);
@@ -407,8 +433,12 @@
 
         function manualNext() {
             currentMode++;
-            if(conn) conn.send({ cmd: 'setMode', val: currentMode });
-            document.getElementById('hud').innerText = `Manual: Mode ${currentMode}`;
+            if(conn && conn.open) {
+                conn.send({ cmd: 'setMode', val: currentMode });
+                document.getElementById('hud').innerText = `Manual: Mode ${currentMode}`;
+            } else {
+                document.getElementById('hud').innerText = "Not Connected";
+            }
         }
 
         function toggleScan() {
@@ -428,31 +458,51 @@
             if(!isScanning) return;
             
             // 1. Tell Host to switch mode
-            if(conn) conn.send({ cmd: 'setMode', val: currentMode });
-            document.getElementById('hud').innerText = `Scanning Mode ${currentMode}...`;
+            if(conn && conn.open) {
+                conn.send({ cmd: 'setMode', val: currentMode });
+                document.getElementById('hud').innerText = `Cmd Sent: Mode ${currentMode}\nAnalyzing...`;
+                document.getElementById('hud').style.color = "#fbbf24";
+            } else {
+                document.getElementById('hud').innerText = "Connection Lost!";
+                isScanning = false;
+                return;
+            }
             
             // 2. Clear buffer and wait
             frameBuffer = [];
             
-            // 3. Collect data for 2 seconds
+            // 3. Collect data for 3 seconds
             setTimeout(async () => {
                 if(!isScanning) return;
                 
-                // 4. Analyze
-                const result = await analyzeBuffer(frameBuffer);
+                try {
+                    // 4. Analyze
+                    const result = await analyzeBuffer(frameBuffer);
+                    
+                    // 5. Send result to Host
+                    if(conn && conn.open) {
+                        conn.send({ cmd: 'log', mode: currentMode, data: result });
+                        document.getElementById('hud').innerText = `SENT: M${currentMode}\n${result.desc}`;
+                        document.getElementById('hud').style.color = "#22c55e";
+                    }
+                    
+                    // 6. Next
+                    currentMode++;
+                    // Slight delay before next step
+                    setTimeout(runScanStep, 500);
+
+                } catch(e) {
+                    console.error(e);
+                    // Skip if fail
+                    currentMode++;
+                    runScanStep();
+                }
                 
-                // 5. Send result to Host
-                if(conn) conn.send({ cmd: 'log', mode: currentMode, data: result });
-                
-                // 6. Next
-                currentMode++;
-                runScanStep();
-                
-            }, 2500);
+            }, 3000);
         }
 
 
-        // --- V15 ANALYSIS ENGINE (Ported to Client) ---
+        // --- ANALYSIS ENGINE ---
         function analyzeLoop() {
             const video = document.getElementById('video');
             const canvas = document.getElementById('procCanvas');
@@ -471,6 +521,7 @@
                 
                 const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
                 let rawColors = [];
+                let segmentColors = [];
 
                 for(let i=0; i<SEGMENTS; i++) {
                     let rTot=0, gTot=0, bTot=0, count=0;
@@ -488,11 +539,38 @@
                         }
                     }
                     // Apply Dimmer
-                    rawColors.push({
-                        r: Math.floor((rTot/count)*dimmer),
-                        g: Math.floor((gTot/count)*dimmer),
-                        b: Math.floor((bTot/count)*dimmer)
-                    });
+                    let r = Math.floor((rTot/count)*dimmer);
+                    let g = Math.floor((gTot/count)*dimmer);
+                    let b = Math.floor((bTot/count)*dimmer);
+                    r=Math.min(255,r); g=Math.min(255,g); b=Math.min(255,b);
+                    
+                    rawColors.push({r,g,b});
+                    segmentColors.push(getColorName(r,g,b));
+                }
+                
+                // Draw Overlay
+                const overlayCanvas = document.getElementById('overlayCanvas');
+                const oCtx = overlayCanvas.getContext('2d');
+                overlayCanvas.width = video.clientWidth;
+                overlayCanvas.height = video.clientHeight;
+                oCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+                
+                const scaleX = overlayCanvas.width / 160;
+                const scaleY = overlayCanvas.height / 120;
+                
+                for(let i=0; i<SEGMENTS; i++) {
+                    const c = rawColors[i];
+                    const boxX = (stripX + stripX) * scaleX / 2;
+                    const boxY = (stripY + i * segmentH) * scaleY;
+                    const boxW = stripW * scaleX * 2;
+                    const boxH = segmentH * scaleY;
+                    
+                    oCtx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+                    oCtx.globalAlpha = 0.5;
+                    oCtx.fillRect(boxX - (boxW/2), boxY, boxW, boxH-2);
+                    oCtx.globalAlpha = 1.0;
+                    oCtx.strokeStyle = "rgba(0,255,0,0.5)";
+                    oCtx.strokeRect(boxX - (boxW/2), boxY, boxW, boxH-2);
                 }
                 
                 if(isScanning) frameBuffer.push(rawColors);
@@ -528,7 +606,7 @@
         function getColorName(r, g, b) {
             const [h, s, l] = rgbToHsl(r, g, b);
             if (l < 0.1) return "Off";
-            if (s < 0.15) return "White";
+            if (s < 0.15 && l > 0.2) return "White";
             if (h >= 340 || h <= 15) return "Red";
             if (h > 15 && h <= 45) return "Orange";
             if (h > 45 && h <= 75) return "Yellow";
@@ -539,46 +617,67 @@
             return "Mix";
         }
 
+        function countLitPixels(f) {
+            let count = 0;
+            f.forEach(p => { if(p.r+p.g+p.b > 60) count++; });
+            return count;
+        }
+
         async function analyzeBuffer(frames) {
             if(frames.length < 5) return { hex: "#000", motion: "NO DATA", type: "Unknown" };
             
             const midF = frames[Math.floor(frames.length/2)];
             
-            // Dominant Hex
+            // 1. Dominant Hex
             let rSum=0, gSum=0, bSum=0, count=0;
             midF.forEach(p => { if(p.r+p.g+p.b > 40) { rSum+=p.r; gSum+=p.g; bSum+=p.b; count++; }});
             const hex = count>0 ? rgbToHex(Math.round(rSum/count), Math.round(gSum/count), Math.round(bSum/count)) : "#000000";
             
-            // Motion
-            let totalDiff=0, upScore=0, downScore=0;
+            // 2. Motion Tracking
+            let upScore = 0; let downScore = 0;
+            let totalDiff = 0;
+            
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
-                let diffStatic=0, diffUp=0, diffDown=0;
+                let diffStatic = 0;
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
+                totalDiff += diffStatic;
+                
+                let diffUp = 0;
                 for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
+                
+                let diffDown = 0;
                 for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
-                totalDiff += diffStatic;
-                if(diffUp < diffStatic) upScore++;
-                if(diffDown < diffStatic) downScore++;
+                if (diffUp < diffStatic) upScore++;
+                if (diffDown < diffStatic) downScore++;
             }
             
             let motion = "STATIC";
-            if(totalDiff > 1000) {
-                if(upScore > downScore && upScore > frames.length/4) motion = "UP";
-                else if(downScore > upScore && downScore > frames.length/4) motion = "DOWN";
+            const litStart = countLitPixels(frames[0]);
+            const litEnd = countLitPixels(frames[frames.length-1]);
+            
+            if (litEnd > litStart + 2) motion = "UP";
+            else if (litEnd < litStart - 2) motion = "DOWN";
+            else if (totalDiff > 500) { 
+                if (upScore > downScore && upScore > frames.length/4) motion = "UP";
+                else if (downScore > upScore && downScore > frames.length/4) motion = "DOWN";
                 else motion = "RANDOM";
             }
             
-            // Type
+            // 3. Type
             const colors = new Set(midF.map(p => getColorName(p.r, p.g, p.b)).filter(c=>c!=='Off'));
             let type = colors.size > 1 ? "Multicolor" : "Solid";
             if(motion === "UP" || motion === "DOWN") type = "Chase";
             if(motion === "RANDOM") type = "Flash/Sparkle";
 
-            return { hex: hex, motion: motion, type: type };
+            // Description string
+            const colorDesc = Array.from(colors).join("/");
+            const desc = `${colorDesc || 'Black'} ${type} ${motion}`;
+
+            return { hex: hex, desc: desc };
         }
 
     </script>
