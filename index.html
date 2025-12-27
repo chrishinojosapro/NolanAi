@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v6 (Deep Smooth)</title>
+    <title>Universal Screen Sync v7 (Auto-Wake Fix)</title>
     <style>
         :root {
             --bg: #050505;
             --panel: #111;
             --accent: #3b82f6;
             --text: #eee;
+            --success: #22c55e;
         }
 
         body {
@@ -44,7 +45,7 @@
             box-shadow: 0 0 30px rgba(0,0,0,0.5);
             display: flex; align-items: center; justify-content: center;
             font-weight: bold; font-size: 0.8rem;
-            transition: box-shadow 0.2s;
+            transition: background 0.1s;
         }
 
         .controls { display: flex; flex-direction: column; gap: 15px; margin-top: 20px; }
@@ -57,6 +58,7 @@
 
         .btn-sync { background: #fff; color: #000; }
         .btn-connect { background: var(--accent); color: #fff; }
+        .connected-btn { background: var(--success) !important; color: white !important; }
         button:active { transform: scale(0.98); }
 
         .slider-box {
@@ -76,8 +78,8 @@
 <body>
 
     <div class="container">
-        <h1>Sync v6</h1>
-        <p style="font-size: 0.8rem; color: #666; margin-top: -5px;">Deep Color & Smooth Fading</p>
+        <h1>Sync v7</h1>
+        <p style="font-size: 0.8rem; color: #666; margin-top: -5px;">Direct Communication & Auto-Wake</p>
 
         <div class="preview-circle" id="preview">OFF</div>
 
@@ -85,22 +87,23 @@
             <button class="btn-sync" id="syncBtn" onclick="startCapture()">👁️ Start Screen Sync</button>
             
             <select id="protocol">
-                <option value="1">Protocol: Lotus (Keepsmile)</option>
-                <option value="0">Protocol: ELK (Standard)</option>
+                <option value="1">Protocol: Lotus/Keepsmile</option>
+                <option value="0">Protocol: ELK-BLEDOM</option>
+                <option value="2">Protocol: Triones</option>
             </select>
 
             <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
 
             <div class="slider-box">
-                <label>FADE SMOOTHING (Slow -> Fast)</label>
-                <input type="range" id="lerpSpeed" min="5" max="50" value="15">
+                <label>FADE SMOOTHING (Lerp Speed)</label>
+                <input type="range" id="lerpSpeed" min="5" max="60" value="20">
                 
-                <label style="margin-top:15px;">COLOR PURITY (Deepen Colors)</label>
-                <input type="range" id="purity" min="10" max="100" value="70">
+                <label style="margin-top:15px;">DEEP COLOR (Crush Pastels)</label>
+                <input type="range" id="purity" min="0" max="100" value="80">
             </div>
         </div>
 
-        <div id="status">Ready</div>
+        <div id="status">Ready. Select protocol and connect.</div>
     </div>
 
     <video id="captureVideo" autoplay playsinline muted style="display:none;"></video>
@@ -108,15 +111,32 @@
 
     <script>
         const PROTOCOLS = [
-            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
-            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) }
+            { 
+                name: "ELK", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]) 
+            },
+            { 
+                name: "Lotus", 
+                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
+                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
+                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) 
+            },
+            { 
+                name: "Triones", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]) 
+            }
         ];
 
         let characteristic;
         let isSyncing = false;
+        let isLightPoweredOn = false; // Tracks soft-power state
         
         // State for Fading
-        let curR = 0, curG = 0, curB = 0; // Current actual light state
+        let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
 
         async function startCapture() {
@@ -125,8 +145,14 @@
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "Syncing...";
+                document.getElementById('syncBtn').innerText = "Running (Check Tab)";
                 requestAnimationFrame(processLoop);
+                
+                stream.getVideoTracks()[0].onended = () => {
+                    isSyncing = false;
+                    document.getElementById('syncBtn').innerText = "👁️ Start Screen Sync";
+                    sendToLight(0,0,0);
+                };
             } catch(e) { console.error(e); }
         }
 
@@ -138,7 +164,7 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // 1. Analyze Screen (40x40 grid)
+                // Analyze Screen
                 canvas.width = 40; canvas.height = 40;
                 ctx.drawImage(video, 0, 0, 40, 40);
                 const data = ctx.getImageData(0, 0, 40, 40).data;
@@ -151,12 +177,9 @@
                     const max = Math.max(r, g, b);
                     const min = Math.min(r, g, b);
                     const sat = max === 0 ? 0 : (max - min) / max;
-                    const bri = max / 255;
-
-                    // FILTER: Focus on vibrant colors, ignore whites/greys
-                    if (sat > 0.4 && bri > 0.15) {
-                        // Color Deepening Logic:
-                        // Subtract "whiteness" (the minimum channel) to purify the hue
+                    
+                    // Filter: Need vibrant colors
+                    if (sat > 0.35 && max > 30) {
                         const white = min * purity;
                         rSum += (r - white);
                         gSum += (g - white);
@@ -167,38 +190,39 @@
 
                 let targetR = 0, targetG = 0, targetB = 0;
 
-                if (count > 10) {
+                if (count > 5) {
                     targetR = rSum / count;
                     targetG = gSum / count;
                     targetB = bSum / count;
 
                     // Boost Intensity
-                    const maxOut = Math.max(targetR, targetG, targetB);
+                    const maxOut = Math.max(targetR, targetG, targetB, 1);
                     const boost = 255 / maxOut;
                     targetR *= boost; targetG *= boost; targetB *= boost;
 
-                    // CRUSH logic for Deep Reds/Blues
-                    // If one channel is dominant, kill the weak ones to prevent "Pinking"
-                    if (targetR > targetG * 2 && targetR > targetB * 2) { targetG *= 0.2; targetB *= 0.2; }
-                    if (targetB > targetR * 2 && targetB > targetG * 2) { targetR *= 0.2; targetG *= 0.2; }
+                    // Deep Color Force: Crushing small channels to zero for better reds/blues
+                    if (targetR > targetG * 2.5 && targetR > targetB * 2.5) { targetG = 0; targetB = 0; }
+                    if (targetB > targetR * 2.5 && targetB > targetG * 2.5) { targetR = 0; targetG = 0; }
                 }
 
-                // 2. APPLY FADING (LERP)
+                // Smooth Fading
                 const lerpBase = document.getElementById('lerpSpeed').value / 100;
                 curR += (targetR - curR) * lerpBase;
                 curG += (targetG - curG) * lerpBase;
                 curB += (targetB - curB) * lerpBase;
 
-                // 3. UI Update
+                // UI Preview
                 const preview = document.getElementById('preview');
                 const outR = Math.floor(curR), outG = Math.floor(curG), outB = Math.floor(curB);
-                preview.style.background = `rgb(${outR},${outG},${outB})`;
-                preview.style.boxShadow = `0 0 40px rgb(${outR},${outG},${outB})`;
-                preview.innerText = (outR+outG+outB) > 15 ? "" : "OFF";
+                const isBlack = (outR + outG + outB) < 10;
+                
+                preview.style.background = isBlack ? '#000' : `rgb(${outR},${outG},${outB})`;
+                preview.style.boxShadow = isBlack ? 'none' : `0 0 40px rgb(${outR},${outG},${outB})`;
+                preview.innerText = isBlack ? "OFF" : "";
 
-                // 4. Bluetooth Send (Throttled to 15fps to avoid lag)
+                // Send to Light (Throttled for BT stability)
                 const now = Date.now();
-                if (now - lastSentTime > 66) {
+                if (now - lastSentTime > 75) {
                     sendToLight(outR, outG, outB);
                     lastSentTime = now;
                 }
@@ -209,15 +233,25 @@
         async function sendToLight(r, g, b) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
+            
             try {
                 if (r < 5 && g < 5 && b < 5) {
-                    // Turn off if near black
-                    await characteristic.writeValue(p.off);
+                    // Signal is black: Turn soft-power OFF
+                    if (isLightPoweredOn) {
+                        await characteristic.writeValue(p.off);
+                        isLightPoweredOn = false;
+                    }
                 } else {
-                    // Standard color write
+                    // Signal has color: Ensure soft-power is ON
+                    if (!isLightPoweredOn) {
+                        await characteristic.writeValue(p.on);
+                        isLightPoweredOn = true;
+                        // Brief wait for chip to wake before sending color
+                        await new Promise(res => setTimeout(res, 30));
+                    }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
-            } catch(e) {}
+            } catch(e) { console.warn("BT Write Fail", e); }
         }
 
         async function connect() {
@@ -226,8 +260,10 @@
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb']
                 });
+                
                 const server = await device.gatt.connect();
                 const services = await server.getPrimaryServices();
+                
                 for(let s of services) {
                     const chars = await s.getCharacteristics();
                     for(let c of chars) {
@@ -237,12 +273,22 @@
                     }
                     if(characteristic) break;
                 }
+
                 if(characteristic) {
-                    document.getElementById('connectBtn').style.background = "#22c55e";
-                    document.getElementById('connectBtn').innerText = "Connected";
-                    document.getElementById('status').innerText = "Linked to " + device.name;
+                    const btn = document.getElementById('connectBtn');
+                    btn.classList.add('connected-btn');
+                    btn.innerText = "CONNECTED";
+                    document.getElementById('status').innerText = "Linked: " + device.name;
+                    
+                    // INITIAL WAKE COMMAND
+                    const p = PROTOCOLS[document.getElementById('protocol').value];
+                    await characteristic.writeValue(p.on);
+                    isLightPoweredOn = true;
+                    // Flash green to confirm link
+                    await characteristic.writeValue(p.write(0, 255, 0));
+                    setTimeout(() => sendToLight(0,0,0), 500);
                 }
-            } catch(e) { alert(e.message); }
+            } catch(e) { alert("Connect Error: " + e.message); }
         }
     </script>
 </body>
