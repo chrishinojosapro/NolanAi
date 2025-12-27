@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v20 (Detailed Descriptions)</title>
+    <title>AI Vision Scanner v20 (Crash Fix)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -105,7 +105,7 @@
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Detail V20)</h1>
+    <h1>👁️ Light Scanner (Fixed Bounds)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -385,95 +385,69 @@
         async function analyzeBuffer(frames) {
             if(!frames || frames.length < 5) return { hex: "#000", desc: "No Video Data", motion: "NO DATA", type: "Unknown" };
             
-            // 1. Snapshot Analysis
+            // 1. Dominant Color (Middle Frame)
             const midF = frames[Math.floor(frames.length/2)];
-            
-            // Get unique colors
-            let colorCounts = {};
-            let segColors = [];
+            let counts = {};
             midF.forEach(p => {
                 const n = getColorName(p.r,p.g,p.b);
-                segColors.push(n);
-                if(n!=='Off' && n!=='Mix') colorCounts[n] = (colorCounts[n]||0)+1;
+                if(n!=='Off') counts[n] = (counts[n]||0)+1;
             });
+            const topColors = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+            const mainColor = topColors[0] || "Black";
             
-            const sortedColors = Object.entries(colorCounts).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
-            
-            // Calc Hex of brightest average
-            let rSum=0, gSum=0, bSum=0, count=0;
+            // Calc Hex
+            let maxBri=0, hex="#000000";
             midF.forEach(p => {
-               if (p.r+p.g+p.b > 40) { rSum+=p.r; gSum+=p.g; bSum+=p.b; count++; }
+                if(p.r+p.g+p.b > maxBri) { maxBri = p.r+p.g+p.b; hex = rgbToHex(p.r,p.g,p.b); }
             });
-            const hex = count>0 ? rgbToHex(Math.round(rSum/count), Math.round(gSum/count), Math.round(bSum/count)) : "#000000";
 
             // 2. Motion Tracking
             let upScore=0, downScore=0, totalDiff=0;
+            
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
+                if (!prev || !curr || prev.length !== SEGMENTS || curr.length !== SEGMENTS) continue;
+                
                 let diffStatic=0, diffUp=0, diffDown=0;
+                
+                // Static
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
-                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
-                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                
+                // Up: Content at i+1 moved to i
+                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
+                
+                // Down: Content at i-1 moved to i
+                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
                 totalDiff += diffStatic;
                 if(diffUp < diffStatic) upScore++;
                 if(diffDown < diffStatic) downScore++;
             }
             
-            let motion = "Static";
+            let motion = "STATIC";
             const litStart = countLitPixels(frames[0]);
             const litEnd = countLitPixels(frames[frames.length-1]);
             
-            if (litEnd > litStart + 2) motion = "Filling Up";
-            else if (litEnd < litStart - 2) motion = "Draining Down";
+            if (litEnd > litStart + 2) motion = "UP (Fill)";
+            else if (litEnd < litStart - 2) motion = "DOWN (Drain)";
             else if (totalDiff > 1000) {
-                if (upScore > downScore && upScore > frames.length/4) motion = "Up";
-                else if (downScore > upScore && downScore > frames.length/4) motion = "Down";
-                else motion = "Random/Flash";
+                if (upScore > downScore && upScore > frames.length/4) motion = "UP";
+                else if (downScore > upScore && downScore > frames.length/4) motion = "DOWN";
+                else motion = "RANDOM";
             }
 
-            // 3. Construct Detailed Description
-            let desc = "";
+            // Description
+            let texture = topColors.length > 1 ? "Multicolor" : "Solid";
+            if (motion.includes("Flash")) texture = "Sparkle";
             let type = "Solid";
+            if (motion.includes("UP") || motion.includes("DOWN")) type = "Chase";
+            if (motion.includes("RANDOM")) type = "Flash";
+            if (topColors.length > 1) type = "Multicolor";
 
-            if (sortedColors.length === 0) {
-                desc = "Off / Black";
-                type = "Off";
-            } else if (sortedColors.length === 1) {
-                // Single Color
-                const c = sortedColors[0];
-                if (motion === "Static") desc = `Solid ${c}`;
-                else if (motion === "Random/Flash") { desc = `${c} Flashing`; type = "Flash"; }
-                else { desc = `${c} Moving ${motion}`; type = "Chase"; }
-            } else {
-                // Multi Color
-                const cList = sortedColors.slice(0, 3).join("/");
-                type = "Multicolor";
-                
-                if (motion === "Static") {
-                    // Check for gradient
-                    const botMain = segColors[9];
-                    const topMain = segColors[0];
-                    if(botMain !== 'Off' && topMain !== 'Off' && botMain !== topMain) {
-                        desc = `${botMain}-${topMain} Gradient`;
-                    } else {
-                        desc = `${cList} Static Pattern`;
-                    }
-                } else if (motion === "Random/Flash") {
-                    desc = `${cList} Sparkle/Flash`;
-                    type = "Sparkle";
-                } else {
-                    desc = `${cList} Stream ${motion}`;
-                    type = "Chase";
-                }
-            }
-            
-            // Check Rainbow
-            if(sortedColors.includes("Red") && sortedColors.includes("Green") && sortedColors.includes("Blue")) {
-                desc = desc.replace(sortedColors.slice(0,3).join("/"), "Rainbow");
-            }
+            let desc = `${mainColor} ${texture} ${motion}`;
+            if(mainColor === "Black") desc = "Off";
 
             // AI Override
             const useAi = document.getElementById('useAi').checked;
