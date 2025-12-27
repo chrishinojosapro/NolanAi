@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v11 (Hardware Control)</title>
+    <title>AI Vision Scanner v12 (Color Recovery)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -152,7 +152,7 @@
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner (v11)</h1>
+    <h1>👁️ Vertical Strip Scanner (v12)</h1>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
@@ -169,7 +169,11 @@
                     <input type="range" id="exposureRange" min="-10" max="10" step="1" value="0" disabled oninput="updateExposure(this.value)">
                     <span id="expVal" style="width:30px">Auto</span>
                 </div>
-                <div style="font-size:0.7rem; color:#aaa;">IMPORTANT: Slide Left until "White" LEDs look Red/Blue.</div>
+                <div class="range-row">
+                    <span>Color Booster:</span>
+                    <input type="range" id="boostRange" min="1" max="10" step="1" value="3">
+                </div>
+                <div style="font-size:0.7rem; color:#aaa;">Slide Exposure Left to darken. Increase Boost to find colors in white light.</div>
             </div>
 
             <button onclick="startCamera()">📷 Start Camera</button>
@@ -254,11 +258,10 @@
         // --- CAMERA LOGIC ---
         async function startCamera() {
             try {
-                // Request best possible video for CV
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: "environment",
-                        width: { ideal: 640 }, // Lower res is faster for analysis
+                        width: { ideal: 640 }, 
                         height: { ideal: 480 }
                     } 
                 });
@@ -266,14 +269,12 @@
                 const video = document.getElementById('video');
                 video.srcObject = stream;
                 
-                // Get Track for Hardware Controls
                 track = stream.getVideoTracks()[0];
                 const caps = track.getCapabilities();
                 
                 const expSlider = document.getElementById('exposureRange');
                 const expVal = document.getElementById('expVal');
                 
-                // Init Exposure Control if available
                 if (caps.exposureCompensation) {
                     expSlider.min = caps.exposureCompensation.min;
                     expSlider.max = caps.exposureCompensation.max;
@@ -282,7 +283,6 @@
                     expSlider.disabled = false;
                     expVal.innerText = expSlider.value;
                 } else if (caps.exposureMode) {
-                    // Fallback try setting manual mode
                     track.applyConstraints({ advanced: [{ exposureMode: "manual" }] }).catch(e=>{});
                     expVal.innerText = "N/A";
                 } else {
@@ -303,33 +303,67 @@
             } catch(e) { console.log("Exposure adjust failed", e); }
         }
 
-        // Smart Color Classifier (Aggressive Recovery)
+        // HSL Conversion
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0; 
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h * 360, s, l];
+        }
+
+        // BOOSTED Color Classifier
         function getColorName(r, g, b) {
-            const sum = r + g + b;
+            // 1. Remove Whiteness (De-saturation)
+            // If we have (250, 200, 200), min is 200. 
+            // Result is (50, 0, 0) -> Pure Red.
+            const minChannel = Math.min(r, g, b);
+            const boostFactor = document.getElementById('boostRange').value; 
             
-            // Darkness
-            if (sum < 40) return "Off";
+            // Artificial boosting
+            let boostR = r - (minChannel * 0.8); // Leave a little brightness
+            let boostG = g - (minChannel * 0.8);
+            let boostB = b - (minChannel * 0.8);
             
-            // Recovery for Blown Out Channels (e.g. 255, 200, 200 -> Red)
-            // If Red is significantly higher than G/B even if G/B are high
-            const diffRG = r - g;
-            const diffRB = r - b;
-            const diffGB = g - b;
-            const diffBG = b - g;
+            // Re-normalize to 0-255 range if too dark
+            const maxBoost = Math.max(boostR, boostG, boostB);
+            if (maxBoost > 10) {
+                const multiplier = 255 / maxBoost;
+                boostR *= multiplier;
+                boostG *= multiplier;
+                boostB *= multiplier;
+            }
+
+            const [h, s, l] = rgbToHsl(boostR, boostG, boostB);
+            const [origH, origS, origL] = rgbToHsl(r, g, b); // Keep original lightness for "Off" check
             
-            if (r > 200 && g > 200 && b > 200) return "White"; // True white
+            // Darkness Check (Original L)
+            if (origL < 0.1) return "Off";
             
-            // Warm Recovery
-            if (r > 150 && diffRG > 20 && diffRB > 20) return "Red";
-            if (r > 150 && g > 100 && diffRG > -30 && diffRB > 50) return "Orange"; // Red ~ Green > Blue
+            // White Check (Low Saturation on BOOSTED)
+            // Even after boosting, if saturation is low, it really is white
+            if (s < 0.15) return "White";
             
-            // Standard HSL fallback
-            if (r > g + b) return "Red";
-            if (g > r + b) return "Green";
-            if (b > r + g) return "Blue";
-            if (r > 150 && g > 150 && b < 100) return "Yellow";
-            if (r > 150 && b > 150 && g < 100) return "Purple"; 
-            if (g > 150 && b > 150 && r < 100) return "Cyan"; 
+            // Hue Map (Degrees)
+            if (h >= 340 || h <= 15) return "Red";
+            if (h > 15 && h <= 45) return "Orange";
+            if (h > 45 && h <= 75) return "Yellow";
+            if (h > 75 && h <= 165) return "Green";
+            if (h > 165 && h <= 200) return "Cyan";
+            if (h > 200 && h <= 270) return "Blue";
+            if (h > 270 && h <= 340) return "Purple";
             
             return "Mix";
         }
@@ -345,7 +379,6 @@
             const procCanvas = document.getElementById('procCanvas');
             const overlayCanvas = document.getElementById('overlayCanvas');
             
-            // Match overlay size to video size on screen
             overlayCanvas.width = video.clientWidth;
             overlayCanvas.height = video.clientHeight;
             
@@ -353,17 +386,14 @@
             const overlayCtx = overlayCanvas.getContext('2d');
             
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Process low-res for speed
                 procCanvas.width = 160; 
                 procCanvas.height = 120;
                 ctx.drawImage(video, 0, 0, 160, 120);
                 
-                // Define ROI: Center Column (50% height, 10% width)
-                const stripW = Math.floor(160 * 0.1); 
-                const stripX = Math.floor((160 - stripW) / 2);
-                const stripH = Math.floor(120 * 0.8);
-                const stripY = Math.floor(120 * 0.1);
-                
+                const stripW = Math.floor(procCanvas.width * 0.1); 
+                const stripX = Math.floor((procCanvas.width - stripW) / 2);
+                const stripH = Math.floor(procCanvas.height * 0.8);
+                const stripY = Math.floor(procCanvas.height * 0.1);
                 const segmentH = Math.floor(stripH / SEGMENTS);
                 
                 let segmentColors = []; 
@@ -373,15 +403,11 @@
                 
                 // Clear Overlay
                 overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
-                
-                // Calculate scale factors for overlay drawing
                 const scaleX = overlayCanvas.width / 160;
                 const scaleY = overlayCanvas.height / 120;
                 
                 for(let i=0; i<SEGMENTS; i++) {
                     let rTot=0, gTot=0, bTot=0, count=0;
-                    
-                    // Analyze logic pixels
                     const startY = i * segmentH;
                     const endY = startY + segmentH;
                     
@@ -406,17 +432,16 @@
                     rawColors.push({r,g,b});
                     
                     // DRAW DEBUG OVERLAY
-                    // Draw a box for each segment representing detected color
-                    const boxX = (stripX + stripX) * scaleX / 2; // Center
+                    const boxX = (stripX + stripX) * scaleX / 2;
                     const boxY = (stripY + i * segmentH) * scaleY;
                     const boxW = stripW * scaleX;
                     const boxH = segmentH * scaleY;
                     
                     overlayCtx.fillStyle = getCssColor(cName);
-                    overlayCtx.globalAlpha = 0.5;
-                    overlayCtx.fillRect(boxX - (boxW), boxY, boxW*3, boxH-2); // Wider box for visibility
+                    overlayCtx.globalAlpha = 0.6;
+                    overlayCtx.fillRect(boxX - (boxW), boxY, boxW*3, boxH-2);
                     overlayCtx.globalAlpha = 1.0;
-                    overlayCtx.strokeStyle = "rgba(255,255,255,0.5)";
+                    overlayCtx.strokeStyle = "rgba(255,255,255,0.8)";
                     overlayCtx.strokeRect(boxX - (boxW), boxY, boxW*3, boxH-2);
                 }
                 
@@ -472,65 +497,64 @@
             }, speed);
         }
         
-        // --- DEEP ANALYSIS (TRAJECTORY TRACKING) ---
+        // --- DEEP ANALYSIS ---
         async function analyzeBuffer(frames) {
             if(frames.length < 5) return "No Data";
             
-            // 1. Color Profile (What colors exist?)
-            const colorCounts = {};
-            frames.forEach(f => f.forEach(p => {
-                const n = getColorName(p.r, p.g, p.b);
-                if(n!=='Off') colorCounts[n] = (colorCounts[n] || 0) + 1;
-            }));
-            const sortedColors = Object.entries(colorCounts).sort((a,b)=>b[1]-a[1]);
-            const primaryColors = sortedColors.slice(0,2).map(x=>x[0]).join("/");
+            const startF = frames[0];
+            const endF = frames[frames.length-1];
+            const midF = frames[Math.floor(frames.length/2)];
             
-            // 2. Motion Trajectory
-            // Calculate center of mass for EACH frame to create a path
-            // path = [4.5, 4.6, 4.8, 5.0 ...] -> Moving down (Index increasing)
-            let path = [];
-            frames.forEach(f => {
-                let m=0, w=0;
-                f.forEach((p,i) => { 
-                    const b = p.r+p.g+p.b; 
-                    if(b>60) { m+=b; w+=i*b; } 
+            const getColors = (f) => {
+                const s = new Set();
+                f.forEach(p => { 
+                    const n = getColorName(p.r,p.g,p.b); 
+                    if(n!=='Off') s.add(n); 
                 });
-                if(m>0) path.push(w/m);
-            });
+                return Array.from(s);
+            };
             
-            // Analyze Path slope (Linear Regression)
-            let slope = 0;
-            if(path.length > 2) {
-                let xSum=0, ySum=0, xxSum=0, xySum=0;
-                const n = path.length;
-                for(let i=0; i<n; i++) {
-                    xSum += i; ySum += path[i];
-                    xxSum += i*i; xySum += i*path[i];
-                }
-                slope = (n*xySum - xSum*ySum) / (n*xxSum - xSum*xSum);
+            const colors = getColors(midF);
+            const mainColorStr = colors.join("/");
+            
+            // Motion Tracking (Sensitive Threshold)
+            let totalDiff = 0;
+            let upScore = 0;
+            let downScore = 0;
+            
+            for(let t=1; t<frames.length; t++) {
+                const prev = frames[t-1];
+                const curr = frames[t];
+                
+                let diffStatic = 0;
+                for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(prev[i].r - curr[i].r);
+                totalDiff += diffStatic;
+                
+                let diffUp = 0;
+                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(prev[i].r - curr[i-1].r);
+                
+                let diffDown = 0;
+                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(prev[i].r - curr[i+1].r);
+                
+                if (diffUp < diffStatic) upScore++;
+                if (diffDown < diffStatic) downScore++;
             }
-            
-            // Slope > 0 means Index increasing (Top->Bot) -> DOWN
-            // Slope < 0 means Index decreasing (Bot->Top) -> UP
             
             let motion = "Static";
-            const variance = calculateVariance(path); // How jittery is it?
+            const litStart = countLitPixels(frames[0]);
+            const litEnd = countLitPixels(frames[frames.length-1]);
             
-            if (Math.abs(slope) > 0.05) {
-                if (slope < 0) motion = "Chase UP ⬆️";
-                else motion = "Chase DOWN ⬇️";
-            } else if (variance > 1.0) {
-                motion = "Random/Flash ✨";
-            } else {
-                // Check if filling
-                const startLit = countLitPixels(frames[0]);
-                const endLit = countLitPixels(frames[frames.length-1]);
-                if (endLit > startLit + 2) motion = "Filling";
-                else if (endLit < startLit - 2) motion = "Draining";
+            // Check Filling First (Distinct from chasing)
+            if (litEnd > litStart + 2) motion = "Filling Up";
+            else if (litEnd < litStart - 2) motion = "Draining";
+            else if (totalDiff > 500) { // Lowered threshold
+                if (upScore > downScore && upScore > (frames.length/4)) motion = "Chase UP ⬆️";
+                else if (downScore > upScore && downScore > (frames.length/4)) motion = "Chase DOWN ⬇️";
+                else motion = "Random/Flash ✨";
             }
             
-            let desc = `${primaryColors} ${motion}`;
-            if(!primaryColors) desc = "Off/Black";
+            let desc = `${mainColorStr} ${motion}`;
+            if(!mainColorStr) desc = "Off/Black";
 
             // AI Override
             const useAi = document.getElementById('useAi').checked;
@@ -538,12 +562,6 @@
             if(useAi && apiKey) desc = await getAiDescription(frames, apiKey);
             
             return desc;
-        }
-        
-        function calculateVariance(arr) {
-            if(arr.length === 0) return 0;
-            const mean = arr.reduce((a,b)=>a+b)/arr.length;
-            return arr.reduce((a,b)=>a+Math.pow(b-mean,2),0)/arr.length;
         }
         
         function countLitPixels(f) {
