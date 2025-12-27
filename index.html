@@ -3,115 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High Contrast Sync v15 (Hero Lock)</title>
+    <title>High Contrast Sync v16 (Hero Fade)</title>
     <style>
         :root {
-            --bg: #020617;
-            --panel: #0f172a;
-            --accent: #3b82f6;
-            --text: #f8fafc;
+            --bg: #000000;
+            --panel: #111111;
+            --text: #ffffff;
+            --accent: #ff0055; /* Cyberpunk Red */
+            --highlight: #00e5ff; /* Cyberpunk Blue */
             --success: #22c55e;
-            --danger: #ef4444;
         }
 
         body {
-            font-family: -apple-system, system-ui, sans-serif;
+            font-family: 'Segoe UI', Roboto, sans-serif;
             background-color: var(--bg);
             color: var(--text);
-            margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            margin: 0;
         }
 
         .container {
-            width: 90%;
-            max-width: 400px;
             background: var(--panel);
-            padding: 30px;
-            border-radius: 24px;
-            border: 1px solid #1e293b;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #333;
+            width: 90%;
+            max-width: 500px;
             text-align: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
         }
 
-        h1 { margin: 0 0 10px 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; }
-        
-        /* THE HUE HALO */
-        .preview-circle {
-            width: 130px; height: 130px; border-radius: 50%;
-            margin: 20px auto;
-            border: 4px solid #1e293b;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 1.2rem;
-            transition: background 0.05s linear, box-shadow 0.05s linear;
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #ff0000, #ffffff, #0044ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .controls { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+        /* LIVE PREVIEW BOX */
+        .preview-box {
+            width: 100%;
+            height: 120px;
+            background: #000;
+            border: 2px solid #333;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px black;
+            transition: background-color 0.05s linear, box-shadow 0.05s linear;
+        }
 
-        button {
-            padding: 15px; border: none; border-radius: 12px;
-            font-weight: bold; cursor: pointer; transition: 0.2s;
+        /* CONTROLS */
+        select {
+            width: 100%;
+            padding: 12px;
+            background: #222;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 8px;
+            margin-bottom: 15px;
             font-size: 1rem;
         }
-        .btn-sync { background: #fff; color: #000; }
-        .btn-connect { background: var(--accent); color: #fff; }
-        .connected { background: var(--success) !important; }
 
-        .slider-box {
-            text-align: left; background: #020617; padding: 15px; border-radius: 12px; margin-top: 10px;
-            border: 1px solid #1e293b;
+        button {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            margin-bottom: 10px;
         }
-        label { display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; margin-bottom: 8px; text-transform: uppercase; font-weight: bold;}
-        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; margin-bottom: 10px; }
+        button:hover { filter: brightness(1.2); }
+        button:active { transform: scale(0.98); }
 
-        select {
-            width: 100%; padding: 12px; background: #000; color: #fff;
-            border: 1px solid #334155; border-radius: 8px; font-family: inherit;
+        .btn-sync { background: var(--highlight); color: black; }
+        .btn-connect { background: var(--accent); color: white; }
+        .connected-btn { background: var(--success) !important; color: white !important; }
+
+        /* SLIDERS */
+        .slider-group {
+            text-align: left;
+            margin-top: 20px;
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .slider-label {
+            display: flex; justify-content: space-between; font-size: 0.8rem; color: #888; margin-bottom: 5px; text-transform: uppercase; font-weight: bold;
+        }
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--highlight);
+            cursor: pointer;
+            margin-bottom: 15px;
         }
 
-        #status { font-size: 0.7rem; color: #475569; margin-top: 15px; font-family: monospace; }
-        .tag { color: var(--accent); }
+        #status { font-size: 0.7rem; color: #444; margin-top: 10px; font-family: monospace; }
+
+        /* HIDDEN ELEMENTS */
+        #captureVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        #analysisCanvas { display: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Hero Lock v15</h1>
-        <p style="font-size:0.8rem; color:#64748b; margin-top:-10px;">Dominant Color or Blackout</p>
+        <h1>Hero Fade Sync v16</h1>
         
-        <div class="preview-circle" id="preview">OFF</div>
+        <div class="preview-box" id="preview">OFF</div>
 
-        <div class="controls">
-            <button class="btn-sync" id="syncBtn" onclick="startCapture()">👁️ Start Screen Sync</button>
-            
-            <select id="protocol">
-                <option value="1">Protocol: Lotus/Keepsmile</option>
-                <option value="0">Protocol: ELK-BLEDOM</option>
-                <option value="2">Protocol: Triones</option>
-            </select>
+        <button class="btn-sync" id="syncBtn" onclick="startCapture()">1. Start Screen Sync</button>
+        
+        <select id="protocol">
+            <option value="1">Protocol: Lotus/Keepsmile</option>
+            <option value="0">Protocol: ELK-BLEDOM</option>
+            <option value="2">Protocol: Triones</option>
+        </select>
+        
+        <button class="btn-connect" id="connectBtn" onclick="connect()">2. Connect Light</button>
 
-            <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
-
-            <div class="slider-box">
-                <label><span>Vibrancy (Cutoff)</span> <span id="satVal">35%</span></label>
-                <input type="range" id="satThreshold" min="5" max="80" value="35" oninput="document.getElementById('satVal').innerText=this.value+'%'">
-                
-                <label><span>Brightness Boost</span> <span id="briVal">1.0x</span></label>
-                <input type="range" id="brightnessGain" min="10" max="50" value="10" oninput="document.getElementById('briVal').innerText=(this.value/10)+'x'">
-
-                <label><span>Transition Fade</span></label>
-                <input type="range" id="lerpSpeed" min="5" max="95" value="40">
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>Transition Smoothness</span>
+                <span id="fadeVal">25%</span>
             </div>
+            <input type="range" id="fadeSpeed" min="2" max="90" value="25" oninput="updateLabels()">
+            
+            <div class="slider-label">
+                <span>Vibrancy Cutoff (Blackout)</span>
+                <span id="satVal">30%</span>
+            </div>
+            <input type="range" id="satThresh" min="0" max="80" value="30" oninput="updateLabels()">
+            
+            <div class="slider-label">
+                <span>Brightness Boost</span>
+                <span id="briVal">1.5x</span>
+            </div>
+            <input type="range" id="brightnessGain" min="10" max="50" value="15" oninput="updateLabels()">
         </div>
-
+        
         <div id="status">BT_IDLE</div>
     </div>
 
-    <video id="captureVideo" autoplay playsinline muted style="display:none;"></video>
-    <canvas id="analysisCanvas" style="display:none;"></canvas>
+    <video id="captureVideo" autoplay playsinline muted></video>
+    <canvas id="analysisCanvas"></canvas>
 
     <script>
         const PROTOCOLS = [
@@ -122,11 +172,18 @@
 
         let characteristic;
         let isSyncing = false;
-        let isLightPoweredOn = false;
+        let isPoweredOn = false;
         
-        // Color state for smooth transitions
+        // Lerp/Fade state
         let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
+        const BT_FPS = 80; // ms between packets
+
+        function updateLabels() {
+            document.getElementById('fadeVal').innerText = document.getElementById('fadeSpeed').value + "%";
+            document.getElementById('satVal').innerText = document.getElementById('satThresh').value + "%";
+            document.getElementById('briVal').innerText = (document.getElementById('brightnessGain').value / 10) + "x";
+        }
 
         async function startCapture() {
             try {
@@ -134,123 +191,118 @@
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "LIVE ACTIVE";
-                document.getElementById('syncBtn').style.background = "#22c55e";
+                document.getElementById('syncBtn').innerText = "LIVE SYNC ACTIVE";
+                document.getElementById('syncBtn').style.background = "var(--success)";
                 document.getElementById('syncBtn').style.color = "#fff";
-                requestAnimationFrame(processLoop);
-                
+                requestAnimationFrame(analyzeLoop);
                 stream.getVideoTracks()[0].onended = () => {
                     isSyncing = false;
-                    document.getElementById('syncBtn').innerText = "👁️ Start Screen Sync";
-                    document.getElementById('syncBtn').style.background = "#fff";
-                    document.getElementById('syncBtn').style.color = "#000";
+                    document.getElementById('syncBtn').innerText = "1. Start Screen Sync";
                     sendToLight(0,0,0);
                 };
             } catch(e) { console.error(e); }
         }
 
-        function processLoop() {
+        function analyzeLoop() {
             if(!isSyncing) return;
-            
             const video = document.getElementById('captureVideo');
             const canvas = document.getElementById('analysisCanvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
+            
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Analysis grid
-                canvas.width = 30; canvas.height = 30;
-                ctx.drawImage(video, 0, 0, 30, 30);
-                const data = ctx.getImageData(0, 0, 30, 30).data;
-
-                const satThresh = parseInt(document.getElementById('satThreshold').value) / 100;
-                const gain = parseInt(document.getElementById('brightnessGain').value) / 10;
+                // Downsample massively for speed
+                canvas.width = 40; canvas.height = 40;
+                ctx.drawImage(video, 0, 0, 40, 40);
+                const frame = ctx.getImageData(0, 0, 40, 40).data;
                 
-                // HERO DETECTION LOGIC
-                // We find the pixel with the highest "Vibrancy Impact"
-                let bestP = {r: 0, g: 0, b: 0, impact: 0};
+                // HERO COLOR LOCK LOGIC
+                let bestR = 0, bestG = 0, bestB = 0;
+                let maxImpact = 0;
+                
+                const satCutoff = parseInt(document.getElementById('satThresh').value) / 100;
+                const gain = parseInt(document.getElementById('brightnessGain').value) / 10;
 
-                for(let i=0; i<data.length; i+=4) {
-                    let r = data[i], g = data[i+1], b = data[i+2];
+                for(let i=0; i<frame.length; i+=4) {
+                    let r = frame[i], g = frame[i+1], b = frame[i+2];
                     const max = Math.max(r, g, b);
                     const min = Math.min(r, g, b);
                     const sat = max === 0 ? 0 : (max - min) / max;
                     
-                    // High Saturation + Good Brightness = High Impact
+                    // Score = Vibrancy x Brightness
                     const impact = sat * max;
 
-                    if (impact > bestP.impact) {
-                        bestP = {r, g, b, impact, sat, max};
+                    if (impact > maxImpact) {
+                        maxImpact = impact;
+                        bestR = r; bestG = g; bestB = b;
                     }
                 }
-
+                
                 let targetR = 0, targetG = 0, targetB = 0;
+                
+                // Check if the dominant color is actually vibrant or bright enough
+                const bestMax = Math.max(bestR, bestG, bestB);
+                const bestMin = Math.min(bestR, bestG, bestB);
+                const bestSat = bestMax === 0 ? 0 : (bestMax - bestMin) / bestMax;
 
-                // BLACKOUT GUARD:
-                // If the most colorful pixel on screen is still below the vibrancy threshold,
-                // or if the screen is dark, force target to zero.
-                if (bestP.impact > 15 && bestP.sat >= satThresh && bestP.max > 20) {
-                    // HERO FOUND!
-                    targetR = Math.min(255, bestP.r * gain);
-                    targetG = Math.min(255, bestP.g * gain);
-                    targetB = Math.min(255, bestP.b * gain);
+                if (bestMax > 15 && (bestSat > satCutoff || bestMax > 220)) {
+                    // HERO FOUND (or pure white flash found)
+                    targetR = bestR; targetG = bestG; targetB = bestB;
 
-                    // NORMALIZATION: Push color to full pop
-                    const maxOut = Math.max(targetR, targetG, targetB, 1);
-                    const boost = 255 / maxOut;
-                    targetR *= boost; targetG *= boost; targetB *= boost;
+                    // Deep Color Math: Subtract white contamination if saturated
+                    if (bestSat > 0.3) {
+                        targetR -= bestMin;
+                        targetG -= bestMin;
+                        targetB -= bestMin;
+                    }
 
-                    // DEEP COLOR FORCE: Remove the white contamination
-                    const whiteLevel = Math.min(targetR, targetG, targetB);
-                    targetR = Math.max(0, targetR - (whiteLevel * 0.95));
-                    targetG = Math.max(0, targetG - (whiteLevel * 0.95));
-                    targetB = Math.max(0, targetB - (whiteLevel * 0.95));
-                }
+                    // Boost Intensity
+                    const m = Math.max(targetR, targetG, targetB, 1);
+                    targetR = Math.min(255, (targetR / m) * 255 * gain);
+                    targetG = Math.min(255, (targetG / m) * 255 * gain);
+                    targetB = Math.min(255, (targetB / m) * 255 * gain);
 
-                // SMOOTH FADING (LERP)
-                const lerpBase = document.getElementById('lerpSpeed').value / 500;
-                curR += (targetR - curR) * lerpBase;
-                curG += (targetG - curG) * lerpBase;
-                curB += (targetB - curB) * lerpBase;
+                    // Final Crush for Sabers (Red/Blue exclusivity)
+                    if (targetR > targetG * 2.2 && targetR > targetB * 2.2) { targetG = 0; targetB = 0; }
+                    if (targetB > targetR * 2.2 && targetB > targetG * 2.2) { targetR = 0; targetG = 0; }
+                } 
 
+                // FADE ENGINE (LERP)
+                const lerp = parseInt(document.getElementById('fadeSpeed').value) / 250;
+                curR += (targetR - curR) * lerp;
+                curG += (targetG - curG) * lerp;
+                curB += (targetB - curB) * lerp;
+                
                 const outR = Math.floor(curR), outG = Math.floor(curG), outB = Math.floor(curB);
-                const isOff = (outR + outG + outB) < 10;
+                const isBlack = (outR + outG + outB) < 15;
                 const colStr = `rgb(${outR},${outG},${outB})`;
+                
+                // UI Visuals
+                const prev = document.getElementById('preview');
+                prev.style.backgroundColor = isBlack ? '#000' : colStr;
+                prev.style.boxShadow = isBlack ? 'none' : `0 0 40px ${colStr}`;
+                prev.innerText = isBlack ? "OFF" : "";
 
-                // UI UPDATE
-                const preview = document.getElementById('preview');
-                preview.style.background = isOff ? '#000' : colStr;
-                preview.style.boxShadow = isOff ? 'none' : `0 0 40px ${colStr}`;
-                preview.innerText = isOff ? "OFF" : "";
-
-                // BLUETOOTH SEND (Throttled)
+                // Bluetooth Throttle
                 const now = Date.now();
-                if (now - lastSentTime > 85) { 
+                if (now - lastSentTime > BT_FPS) {
                     sendToLight(outR, outG, outB);
                     lastSentTime = now;
                 }
             }
-            requestAnimationFrame(processLoop);
+            requestAnimationFrame(analyzeLoop);
         }
 
         async function sendToLight(r, g, b) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            
             try {
                 if (r < 5 && g < 5 && b < 5) {
-                    if (isLightPoweredOn) {
-                        await characteristic.writeValue(p.off);
-                        isLightPoweredOn = false;
-                    }
+                    if(isPoweredOn) { await characteristic.writeValue(p.off); isPoweredOn = false; }
                 } else {
-                    if (!isLightPoweredOn) {
-                        await characteristic.writeValue(p.on);
-                        isLightPoweredOn = true;
-                        await new Promise(res => setTimeout(res, 40)); 
-                    }
+                    if(!isPoweredOn) { await characteristic.writeValue(p.on); isPoweredOn = true; await new Promise(r => setTimeout(r, 40)); }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
-            } catch(e) { }
+            } catch(e) {}
         }
 
         async function connect() {
@@ -271,15 +323,17 @@
                     if(characteristic) break;
                 }
                 if(characteristic) {
-                    document.getElementById('connectBtn').classList.add('connected');
-                    document.getElementById('connectBtn').innerText = "CONNECTED";
-                    document.getElementById('status').innerText = "LINKED: " + device.name.toUpperCase();
+                    const btn = document.getElementById('connectBtn');
+                    btn.classList.add('connected-btn');
+                    btn.innerText = "CONNECTED";
+                    document.getElementById('status').innerText = "READY: " + device.name.toUpperCase();
                     const p = PROTOCOLS[document.getElementById('protocol').value];
                     await characteristic.writeValue(p.on);
-                    isLightPoweredOn = true;
+                    isPoweredOn = true;
                 }
             } catch(e) { alert(e.message); }
         }
+        updateLabels();
     </script>
 </body>
 </html>
