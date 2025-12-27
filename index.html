@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touch Sync Bridge v1</title>
+    <title>Touch Sync Bridge v2 (AI Vision Logger)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -11,13 +11,13 @@
             --bg: #09090b;
             --panel: #18181b;
             --accent: #3b82f6;
+            --ai-purp: #8b5cf6;
             --success: #22c55e;
-            --touch: #ef4444;
             --text: #f4f4f5;
         }
 
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background: var(--bg);
             color: var(--text);
             margin: 0;
@@ -25,7 +25,6 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            overflow-x: hidden;
         }
 
         /* LANDING */
@@ -35,108 +34,110 @@
         .btn-client { background: var(--success); color: white; }
 
         /* HOST UI */
-        #hostUI { display: none; width: 100%; max-width: 600px; padding: 30px; }
-        .card { background: var(--panel); border: 1px solid #27272a; padding: 25px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        #qrbox { background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0; }
+        #hostUI { display: none; width: 100%; max-width: 900px; padding: 20px; box-sizing: border-box; }
+        .grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        .card { background: var(--panel); border: 1px solid #27272a; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
-        /* CLIENT UI */
-        #clientUI { display: none; width: 100%; height: 100vh; position: relative; background: #000; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        #sensorOverlay {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 120px; height: 120px;
-            border: 4px dashed white;
-            border-radius: 20px;
-            box-shadow: 0 0 0 5000px rgba(0,0,0,0.5);
-            display: flex; align-items: center; justify-content: center;
-            transition: 0.1s;
+        #qrbox { background: white; padding: 10px; border-radius: 12px; display: inline-block; margin: 15px 0; }
+        
+        textarea#aiLog {
+            width: 100%; height: 350px; background: #000; color: #0f0; border: 1px solid #333;
+            border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.8rem; resize: none;
         }
-        #sensorOverlay.detected { border-color: var(--touch); border-style: solid; transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 50px var(--touch), 0 0 0 5000px rgba(239, 68, 68, 0.2); }
+
+        /* CLIENT UI */
+        #clientUI { display: none; width: 100%; height: 100vh; position: relative; background: #000; flex-direction: column; }
+        video { width: 100%; height: 70%; object-fit: cover; }
+        #sensorArea {
+            position: absolute; top: 35%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150px; height: 150px;
+            border: 4px dashed var(--ai-purp);
+            border-radius: 20px;
+            pointer-events: none;
+        }
         
-        .hud { position: absolute; bottom: 30px; left: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px; font-family: monospace; font-size: 0.8rem; }
+        .client-controls { background: var(--panel); padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+        .ai-status { font-size: 0.7rem; color: var(--ai-purp); text-transform: uppercase; font-weight: 900; letter-spacing: 2px; }
         
-        .color-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 10px; border: 2px solid #fff; }
-        
-        #log { height: 100px; overflow-y: auto; background: #000; padding: 10px; border-radius: 8px; font-size: 0.7rem; color: #71717a; margin-top: 15px; text-align: left;}
+        input[type="password"], input[type="text"] {
+            width: 100%; padding: 10px; background: #000; border: 1px solid #333; border-radius: 8px; color: white; margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Setup Choice -->
+    <!-- ROLE SELECTION -->
     <div id="setup">
-        <h1>Touch Sync Bridge</h1>
-        <p style="color: #71717a;">Create an optical touch sensor for your light bar.</p>
+        <h1>AI Vision Bridge</h1>
+        <p style="color: #71717a;">Identify LED modes using DeepSeek & Phone Camera.</p>
         <button class="btn-big btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
-        <p style="font-size: 0.8rem; color: #3f3f46;">Point your phone at the light bar to detect touch.</p>
+        <p style="font-size: 0.8rem; color: #3f3f46;">Requires Light Connection & OpenRouter API Key.</p>
     </div>
 
     <!-- HOST INTERFACE -->
     <div id="hostUI">
-        <div class="card">
-            <h2 style="margin:0 0 10px 0;">1. Connect Light</h2>
-            <select id="protocol" style="width:100%; padding:12px; background:#000; color:#fff; border:1px solid #3f3f46; border-radius:8px; margin-bottom:10px;">
-                <option value="1">Protocol: Lotus (Keepsmile)</option>
-                <option value="0">Protocol: ELK-BLEDOM</option>
-            </select>
-            <button class="btn-big btn-host" style="width:100%; padding:12px;" onclick="connectBT()" id="btBtn">📡 Connect Bluetooth</button>
-        </div>
-
-        <div class="card" style="text-align:center;">
-            <h2 style="margin:0;">2. Link Phone Sensor</h2>
-            <div id="qrbox"></div>
-            <p id="connStatus" style="color:var(--touch); font-weight:bold;">Waiting for connection...</p>
-        </div>
-
-        <div class="card">
-            <h2 style="margin:0;">Active Color</h2>
-            <div style="margin-top:15px; font-size:1.5rem; font-weight:bold; display:flex; align-items:center; justify-content:center;">
-                <div id="colorIndicator" class="color-dot" style="background:#ff0000; width:40px; height:40px;"></div>
-                <span id="colorName">RED</span>
+        <div class="grid">
+            <div class="card">
+                <h2 style="margin:0 0 15px 0; font-size: 1rem;">1. Config & Link</h2>
+                <input type="password" id="apiKey" placeholder="OpenRouter API Key (sk-or-v1-...)">
+                
+                <select id="protocol" style="width:100%; padding:10px; background:#000; color:white; border:1px solid #333; border-radius:8px; margin-bottom:10px;">
+                    <option value="1">Protocol: Lotus (Keepsmile)</option>
+                    <option value="0">Protocol: ELK-BLEDOM</option>
+                </select>
+                
+                <button class="btn-host" style="width:100%; padding:12px; margin-bottom:15px;" onclick="connectBT()" id="btBtn">📡 Connect Light</button>
+                
+                <div style="text-align:center;">
+                    <div id="qrbox"></div>
+                    <p id="connStatus" style="color:#ef4444; font-size:0.8rem; font-weight:bold;">Wait for Phone Connection...</p>
+                </div>
             </div>
-            <div id="log">SYSTEM LOG: Ready</div>
+
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h2 style="margin:0; font-size:1rem;">2. AI Mode Log</h2>
+                    <button onclick="downloadLog()" style="font-size:0.7rem; background:#333; color:white; padding:5px 10px; border-radius:5px;">💾 Save JSON</button>
+                </div>
+                <textarea id="aiLog" readonly>// DeepSeek AI will analyze each mode here...
+[]</textarea>
+                <div id="hostStatus" style="font-size:0.7rem; color:#666; margin-top:10px;">System Ready.</div>
+            </div>
         </div>
     </div>
 
     <!-- CLIENT INTERFACE -->
     <div id="clientUI">
         <video id="video" autoplay playsinline muted></video>
-        <div id="sensorOverlay">
-            <div style="color:white; font-size:0.6rem; text-align:center; font-weight:bold; text-transform:uppercase;">Sensor Area</div>
+        <div id="sensorArea"></div>
+        <div class="client-controls">
+            <div class="ai-status" id="clientStatus">Link Established</div>
+            <div id="modeHud" style="font-size:1.5rem; font-weight:900;">MODE: --</div>
+            <button class="btn-big btn-client" id="scanBtn" onclick="toggleAutoScan()" style="background:var(--ai-purp)">🤖 Start AI Auto-Scan</button>
+            <p style="font-size:0.7rem; color:#888;">Hold camera still. Points sensor at the light strip.</p>
         </div>
-        <div class="hud">
-            <div id="hudStatus">Initializing Camera...</div>
-            <div style="margin-top:5px; display:flex; justify-content:space-between;">
-                <span>LUM: <b id="lumVal">0</b></span>
-                <span>THRESH: <b id="threshVal">0</b></span>
-            </div>
-        </div>
-        <canvas id="procCanvas" style="display:none;"></canvas>
     </div>
 
-    <script>
-        // --- CONSTANTS ---
-        const COLORS = [
-            { name: "RED", rgb: [255, 0, 0] },
-            { name: "GREEN", rgb: [0, 255, 0] },
-            { name: "BLUE", rgb: [0, 0, 255] },
-            { name: "PURPLE", rgb: [255, 0, 255] },
-            { name: "CYAN", rgb: [0, 255, 255] },
-            { name: "YELLOW", rgb: [255, 255, 0] },
-            { name: "WHITE", rgb: [255, 255, 255] }
-        ];
+    <canvas id="procCanvas" style="display:none;"></canvas>
 
+    <script>
+        // --- CONFIG ---
         const PROTOCOLS = [
-            { name: "ELK", on: [0xcc, 0x23, 0x33], write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]) },
-            { name: "Lotus", on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef], write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]) }
+            { name: "ELK", on: [0xcc, 0x23, 0x33], setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
+            { name: "Lotus", on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef], setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) }
         ];
 
         // --- STATE ---
         let peer, conn, bleChar;
-        let currentColorIdx = 0;
         let isHost = false;
+        let currentMode = 1;
+        let isScanning = false;
+        let scanBuffer = []; // Holds color strings observed
+        let library = [];
 
-        // --- INIT ---
+        // --- INITIALIZATION ---
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('host')) initClient(urlParams.get('host'));
 
@@ -149,23 +150,14 @@
             peer = new Peer();
             peer.on('open', (id) => {
                 const url = `${window.location.href.split('?')[0]}?host=${id}`;
-                new QRCode(document.getElementById("qrbox"), { text: url, width: 160, height: 160 });
-                console.log("Host ID:", id);
+                new QRCode(document.getElementById("qrbox"), { text: url, width: 150, height: 150 });
             });
 
             peer.on('connection', (c) => {
                 conn = c;
-                document.getElementById('connStatus').innerText = "📱 PHONE SENSOR LINKED";
+                document.getElementById('connStatus').innerText = "📱 PHONE LINKED";
                 document.getElementById('connStatus').style.color = "#22c55e";
                 setupDataListener();
-            });
-        }
-
-        function setupDataListener() {
-            conn.on('data', (data) => {
-                if (data === 'TOUCH') {
-                    cycleColor();
-                }
             });
         }
 
@@ -179,110 +171,190 @@
                 const services = await server.getPrimaryServices();
                 for(let s of services) {
                     const chars = await s.getCharacteristics();
-                    for(let c of chars) {
-                        if(c.properties.write || c.properties.writeWithoutResponse) { bleChar = c; break; }
-                    }
+                    for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { bleChar = c; break; } }
                 }
                 if(bleChar) {
-                    document.getElementById('btBtn').innerText = "CONNECTED";
+                    document.getElementById('btBtn').innerText = "LINKED TO LIGHT";
                     document.getElementById('btBtn').style.background = "#22c55e";
                     const p = PROTOCOLS[document.getElementById('protocol').value];
                     await bleChar.writeValue(new Uint8Array(p.on));
-                    cycleColor(); // Set initial red
                 }
             } catch(e) { alert(e.message); }
         }
 
-        async function cycleColor() {
-            currentColorIdx = (currentColorIdx + 1) % COLORS.length;
-            const c = COLORS[currentColorIdx];
-            
-            // UI
-            document.getElementById('colorIndicator').style.background = `rgb(${c.rgb.join(',')})`;
-            document.getElementById('colorName').innerText = c.name;
-            const log = document.getElementById('log');
-            log.innerHTML = `> TOUCH DETECTED: Switched to ${c.name}<br>` + log.innerHTML;
+        function setupDataListener() {
+            conn.on('data', async (data) => {
+                if (data.type === 'SCAN_RESULT') {
+                    analyzeWithAI(data);
+                }
+                if (data.type === 'REQUEST_NEXT') {
+                    advanceMode();
+                }
+            });
+        }
 
-            // BT
-            if (bleChar) {
-                const p = PROTOCOLS[document.getElementById('protocol').value];
-                await bleChar.writeValue(p.write(c.rgb[0], c.rgb[1], c.rgb[2]));
+        async function advanceMode() {
+            currentMode++;
+            if(currentMode > 210) return;
+            
+            const p = PROTOCOLS[document.getElementById('protocol').value];
+            if(bleChar) await bleChar.writeValue(p.setMode(currentMode));
+            
+            conn.send({ type: 'MODE_SYNC', val: currentMode });
+            document.getElementById('hostStatus').innerText = "Processing Mode " + currentMode + "...";
+        }
+
+        async function analyzeWithAI(data) {
+            const key = document.getElementById('apiKey').value;
+            if(!key) {
+                logToLibrary(data.mode, "No API Key", "Mode data captured but AI skiped.");
+                return;
+            }
+
+            const prompt = `Act as an LED Lighting Engineer. I have a sequence of colors detected from an LED bar over 3 seconds: [${data.colors.join(", ")}]. 
+            The motion detected was: ${data.motion}. 
+            Identify the mode. Provide a professional 1-sentence description. 
+            Example: 'A smooth rainbow cycle flowing downwards at medium speed.' 
+            Respond with ONLY the description.`;
+
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${key}`,
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": window.location.href,
+                        "X-Title": "LED Vision Logger"
+                    },
+                    body: JSON.stringify({
+                        model: "deepseek/deepseek-chat",
+                        messages: [{ role: "user", content: prompt }]
+                    })
+                });
+                const result = await response.json();
+                const desc = result.choices[0].message.content;
+                logToLibrary(data.mode, data.motion, desc);
+            } catch(e) {
+                logToLibrary(data.mode, data.motion, "AI Error: " + e.message);
             }
         }
 
+        function logToLibrary(mode, motion, desc) {
+            library.push({ mode, motion, description: desc, timestamp: new Date().toLocaleTimeString() });
+            document.getElementById('aiLog').value = JSON.stringify(library, null, 2);
+            document.getElementById('hostStatus').innerText = `Finished Mode ${mode}. Waiting for next...`;
+            // Trigger next scan automatically if still in loop
+            conn.send({ type: 'ACK_AI' });
+        }
+
+        function downloadLog() {
+            const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'led_modes_log.json'; a.click();
+        }
+
         // --- CLIENT LOGIC ---
-        let baselineLum = 0;
-        let touchLock = false;
+        let lastScanTime = 0;
+        let prevLum = 0;
 
         async function initClient(hostId) {
             document.getElementById('setup').style.display = 'none';
-            document.getElementById('clientUI').style.display = 'block';
+            document.getElementById('clientUI').style.display = 'flex';
 
-            // Connect to Peer
             peer = new Peer();
             peer.on('open', () => {
                 conn = peer.connect(hostId);
                 conn.on('open', () => {
-                    document.getElementById('hudStatus').innerText = "LINKED TO LAPTOP";
+                    document.getElementById('clientStatus').innerText = "LINKED TO HOST";
                     startVision();
+                });
+                conn.on('data', (data) => {
+                    if(data.type === 'MODE_SYNC') {
+                        currentMode = data.val;
+                        document.getElementById('modeHud').innerText = "MODE: " + currentMode;
+                        startSampling();
+                    }
+                    if(data.type === 'ACK_AI') {
+                        if(isScanning) conn.send({ type: 'REQUEST_NEXT' });
+                    }
                 });
             });
         }
 
         async function startVision() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: 640, height: 480 } 
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 document.getElementById('video').srcObject = stream;
                 requestAnimationFrame(visionLoop);
             } catch(e) { alert(e); }
+        }
+
+        function toggleAutoScan() {
+            isScanning = !isScanning;
+            document.getElementById('scanBtn').innerText = isScanning ? "⏹ Stop Scanning" : "🤖 Start AI Auto-Scan";
+            if(isScanning) conn.send({ type: 'REQUEST_NEXT' });
+        }
+
+        function startSampling() {
+            scanBuffer = [];
+            document.getElementById('clientStatus').innerText = "SAMPLING MODE " + currentMode + "...";
+            setTimeout(() => {
+                const motion = detectMotion(scanBuffer);
+                const uniqueColors = [...new Set(scanBuffer)];
+                conn.send({ 
+                    type: 'SCAN_RESULT', 
+                    mode: currentMode, 
+                    colors: uniqueColors.slice(0, 8), // Max 8 for prompt brevity
+                    motion: motion
+                });
+                document.getElementById('clientStatus').innerText = "SENDING TO AI...";
+            }, 3000);
         }
 
         function visionLoop() {
             const video = document.getElementById('video');
             const canvas = document.getElementById('procCanvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            const overlay = document.getElementById('sensorOverlay');
 
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Focus on center square
+                // Focus on center square (sensor area)
                 canvas.width = 50; canvas.height = 50;
-                const size = 100;
-                const startX = (video.videoWidth / 2) - (size / 2);
-                const startY = (video.videoHeight / 2) - (size / 2);
-                
-                ctx.drawImage(video, startX, startY, size, size, 0, 0, 50, 50);
+                ctx.drawImage(video, (video.videoWidth/2)-75, (video.videoHeight/2)-75, 150, 150, 0, 0, 50, 50);
                 const data = ctx.getImageData(0,0,50,50).data;
                 
-                let totalLum = 0;
-                for(let i=0; i<data.length; i+=4) {
-                    totalLum += (data[i] + data[i+1] + data[i+2]) / 3;
-                }
-                const currentLum = totalLum / (50 * 50);
+                // Average color in sensor
+                let r=0, g=0, b=0;
+                for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
+                r = Math.floor(r/(50*50)); g = Math.floor(g/(50*50)); b = Math.floor(b/(50*50));
                 
-                // Calibration
-                if (baselineLum === 0) baselineLum = currentLum;
-                // Slow drift adjustment (to handle ambient light changes)
-                baselineLum = (baselineLum * 0.99) + (currentLum * 0.01);
-
-                // TOUCH DETECTION
-                // If light drops significantly below average, it's blocked by a hand
-                const threshold = baselineLum * 0.45; // 55% drop in light
-                
-                if (currentLum < threshold && currentLum > 5) {
-                    if (!touchLock) {
-                        overlay.classList.add('detected');
-                        conn.send('TOUCH');
-                        touchLock = true;
-                        setTimeout(() => { touchLock = false; overlay.classList.remove('detected'); }, 800);
-                    }
-                }
-
-                document.getElementById('lumVal').innerText = Math.round(currentLum);
-                document.getElementById('threshVal').innerText = Math.round(threshold);
+                const colName = getColorName(r,g,b);
+                if(colName !== "Off") scanBuffer.push(colName);
             }
             requestAnimationFrame(visionLoop);
+        }
+
+        function getColorName(r, g, b) {
+            const max = Math.max(r, g, b);
+            if (max < 30) return "Off";
+            if (r > g*1.5 && r > b*1.5) return "Red";
+            if (g > r*1.5 && g > b*1.5) return "Green";
+            if (b > r*1.5 && b > g*1.5) return "Blue";
+            if (r > 150 && g > 150 && b < 100) return "Yellow";
+            if (r > 150 && b > 150 && g < 100) return "Purple";
+            if (r > 200 && g > 200 && b > 200) return "White";
+            return "Mix";
+        }
+
+        function detectMotion(buffer) {
+            // Check for rapid changes (Flash) vs sequence (Chase)
+            let changes = 0;
+            for(let i=1; i<buffer.length; i++) if(buffer[i] !== buffer[i-1]) changes++;
+            
+            if(changes > 20) return "Rapid Strobe/Flash";
+            if(changes > 5) return "Color Chase/Flow";
+            if(changes > 0) return "Slow Pulse/Fade";
+            return "Static Solid";
         }
     </script>
 </body>
