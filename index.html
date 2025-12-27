@@ -1,445 +1,338 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nolan AI</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Light Controller</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #3b82f6;
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
+        }
 
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="https://i.imgur.com/8Qp4R0K.png">
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
 
-<style>
-:root {
---bg:#000;
---glass:rgba(15,15,15,0.72);
---glass-border:rgba(255,255,255,0.08);
---bubble:#111;
---bubble-ai:#141414;
---bubble-user:#1c1c1c;
---text:#fff;
---muted:#bbb;
---radius:22px;
---pill:50px;
---blur:38px;
---font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial;
-}
+        .container {
+            background-color: var(--card-color);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
 
-* {
-box-sizing:border-box;
--webkit-tap-highlight-color:transparent;
-}
+        h1 {
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
 
-body {
-margin:0;
-background:var(--bg);
-font-family:var(--font);
-color:var(--text);
-display:flex;
-height:100vh;
-}
+        p {
+            color: #888;
+            margin-bottom: 2rem;
+        }
 
-.frost {
-background:var(--glass);
-border:1px solid var(--glass-border);
-backdrop-filter:blur(var(--blur)) saturate(160%);
--webkit-backdrop-filter:blur(var(--blur)) saturate(160%);
-border-radius:var(--radius);
-}
+        button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            margin-bottom: 10px;
+        }
 
-.app {
-max-width:900px;
-width:100%;
-margin:auto;
-padding:14px;
-display:flex;
-flex-direction:column;
-}
+        button:active {
+            transform: scale(0.98);
+        }
 
-.topbar {
-padding:16px 18px;
-display:flex;
-align-items:center;
-justify-content:space-between;
-border-radius:var(--radius);
-margin-bottom:14px;
-}
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
 
-.brand {
-display:flex;
-align-items:center;
-gap:14px;
-}
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
 
-.brand-icon {
-height:44px;
-width:44px;
-border-radius:50%;
-background:rgba(0,0,0,0.55);
-backdrop-filter:blur(18px);
--webkit-backdrop-filter:blur(18px);
-border:1px solid rgba(255,255,255,0.08);
-display:flex;
-justify-content:center;
-align-items:center;
-font-weight:700;
-font-size:1.6rem;
-color:#fff;
-}
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
 
-.status-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
+        .hidden {
+            display: none;
+        }
 
-/* New: Make the status display clickable */
-#mode-toggle {
-    cursor: pointer;
-    font-size: .8rem;
-    padding: 6px 14px;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.2s ease-in-out;
-}
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
 
-/* Style for Online Mode (Full AI) */
-.mode-online {
-    background: rgba(0, 150, 255, 0.5);
-    color: #d0ffd6;
-}
+        .color-btn {
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #333;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+        }
+        
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 100%;
+            height: 60px;
+            cursor: pointer;
+            background: none;
+            margin-bottom: 20px;
+        }
 
-/* Style for Local Mode (Memory Only) */
-.mode-local {
-    background: rgba(255, 165, 0, 0.5); /* Orange for warning/local */
-    color: #ffe6b0;
-    border: 1px solid rgba(255, 165, 0, 0.4);
-}
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 12px;
+        }
 
-#chat {
-display:flex;
-flex-direction:column;
-flex:1;
-border-radius:var(--radius);
-overflow:hidden;
-}
+        #status {
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #666;
+            min-height: 1.25rem;
+        }
 
-#log {
-flex:1;
-padding:20px;
-overflow-y:auto;
-display:flex;
-flex-direction:column;
-gap:18px;
-}
-
-.msg {
-display:flex;
-gap:12px;
-}
-
-.msg.user {
-flex-direction:row-reverse;
-}
-
-.bubble {
-padding:12px 18px;
-border-radius:18px;
-font-size:.95rem;
-line-height:1.45;
-max-width:calc(100% - 60px);
-background:var(--bubble);
-border:1px solid rgba(255,255,255,0.08);
-word-wrap:break-word;
-}
-
-/* CSS Fix for Paragraph Spacing inside bubbles */
-.bubble p {
-margin: 0 0 10px 0;
-}
-.bubble p:last-child {
-margin-bottom: 0;
-}
-/* End CSS Fix */
-
-.msg.ai .bubble { background:var(--bubble-ai); }
-.msg.user .bubble { background:var(--bubble-user); }
-
-.briefing-bubble {
-background:rgba(50,100,50,0.35) !important;
-border:1px solid rgba(50,100,50,0.55) !important;
-font-weight:500;
-padding:14px 18px;
-white-space:pre-wrap;
-word-break:break-word;
-text-align:left;
-max-width:95%;
-align-self:flex-start;
-border-radius:18px;
-}
-
-.offline {
-background:#2d2d2d !important;
-opacity:0.85;
-}
-
-.timestamp {
-display:block;
-margin-top:6px;
-font-size:.65rem;
-color:var(--muted);
-}
-
-#typing {
-padding:12px 20px;
-font-size:.85rem;
-color:var(--muted);
-display:none;
-}
-
-.input-bar {
-padding:12px;
-display:flex;
-gap:10px;
-align-items:center;
-border-top:1px solid var(--glass-border);
-}
-
-#msg {
-flex:1;
-height:48px;
-background:rgba(255,255,255,0.08);
-border:none;
-border-radius:var(--pill);
-padding:0 18px;
-font-size:1rem;
-color:white;
-}
-
-#msg:focus { outline:none; }
-
-#send {
-height:48px;
-padding:0 24px;
-background:rgba(255,255,255,0.14);
-border:none;
-border-radius:var(--pill);
-font-weight:600;
-color:white;
-cursor:pointer;
-}
-
-#refresh {
-height:40px;
-width:40px;
-border-radius:50%;
-background:rgba(255,255,255,0.08);
-border:1px solid rgba(255,255,255,0.12);
-color:white;
-cursor:pointer;
-}
-</style>
+        .error-msg {
+            color: #ef4444 !important;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+    </style>
 </head>
+<body>
 
-<body onload="initNolan()">
-<div class="app">
-<div class="topbar frost">
-<div class="brand">
-<div class="brand-icon">☁️</div>
-<div>
-<h1 style="margin:0;font-size:1.2rem;">Nolan</h1>
-<div style="font-size:.82rem;color:var(--muted);margin-top:2px;">
-Chris's AI Assistant
-</div>
-</div>
-</div>
-<div class="status-container">
-    <button id="refresh">↻</button>
-    <div id="mode-toggle" class="mode-online">Online (Full AI)</div>
-</div>
-</div>
+    <div class="container">
+        <h1>Magic Lantern Control</h1>
+        <p id="subtext">Control ELK-BLEDOM devices</p>
 
-<div id="chat" class="frost">
-<div id="log"></div>
-<div id="typing">Nolan is thinking…</div>
+        <!-- Error Message for unsupported browsers -->
+        <div id="browserError" class="error-msg">
+            <strong>Browser not supported.</strong><br>
+            If on iPhone, you MUST use the <strong>Bluefy</strong> app.<br>
+            If on Desktop, use Chrome or Edge.<br>
+            Safari is not supported.
+        </div>
 
-<div class="input-bar">
-<input id="msg" type="text" placeholder="Talk to Nolan…" autocomplete="off">
-<button id="send">Send</button>
-</div>
-</div>
-</div>
+        <!-- Connect Screen -->
+        <div id="connectScreen">
+            <button id="connectBtn" class="btn-primary">📡 Connect to Light</button>
+        </div>
 
-<script>
-// API deployment URL (must be updated by the user)
-const API = "https://script.google.com/macros/s/AKfycbyvzN3NNagKXV2arFhC2PzOcQcganZGZr7_9YJ-dPuFzw4syMjK-HpV2KntcNhahp7S/exec";
+        <!-- Control Screen (Hidden initially) -->
+        <div id="controlScreen" class="hidden">
+            
+            <input type="color" id="colorPicker" value="#ff0000">
 
-const logDiv = document.getElementById("log");
-const input = document.getElementById("msg");
-const sendBtn = document.getElementById("send");
-const typing = document.getElementById("typing");
-const modeToggle = document.getElementById("mode-toggle");
-const brandIcon = document.querySelector(".brand-icon");
+            <div class="color-grid">
+                <button class="color-btn" style="background: #ff0000" onclick="quickColor(255,0,0)"></button>
+                <button class="color-btn" style="background: #00ff00" onclick="quickColor(0,255,0)"></button>
+                <button class="color-btn" style="background: #0000ff" onclick="quickColor(0,0,255)"></button>
+                <button class="color-btn" style="background: #ffffff" onclick="quickColor(255,255,255)"></button>
+                <button class="color-btn" style="background: #ff00ff" onclick="quickColor(255,0,255)"></button>
+                <button class="color-btn" style="background: #ffff00" onclick="quickColor(255,255,0)"></button>
+                <button class="color-btn" style="background: #00ffff" onclick="quickColor(0,255,255)"></button>
+                <button class="color-btn" style="background: #ff8800" onclick="quickColor(255,136,0)"></button>
+            </div>
 
-let currentMode = 'online'; // 'online' (Full AI) or 'local' (Memory Only)
+            <div style="display: flex; gap: 10px;">
+                <button id="offBtn" class="btn-danger">OFF</button>
+                <button id="onBtn" class="btn-success">ON</button>
+            </div>
+            
+            <button id="disconnectBtn" style="background: #333; margin-top: 10px;">Disconnect</button>
+        </div>
 
-// --- Mode Management ---
-function setOnlineMode(apiWorking) {
-    currentMode = 'online';
-    modeToggle.textContent = 'Online (Full AI)'; // Updated to Full AI
-    modeToggle.classList.remove('mode-local');
-    modeToggle.classList.add('mode-online');
-    brandIcon.innerHTML = "☁️";
-    brandIcon.style.backgroundColor = apiWorking ? "rgba(0,150,255,0.55)" : "rgba(255, 165, 0, 0.5)";
-}
+        <div id="status">Status: Ready to pair</div>
+    </div>
 
-function setLocalMode() {
-    currentMode = 'local';
-    modeToggle.textContent = "Local (Memory Only)";
-    modeToggle.classList.remove('mode-online');
-    modeToggle.classList.add('mode-local');
-    brandIcon.innerHTML = "🧠";
-    brandIcon.style.backgroundColor = "rgba(255, 165, 0, 0.5)";
-}
+    <script>
+        // --- CONSTANTS ---
+        // Common UUIDs for Magic Lantern / ELK-BLEDOM chips
+        const SERVICE_UUID = '0000ffd5-0000-1000-8000-00805f9b34fb';
+        const CHAR_UUID = '0000ffd9-0000-1000-8000-00805f9b34fb';
 
-function toggleMode() {
-    if (currentMode === 'online') {
-        setLocalMode();
-        addMsg("Switched to Local Mode. I will only respond using stored facts and utilities. No external AI calls will be made.", "ai", true);
-    } else {
-        setOnlineMode(true);
-        addMsg("Switched back to Online Mode. I can now use the external AI model.", "ai");
-    }
-    // Store mode preference (optional, using localStorage if available)
-    if (window.localStorage) {
-        localStorage.setItem('nolanMode', currentMode);
-    }
-    input.focus();
-}
+        // --- STATE ---
+        let bluetoothDevice;
+        let characteristic;
 
-modeToggle.addEventListener('click', toggleMode);
+        // --- DOM ELEMENTS ---
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const onBtn = document.getElementById('onBtn');
+        const offBtn = document.getElementById('offBtn');
+        const colorPicker = document.getElementById('colorPicker');
+        const statusDisplay = document.getElementById('status');
+        const connectScreen = document.getElementById('connectScreen');
+        const controlScreen = document.getElementById('controlScreen');
+        const browserError = document.getElementById('browserError');
 
-// --- Status Updates ---
+        // --- INITIALIZATION ---
+        function checkBrowserSupport() {
+            if (!navigator.bluetooth) {
+                browserError.style.display = 'block';
+                connectBtn.disabled = true;
+                connectBtn.style.opacity = '0.5';
+                statusDisplay.innerText = "Web Bluetooth API unavailable.";
+                return false;
+            }
+            return true;
+        }
+        
+        checkBrowserSupport();
 
-function setApiStatus(isOnline) {
-    // This function now primarily handles visual feedback if we are in 'online' mode
-    if (currentMode === 'online') {
-        setOnlineMode(isOnline);
-    }
-}
+        // --- CONNECTION LOGIC ---
+        connectBtn.addEventListener('click', async () => {
+            if (!checkBrowserSupport()) return;
 
-function setOfflineStatus() {
-    // If the API failed, we set the API status visually but keep the mode logic separate
-    setApiStatus(false); 
-}
+            try {
+                statusDisplay.innerText = "Scanning for devices...";
+                
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    // Filters help find the specific device faster
+                    filters: [
+                        { namePrefix: "ELK" },
+                        { namePrefix: "BLEDOM" },
+                        { namePrefix: "QHM" },
+                        { namePrefix: "Triones" }
+                    ],
+                    optionalServices: [SERVICE_UUID] 
+                    // Note: 'acceptAllDevices: true' could be used instead of filters, 
+                    // but you still need optionalServices.
+                });
 
+                statusDisplay.innerText = `Connecting to ${bluetoothDevice.name}...`;
+                
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-function addMsg(raw, who, offline = false) {
-let text = String(raw || "");
-const tempDiv = document.createElement('div');
-tempDiv.innerHTML = text;
-text = tempDiv.innerHTML;
+                const server = await bluetoothDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                characteristic = await service.getCharacteristic(CHAR_UUID);
 
-if (!text.trim()) {
-text = "<p>…no message received.</p>";
-}
+                // UI Updates
+                connectScreen.classList.add('hidden');
+                controlScreen.classList.remove('hidden');
+                statusDisplay.innerText = "Connected!";
+                
+            } catch (error) {
+                console.error(error);
+                statusDisplay.innerText = `Error: ${error.message}`;
+                
+                if (error.name === 'SecurityError') {
+                    statusDisplay.innerText = "Security blocked. Try opening outside of iframe.";
+                }
+            }
+        });
 
-const row = document.createElement("div");
-row.className = `msg ${who}`;
+        function onDisconnected() {
+            connectScreen.classList.remove('hidden');
+            controlScreen.classList.add('hidden');
+            statusDisplay.innerText = "Device disconnected.";
+            characteristic = null;
+            bluetoothDevice = null;
+        }
 
-const bubble = document.createElement("div");
-bubble.className = "bubble";
-bubble.innerHTML = text;
+        disconnectBtn.addEventListener('click', () => {
+            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+                bluetoothDevice.gatt.disconnect();
+            }
+        });
 
-if (offline) {
-bubble.classList.add("offline");
-}
+        // --- COMMAND LOGIC ---
 
-if (who === "ai" && text.includes("<p>")) {
-bubble.classList.add("briefing-bubble");
-}
+        // Send raw bytes to the device
+        async function sendCommand(bytes) {
+            if (!characteristic) {
+                statusDisplay.innerText = "Not connected.";
+                return;
+            }
+            try {
+                await characteristic.writeValue(new Uint8Array(bytes));
+            } catch (error) {
+                console.error("Write error:", error);
+                statusDisplay.innerText = "Command failed.";
+            }
+        }
 
-const ts = document.createElement("div");
-ts.className = "timestamp";
-ts.textContent = new Date().toLocaleTimeString();
-bubble.appendChild(ts);
+        // 1. Color Change
+        // Protocol: 0x56, R, G, B, 0x00, 0xF0, 0xAA
+        async function setRGB(r, g, b) {
+            await sendCommand([0x56, r, g, b, 0x00, 0xf0, 0xaa]);
+        }
 
-row.appendChild(bubble);
-logDiv.appendChild(row);
-logDiv.scrollTo({top: logDiv.scrollHeight, behavior: "smooth"});
-}
+        // 2. Turn ON
+        // Protocol: 0xCC, 0x23, 0x33
+        onBtn.addEventListener('click', () => {
+            sendCommand([0xcc, 0x23, 0x33]);
+            statusDisplay.innerText = "Sent: ON";
+        });
 
-async function send() {
-    const msg = input.value.trim();
-    if (!msg) return;
-    addMsg(msg, "user");
+        // 3. Turn OFF
+        // Protocol: 0xCC, 0x24, 0x33
+        offBtn.addEventListener('click', () => {
+            sendCommand([0xcc, 0x24, 0x33]);
+            statusDisplay.innerText = "Sent: OFF";
+        });
 
-    input.value = "";
-    input.disabled = true;
-    sendBtn.disabled = true;
-    typing.style.display = "block";
+        // --- INPUT HANDLERS ---
 
-    let apiUrl = API;
+        // Helper for the quick color buttons
+        window.quickColor = (r, g, b) => {
+            setRGB(r, g, b);
+            // Update the picker visual to match
+            const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+            colorPicker.value = hex;
+        };
 
-    if (currentMode === 'local') {
-        // In Local Mode, bypass external AI entirely.
-        // The Apps Script must read this flag and skip callAI.
-        apiUrl += "?q=" + encodeURIComponent(msg) + "&mode=local"; 
-    } else {
-        apiUrl += "?q=" + encodeURIComponent(msg);
-    }
+        // Handle the color picker wheel
+        let debounceTimer;
+        colorPicker.addEventListener('input', (e) => {
+            // Debounce to prevent flooding the bluetooth chip
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const hex = e.target.value;
+                const r = parseInt(hex.substring(1, 3), 16);
+                const g = parseInt(hex.substring(3, 5), 16);
+                const b = parseInt(hex.substring(5, 7), 16);
+                setRGB(r, g, b);
+            }, 50); // 50ms delay
+        });
 
-    try {
-        const res = await fetch(apiUrl);
-        const json = await res.json();
-        addMsg(json.reply, "ai");
-        setApiStatus(true); // API connection confirmed
-    } catch (e) {
-        addMsg("Chris… my connection dropped for a second. Say that again? I'm running in offline/local memory mode until the API recovers.", "ai", true);
-        setOfflineStatus();
-        setLocalMode(); // Auto-switch to local memory mode on failure
-    }
-
-    typing.style.display = "none";
-    input.disabled = false;
-    sendBtn.disabled = false;
-    input.focus();
-}
-
-async function initNolan() {
-    // Check for stored mode preference
-    if (window.localStorage && localStorage.getItem('nolanMode') === 'local') {
-        setLocalMode();
-    } else {
-        // Initial load is always Online, but we check connectivity
-        setOnlineMode(true);
-    }
-
-    typing.style.display = "block";
-    input.disabled = true;
-    sendBtn.disabled = true;
-
-    try {
-        const ts = Date.now();
-        const res = await fetch(API + "?q=&_ts=" + ts);
-        const json = await res.json();
-        addMsg(json.reply, "ai");
-        setApiStatus(true);
-    } catch (e) {
-        addMsg("Chris… I'm here. My external AI connection is currently offline, so I've automatically switched to **Local Memory Mode**.", "ai", true);
-        setOfflineStatus();
-        setLocalMode();
-    }
-
-    typing.style.display = "none";
-    input.disabled = false;
-    sendBtn.disabled = false;
-    input.focus();
-}
-
-sendBtn.addEventListener("click", send);
-input.addEventListener("keypress", e => { if (e.key === "Enter") send(); });
-document.getElementById("refresh").onclick = () => location.reload();
-</script>
+    </script>
 </body>
 </html>
