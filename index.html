@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vader vs Kenobi - Light Sync</title>
-    <script src="https://www.youtube.com/iframe_api"></script>
+    <title>Live Saber Sync</title>
     <style>
         :root {
-            --bg: #000;
+            --bg: #050505;
+            --panel: #1a1a1a;
             --text: #eee;
             --accent: #eab308;
+            --red: #ff2a2a;
+            --blue: #2a2aff;
         }
 
         body {
@@ -21,320 +23,365 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
+            padding: 20px;
         }
 
-        /* LAYOUT */
         .container {
             width: 100%;
-            max-width: 900px;
-            padding: 20px;
+            max-width: 1000px;
             text-align: center;
         }
 
-        h1 { margin: 10px 0 20px; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem; }
+        h1 { margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem; background: linear-gradient(90deg, #f00, #fff, #00f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
 
-        /* VIDEO CONTAINER */
-        .video-box {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-            height: 0;
-            background: #111;
-            border: 2px solid #333;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            box-shadow: 0 0 50px rgba(255, 0, 0, 0.2);
-        }
-        
-        .video-box iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* CONTROLS */
-        .controls {
-            background: #1a1a1a;
-            padding: 20px;
-            border-radius: 12px;
+        /* INPUT AREA */
+        .input-group {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: var(--panel);
+            padding: 10px;
+            border-radius: 8px;
             border: 1px solid #333;
         }
-
-        .row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-        }
-
-        select {
-            background: #222;
-            color: white;
-            border: 1px solid #555;
-            padding: 10px;
-            border-radius: 6px;
+        
+        input[type="text"] {
             flex: 1;
+            background: #000;
+            border: 1px solid #444;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
         }
 
         button {
-            background: #2563eb;
-            color: white;
-            border: none;
             padding: 10px 20px;
-            border-radius: 6px;
+            border: none;
+            border-radius: 4px;
             font-weight: bold;
             cursor: pointer;
-            flex: 1;
+            transition: 0.2s;
         }
+        button.load { background: #333; color: white; }
+        button.connect { background: var(--accent); color: black; }
+        button.sync { background: #22c55e; color: black; }
         button:hover { filter: brightness(1.2); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; background: #333; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* SYNC BAR */
-        .sync-bar {
-            width: 100%;
-            height: 10px;
-            background: #333;
-            border-radius: 5px;
+        /* VIDEO AREA */
+        .video-wrapper {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+        
+        .video-box {
+            flex: 3;
             position: relative;
+            padding-bottom: 40%; /* Aspect Ratio */
+            height: 0;
+            background: #000;
+            border: 2px solid #333;
+            border-radius: 12px;
             overflow: hidden;
         }
-        .sync-fill {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, red, blue);
-            transition: width 0.1s linear;
+        
+        iframe {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;
         }
 
-        /* OFFSET SLIDER */
-        .offset-wrap {
+        /* LIVE PREVIEW */
+        .preview-box {
+            flex: 1;
+            background: var(--panel);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 15px;
             display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 10px;
-            font-size: 0.8rem;
-            color: #888;
         }
-        input[type=range] { flex: 1; accent-color: var(--accent); }
-
-        /* STATUS */
-        #status { font-family: monospace; color: #22c55e; min-height: 20px; }
         
-        /* OVERLAY FLASH */
-        #flash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: white; opacity: 0; pointer-events: none; z-index: 100;
-            transition: opacity 0.05s;
+        canvas {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+
+        /* METERS */
+        .meter-row { width: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
+        .meter { flex: 1; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+        .fill { height: 100%; width: 0%; transition: width 0.1s; }
+        .fill.red { background: var(--red); }
+        .fill.blue { background: var(--blue); }
+        .fill.white { background: white; }
+
+        /* CONTROLS */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .control-group { text-align: left; }
+        label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+        input[type=range] { width: 100%; accent-color: var(--accent); }
+
+        #protocol { width: 100%; padding: 10px; background: #222; color: white; border: 1px solid #444; border-radius: 4px; margin-bottom: 10px; }
+
+        .active-color {
+            width: 100%; height: 20px; background: black; margin-top: 10px; border-radius: 4px; border: 1px solid #444; transition: background 0.1s;
+        }
+        
+        #overlay-flash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; background: white; transition: opacity 0.05s;
         }
 
     </style>
 </head>
 <body>
-
-    <div id="flash"></div>
+    <div id="overlay-flash"></div>
 
     <div class="container">
-        <h1>Duel Sync Player</h1>
+        <h1>Live Saber Sync</h1>
         
-        <div class="video-box">
-            <div id="player"></div>
+        <div class="input-group">
+            <input type="text" id="videoUrl" placeholder="Paste YouTube URL here..." value="https://www.youtube.com/watch?v=VO8Bk03Xv90">
+            <button class="load" onclick="loadVideo()">Load Video</button>
+        </div>
+
+        <div class="video-wrapper">
+            <div class="video-box">
+                <div id="yt-player"></div>
+            </div>
+            
+            <div class="preview-box">
+                <div style="font-size:0.9rem; font-weight:bold; margin-bottom:5px;">Live Analysis</div>
+                <canvas id="analysisCanvas"></canvas>
+                <div class="active-color" id="previewColor"></div>
+                
+                <div style="width:100%; margin-top:10px; display:flex; flex-direction:column; gap:5px;">
+                    <div class="meter-row"><span>R</span><div class="meter"><div class="fill red" id="meterR"></div></div></div>
+                    <div class="meter-row"><span>B</span><div class="meter"><div class="fill blue" id="meterB"></div></div></div>
+                    <div class="meter-row"><span>W</span><div class="meter"><div class="fill white" id="meterW"></div></div></div>
+                </div>
+            </div>
         </div>
 
         <div class="controls">
-            <div class="row">
+            <div class="control-group">
+                <label>1. Connection</label>
                 <select id="protocol">
                     <option value="1">Protocol: Lotus/Keepsmile</option>
                     <option value="0">Protocol: ELK-BLEDOM</option>
                     <option value="2">Protocol: Triones</option>
                 </select>
-                <button id="connectBtn" onclick="connect()">📡 Connect Light</button>
+                <button class="connect" id="connectBtn" onclick="connect()" style="width:100%">📡 Connect Light</button>
             </div>
             
-            <div class="offset-wrap">
-                <span>Sync Offset:</span>
-                <input type="range" min="-1000" max="1000" value="0" step="50" oninput="updateOffset(this.value)">
-                <span id="offsetVal">0ms</span>
+            <div class="control-group">
+                <label>2. Screen Sync</label>
+                <button class="sync" id="syncBtn" onclick="startScreenShare()" disabled style="width:100%; margin-bottom:10px;">👁️ Start Screen Sync</button>
+                
+                <label>Color Threshold (Sensitivity)</label>
+                <input type="range" id="colorThresh" min="10" max="100" value="40">
+                
+                <label>Clash Threshold (White)</label>
+                <input type="range" id="whiteThresh" min="150" max="255" value="230">
             </div>
-
-            <div class="sync-bar"><div class="sync-fill" id="syncFill"></div></div>
-            <div id="status">Waiting for connection...</div>
         </div>
     </div>
 
+    <!-- Hidden Video Element for Capture -->
+    <video id="captureVideo" autoplay playsinline muted style="display:none;"></video>
+
     <script>
-        // --- CHOREOGRAPHY (Time in Seconds) ---
-        // Scene: Obi-Wan vs Vader (Part 6)
-        const EVENTS = [
-            { t: 0, c: [0,0,0], note: "Intro Darkness" },
-            { t: 147, c: [0,0,0], note: "Vader Arrives" },
-            
-            // IGNITION
-            { t: 148.5, c: [255,0,0], note: "Vader Ignite (Red)" }, 
-            { t: 153.0, c: [0,0,255], note: "Obi-Wan Ignite (Blue)" },
-            
-            // FIRST CLASHES
-            { t: 155.5, c: [255,255,255], note: "Clash" },
-            { t: 155.7, c: [255,0,0], note: "Red Push" },
-            { t: 160.0, c: [0,0,0], note: "Break" },
-            
-            // THE DUEL (Rapid Fire)
-            { t: 165.0, c: [0,0,255], note: "Blue" },
-            { t: 166.0, c: [255,0,0], note: "Red" },
-            { t: 167.5, c: [255,255,255], note: "Clash" },
-            { t: 168.0, c: [255,0,0], note: "Red" },
-            { t: 172.0, c: [255,255,255], note: "Clash" },
-            { t: 172.3, c: [0,0,255], note: "Blue" },
-            
-            // FORCE PUSH BATTLE
-            { t: 180.0, c: [255,0,0], note: "Vader Force" },
-            { t: 185.0, c: [0,0,255], note: "Obi Force" },
-            { t: 190.0, c: [255,255,255], note: "Power Struggle" },
-            
-            // THE PIT (Burial)
-            { t: 260.0, c: [100,0,0], note: "Vader Winning" },
-            { t: 280.0, c: [50,0,0], note: "Rocks Falling" },
-            { t: 300.0, c: [0,0,0], note: "Buried (Dark)" },
-            
-            // FLASHBACKS / HOPE
-            { t: 330.0, c: [0,0,50], note: "Dim Blue Hope" },
-            
-            // THE ERUPTION
-            { t: 350.0, c: [0,0,0], note: "Silence..." },
-            { t: 355.0, c: [0,100,255], note: "Rumble..." },
-            { t: 358.5, c: [255,255,255], note: "EXPLOSION (Breakout)" },
-            { t: 359.0, c: [0,0,255], note: "Full Power Jedi" },
-            
-            // THE HIGH GROUND
-            { t: 370.0, c: [0,0,255], note: "Obi Attack" },
-            { t: 375.0, c: [255,255,255], note: "Hit" },
-            { t: 376.0, c: [0,0,255], note: "Obi Attack" },
-            { t: 380.0, c: [255,255,255], note: "Hit" },
-            
-            // VADER MASK BREAK
-            { t: 400.0, c: [255,100,0], note: "Saber Slash" },
-            { t: 405.0, c: [255,0,0], note: "Vader Damaged" },
-            
-            // DIALOGUE (Emotional)
-            { t: 450.0, c: [50,0,20], note: "Red/Blue Mix (Face)" },
-            { t: 500.0, c: [0,0,0], note: "Departure" }
-        ];
-
-        // --- YOUTUBE API ---
-        var player;
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-                height: '100%',
-                width: '100%',
-                videoId: 'VO8Bk03Xv90',
-                playerVars: { 'playsinline': 1 },
-                events: {
-                    'onStateChange': onPlayerStateChange
-                }
-            });
-        }
-
-        let syncInterval;
-        function onPlayerStateChange(event) {
-            if (event.data == YT.PlayerState.PLAYING) {
-                startSync();
-            } else {
-                stopSync();
-            }
-        }
-
-        // --- SYNC ENGINE ---
-        let lastEventIndex = -1;
-        let syncOffset = 0;
-
-        function startSync() {
-            if(syncInterval) clearInterval(syncInterval);
-            syncInterval = setInterval(syncLoop, 100);
-        }
-
-        function stopSync() {
-            clearInterval(syncInterval);
-        }
-
-        function updateOffset(val) {
-            syncOffset = parseInt(val) / 1000; // Convert ms to s
-            document.getElementById('offsetVal').innerText = val + "ms";
-        }
-
-        function syncLoop() {
-            if (!player || !player.getCurrentTime) return;
-            
-            const time = player.getCurrentTime() + syncOffset;
-            
-            // Find current event
-            // We want the event that has the largest 't' that is still <= current time
-            let currentEventIdx = -1;
-            for(let i=0; i<EVENTS.length; i++) {
-                if (time >= EVENTS[i].t) {
-                    currentEventIdx = i;
-                } else {
-                    break;
-                }
-            }
-
-            // If we found a new event we haven't fired yet
-            if (currentEventIdx !== -1 && currentEventIdx !== lastEventIndex) {
-                const event = EVENTS[currentEventIdx];
-                triggerLight(event);
-                lastEventIndex = currentEventIdx;
-                
-                // UI Update
-                document.getElementById('status').innerText = `[${time.toFixed(1)}s] ${event.note}`;
-                document.getElementById('status').style.color = `rgb(${event.c[0]}, ${event.c[1]}, ${event.c[2]})`;
-            }
-            
-            // Update Bar
-            const prog = (time / 550) * 100;
-            document.getElementById('syncFill').style.width = prog + "%";
-        }
-
-        function triggerLight(ev) {
-            const [r, g, b] = ev.c;
-            
-            // 1. Flash Screen
-            if (r+g+b > 600) { // White flash
-                document.getElementById('flash').style.opacity = 0.8;
-                setTimeout(() => document.getElementById('flash').style.opacity = 0, 50);
-            } else {
-                document.body.style.backgroundColor = `rgb(${r*0.2}, ${g*0.2}, ${b*0.2})`;
-            }
-
-            // 2. Send Bluetooth
-            if (characteristic) {
-                const pid = document.getElementById('protocol').value;
-                const p = PROTOCOLS[pid];
-                
-                // If Black
-                if (r===0 && g===0 && b===0) {
-                    characteristic.writeValue(p.off).catch(e=>{});
-                } else {
-                    // Send ON first to ensure wake
-                    if(p.on) characteristic.writeValue(p.on).catch(e=>{});
-                    const data = p.write(r,g,b);
-                    characteristic.writeValue(data).catch(e=>{});
-                }
-            }
-        }
-
-        // --- BLUETOOTH ---
+        // --- CONSTANTS ---
         const PROTOCOLS = [
             { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
             { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) },
             { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) }
         ];
 
+        // --- STATE ---
         let characteristic;
+        let isSyncing = false;
+        let lastSent = { r: -1, g: -1, b: -1 };
+        let lastSentTime = 0;
+        const UPDATE_INTERVAL = 100; // ms (Max 10 updates/sec to prevent BT jam)
 
+        // --- YOUTUBE LOAD ---
+        function loadVideo() {
+            const url = document.getElementById('videoUrl').value;
+            let vidId = "";
+            if(url.includes("v=")) vidId = url.split("v=")[1].split("&")[0];
+            else if(url.includes("youtu.be/")) vidId = url.split("youtu.be/")[1];
+            
+            if(vidId) {
+                const embedUrl = `https://www.youtube.com/embed/${vidId}?autoplay=1&enablejsapi=1`;
+                document.getElementById('yt-player').innerHTML = `<iframe src="${embedUrl}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            } else {
+                alert("Invalid YouTube URL");
+            }
+        }
+        
+        // Load default on start
+        window.onload = loadVideo;
+
+        // --- SCREEN CAPTURE ---
+        async function startScreenShare() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "never" },
+                    audio: false
+                });
+                
+                const video = document.getElementById('captureVideo');
+                video.srcObject = stream;
+                
+                isSyncing = true;
+                document.getElementById('syncBtn').innerText = "Running... (Select Tab)";
+                requestAnimationFrame(analyzeLoop);
+                
+                // Stop if user stops sharing
+                stream.getVideoTracks()[0].onended = () => {
+                    isSyncing = false;
+                    document.getElementById('syncBtn').innerText = "👁️ Start Screen Sync";
+                };
+            } catch(e) {
+                console.error(e);
+                alert("Screen share failed or cancelled.");
+            }
+        }
+
+        // --- ANALYSIS LOOP ---
+        function analyzeLoop() {
+            if(!isSyncing) return;
+            
+            const video = document.getElementById('captureVideo');
+            const canvas = document.getElementById('analysisCanvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            
+            if(video.readyState === video.HAVE_ENOUGH_DATA) {
+                // Downsample for performance (50x50px is enough for ambient light)
+                canvas.width = 50;
+                canvas.height = 50;
+                ctx.drawImage(video, 0, 0, 50, 50);
+                
+                const frame = ctx.getImageData(0, 0, 50, 50).data;
+                
+                let rTot=0, gTot=0, bTot=0;
+                let rCount=0, bCount=0, wCount=0;
+                let maxBri = 0;
+                
+                // Analyze pixels
+                for(let i=0; i<frame.length; i+=4) {
+                    const r = frame[i];
+                    const g = frame[i+1];
+                    const b = frame[i+2];
+                    const bri = (r+g+b)/3;
+                    
+                    if(bri > maxBri) maxBri = bri;
+                    
+                    rTot += r; gTot += g; bTot += b;
+                    
+                    // Simple voting system for Saber colors
+                    if (r > g+b && r > 100) rCount++;
+                    if (b > r+g && b > 100) bCount++;
+                    if (r > 200 && g > 200 && b > 200) wCount++;
+                }
+                
+                const pixelCount = frame.length / 4;
+                const avgR = Math.floor(rTot / pixelCount);
+                const avgG = Math.floor(gTot / pixelCount);
+                const avgB = Math.floor(bTot / pixelCount);
+                
+                // Update Meters
+                document.getElementById('meterR').style.width = Math.min(100, (rCount/pixelCount)*500) + "%";
+                document.getElementById('meterB').style.width = Math.min(100, (bCount/pixelCount)*500) + "%";
+                document.getElementById('meterW').style.width = Math.min(100, (wCount/pixelCount)*500) + "%";
+                
+                // DECISION LOGIC
+                const cThresh = parseInt(document.getElementById('colorThresh').value); // Sensitivity for color
+                const wThresh = parseInt(document.getElementById('whiteThresh').value); // Brightness for clash
+                
+                let sendR = 0, sendG = 0, sendB = 0;
+                
+                // 1. Check for CLASH (White)
+                // If max brightness is super high or lots of white pixels
+                if (maxBri > wThresh || wCount > (pixelCount * 0.05)) {
+                    sendR = 255; sendG = 255; sendB = 255;
+                    // Flash screen overlay
+                    document.getElementById('overlay-flash').style.opacity = 0.5;
+                    setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
+                } 
+                // 2. Check for RED dominance (Vader)
+                else if (rCount > pixelCount * (cThresh/1000) && rCount > bCount) {
+                    sendR = 255; sendG = 0; sendB = 0;
+                }
+                // 3. Check for BLUE dominance (Obi-Wan)
+                else if (bCount > pixelCount * (cThresh/1000) && bCount > rCount) {
+                    sendR = 0; sendG = 0; sendB = 255;
+                }
+                // 4. Default: Off/Ambient
+                else {
+                    // Optional: Use average color but dimmed way down for background ambiance
+                    // sendR = Math.floor(avgR/4); sendG = Math.floor(avgG/4); sendB = Math.floor(avgB/4);
+                    // For crisp battle, OFF is usually better
+                    sendR = 0; sendG = 0; sendB = 0;
+                }
+                
+                // Update Preview
+                document.getElementById('previewColor').style.background = `rgb(${sendR},${sendG},${sendB})`;
+                
+                // SEND BLUETOOTH
+                const now = Date.now();
+                if (now - lastSentTime > UPDATE_INTERVAL) {
+                    // Only send if color changed significantly or it's a heartbeat
+                    if (Math.abs(sendR - lastSent.r) > 10 || Math.abs(sendG - lastSent.g) > 10 || Math.abs(sendB - lastSent.b) > 10) {
+                        sendToLight(sendR, sendG, sendB);
+                        lastSent = { r: sendR, g: sendG, b: sendB };
+                        lastSentTime = now;
+                    }
+                }
+            }
+            
+            requestAnimationFrame(analyzeLoop);
+        }
+        
+        async function sendToLight(r, g, b) {
+            if(!characteristic) return;
+            const pid = document.getElementById('protocol').value;
+            const p = PROTOCOLS[pid];
+            
+            try {
+                if (r===0 && g===0 && b===0) {
+                    await characteristic.writeValue(p.off);
+                } else {
+                    // If switching from off to on, send ON command first
+                    if (lastSent.r === 0 && lastSent.g === 0 && lastSent.b === 0 && p.on) {
+                         await characteristic.writeValue(p.on);
+                    }
+                    const data = p.write(r,g,b);
+                    await characteristic.writeValue(data);
+                }
+            } catch(e) {}
+        }
+
+        // --- BLUETOOTH CONNECT ---
         async function connect() {
             try {
-                if (!navigator.bluetooth) throw new Error("Browser not supported");
+                if (!navigator.bluetooth) throw new Error("Bluetooth not supported");
                 const device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
@@ -349,12 +396,17 @@
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
 
                 if(characteristic) {
-                    document.getElementById('status').innerText = "Connected!";
-                    document.getElementById('status').style.color = "#22c55e";
-                    document.getElementById('connectBtn').style.display = 'none';
-                    // Test flash
-                    triggerLight({ c: [0,255,0] });
-                    setTimeout(() => triggerLight({ c: [0,0,0] }), 500);
+                    const btn = document.getElementById('connectBtn');
+                    btn.innerText = "Connected";
+                    btn.style.backgroundColor = "#22c55e";
+                    btn.style.color = "white";
+                    document.getElementById('syncBtn').disabled = false;
+                    
+                    // Initial ON then OFF
+                    const pid = document.getElementById('protocol').value;
+                    const p = PROTOCOLS[pid];
+                    if(p.on) await characteristic.writeValue(p.on);
+                    setTimeout(() => sendToLight(0,0,0), 500);
                 }
             } catch(e) { alert("Connect Error: " + e.message); }
         }
