@@ -3,191 +3,230 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v4</title>
+    <title>AI FX Studio</title>
     <style>
         :root {
-            --bg: #050505;
-            --panel: #1a1a1a;
-            --text: #eee;
-            --accent: #eab308;
-            --red: #ff2a2a;
-            --blue: #2a2aff;
+            --bg: #09090b;
+            --panel: #18181b;
+            --border: #27272a;
+            --text: #e4e4e7;
+            --accent: #8b5cf6; /* Violet */
+            --accent-hover: #7c3aed;
+            --success: #10b981;
+            --danger: #ef4444;
+            --sfx-1: #3b82f6;
+            --sfx-2: #f59e0b;
+            --sfx-3: #ec4899;
         }
 
         body {
-            font-family: 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg);
             color: var(--text);
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            margin: 0;
-            padding: 20px;
         }
 
-        .container {
+        /* CONTAINER */
+        .app-container {
             width: 100%;
             max-width: 800px;
-            text-align: center;
-        }
-
-        h1 { margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem; background: linear-gradient(90deg, #f00, #fff, #00f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-        
-        #captureVideo {
-            position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1;
-        }
-
-        .preview-box {
-            background: var(--panel);
-            border: 2px solid #333;
-            border-radius: 12px;
-            padding: 20px;
             display: flex;
             flex-direction: column;
+            gap: 20px;
+        }
+
+        /* HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            position: relative;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
         }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
         
-        .signal-light {
-            position: absolute; top: 15px; right: 15px;
-            font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 5px;
+        .status-badge {
+            font-size: 0.75rem; background: #27272a; padding: 4px 8px; border-radius: 4px; color: #71717a; border: 1px solid #3f3f46;
         }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; }
-        .dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-        
-        canvas {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #000;
-            border: 1px solid #444;
-            border-radius: 8px;
-            object-fit: contain;
+        .status-badge.connected { color: var(--success); border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.1); }
+
+        /* SECTIONS */
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
         }
+        .section-title { margin: 0 0 15px 0; font-size: 0.9rem; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        .active-color {
-            width: 100%; height: 40px; background: black; border-radius: 4px; border: 1px solid #444; transition: background 0.1s;
-        }
-
-        .meter-row { width: 100%; display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
-        .meter { flex: 1; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
-        .fill { height: 100%; width: 0%; transition: width 0.1s; }
-        .fill.red { background: var(--red); }
-        .fill.blue { background: var(--blue); }
-        .fill.white { background: white; }
-
-        .controls {
+        /* AUDIO GRID */
+        .audio-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            background: var(--panel);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #333;
-            width: 100%;
-            box-sizing: border-box;
+            gap: 10px;
         }
-
-        .control-group { text-align: left; }
-        label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 5px; }
-        input[type=range] { width: 100%; accent-color: var(--accent); }
-
-        select { width: 100%; padding: 10px; background: #222; color: white; border: 1px solid #444; border-radius: 4px; margin-bottom: 10px; }
-
-        button {
-            width: 100%;
+        .file-upload {
+            position: relative;
+            background: #27272a;
+            border: 1px dashed #52525b;
+            border-radius: 8px;
             padding: 12px;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
+            text-align: center;
             cursor: pointer;
             transition: 0.2s;
-            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #a1a1aa;
         }
-        button.connect { background: var(--accent); color: black; }
-        button.sync { background: #22c55e; color: black; margin-bottom: 10px; }
+        .file-upload:hover { border-color: var(--text); color: var(--text); background: #3f3f46; }
+        .file-upload.loaded { border-style: solid; background: rgba(255,255,255,0.05); }
+        .file-upload.sfx1.loaded { border-color: var(--sfx-1); color: var(--sfx-1); }
+        .file-upload.sfx2.loaded { border-color: var(--sfx-2); color: var(--sfx-2); }
+        .file-upload.sfx3.loaded { border-color: var(--sfx-3); color: var(--sfx-3); }
+        
+        .file-upload input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+
+        /* PROMPT AREA */
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 12px;
+            font-family: inherit;
+            resize: vertical;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        textarea:focus { outline: none; border-color: var(--accent); }
+
+        .api-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .api-input { flex: 1; background: #000; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; }
+
+        /* BUTTONS */
+        button {
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.95rem;
+        }
         button:hover { filter: brightness(1.2); }
+        button:active { transform: scale(0.98); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        #overlay-flash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; background: black; transition: opacity 0.05s;
-        }
-        
-        .instructions {
-            background: rgba(255,255,255,0.05);
-            padding: 15px;
+        .btn-gen { background: var(--accent); color: white; width: 100%; }
+        .btn-play { background: var(--success); color: black; flex: 2; font-size: 1.1rem;}
+        .btn-stop { background: var(--danger); color: white; flex: 1; }
+        .btn-connect { background: #3f3f46; color: white; padding: 6px 12px; font-size: 0.8rem; }
+
+        /* SCRIPT VIEWER */
+        .script-view {
+            background: #000;
+            border: 1px solid var(--border);
             border-radius: 8px;
-            font-size: 0.85rem;
-            color: #aaa;
-            text-align: left;
-            margin-bottom: 20px;
-            line-height: 1.5;
+            height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #a1a1aa;
         }
-        .instructions b { color: white; }
+        .script-line { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid #222; }
+        .script-time { color: var(--accent); min-width: 50px; }
+        .script-action { flex: 1; }
+        .script-line.active { background: rgba(255,255,255,0.1); color: white; }
+
+        /* PROGRESS */
+        .progress-bar {
+            height: 4px; width: 100%; background: #27272a; margin-top: 20px; border-radius: 2px; overflow: hidden;
+        }
+        .progress-fill { height: 100%; width: 0%; background: var(--success); transition: width 0.1s linear; }
+
+        .control-row { display: flex; gap: 10px; margin-top: 10px; }
 
     </style>
 </head>
 <body>
-    <div id="overlay-flash"></div>
 
-    <div class="container">
-        <h1>Universal Screen Sync v4</h1>
-        
-        <div class="instructions">
-            <strong>How to use:</strong><br>
-            1. Open YouTube/Netflix in another tab.<br>
-            2. Click <b>Start Screen Sync</b> below.<br>
-            3. In the popup, select the <b>Chrome Tab</b> tab, pick your video tab, and click <b>Share</b>.<br>
-            4. Connect your light and play the video!
-        </div>
-
-        <div class="preview-box">
-            <div class="signal-light"><div class="dot" id="signalDot"></div> Video Signal</div>
-            <canvas id="analysisCanvas"></canvas>
-            
-            <div style="width:100%; display:flex; flex-direction:column; gap:8px;">
-                <div class="meter-row"><span style="width:20px">R</span><div class="meter"><div class="fill red" id="meterR"></div></div></div>
-                <div class="meter-row"><span style="width:20px">B</span><div class="meter"><div class="fill blue" id="meterB"></div></div></div>
-                <div class="meter-row"><span style="width:20px">W</span><div class="meter"><div class="fill white" id="meterW"></div></div></div>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h1>AI FX Studio</h1>
+                <div id="connectionStatus" class="status-badge">Disconnected</div>
             </div>
-            
-            <div class="active-color" id="previewColor"></div>
-            <div style="font-size:0.8rem; color:#666;">Live Color Output</div>
-        </div>
-
-        <div class="controls">
-            <div class="control-group">
-                <label>1. Sync Source</label>
-                <button class="sync" id="syncBtn" onclick="startScreenShare()">👁️ Start Screen Sync</button>
-                
-                <label>Protocol</label>
-                <select id="protocol">
-                    <option value="1">Protocol: Lotus/Keepsmile</option>
-                    <option value="0">Protocol: ELK-BLEDOM</option>
-                    <option value="2">Protocol: Triones</option>
+            <div style="display:flex; gap:10px;">
+                <select id="protocolSelect" style="background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; padding:5px;">
+                    <option value="1">Lotus/Keepsmile</option>
+                    <option value="0">ELK-BLEDOM</option>
+                    <option value="2">Triones</option>
                 </select>
-                <button class="connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
+                <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect</button>
+            </div>
+        </header>
+
+        <!-- 1. AUDIO ASSETS -->
+        <div class="section">
+            <h2 class="section-title">1. Upload Assets</h2>
+            <div class="audio-grid">
+                <label class="file-upload" id="lbl-bg">
+                    🎵 Backing Track
+                    <input type="file" accept="audio/*" onchange="loadAudio('bg', this)">
+                </label>
+                <label class="file-upload sfx1" id="lbl-sfx1">
+                    🔵 SFX 1 (Start/Ignite)
+                    <input type="file" accept="audio/*" onchange="loadAudio('sfx1', this)">
+                </label>
+                <label class="file-upload sfx2" id="lbl-sfx2">
+                    💥 SFX 2 (Clash/Hit)
+                    <input type="file" accept="audio/*" onchange="loadAudio('sfx2', this)">
+                </label>
+                <label class="file-upload sfx3" id="lbl-sfx3">
+                    🔻 SFX 3 (End/Retract)
+                    <input type="file" accept="audio/*" onchange="loadAudio('sfx3', this)">
+                </label>
+            </div>
+        </div>
+
+        <!-- 2. AI GENERATOR -->
+        <div class="section">
+            <h2 class="section-title">2. AI Choreography</h2>
+            <div class="api-row">
+                <input type="password" id="apiKey" class="api-input" placeholder="OpenRouter API Key (sk-or-v1...)" onchange="saveKey()">
+            </div>
+            <textarea id="promptInput" placeholder="Describe your show... (e.g. 'Slow build up with blue light for 5s, then ignite red saber (SFX1), wait 2s, then violent clashes (SFX2) every second for 10s.')"></textarea>
+            <button class="btn-gen" id="genBtn" onclick="generateShow()">✨ Generate Show with DeepSeek</button>
+        </div>
+
+        <!-- 3. PLAYBACK -->
+        <div class="section">
+            <h2 class="section-title">3. Run Show</h2>
+            <div class="script-view" id="scriptView">
+                <div style="text-align:center; padding-top:80px; color:#444;">Script will appear here...</div>
             </div>
             
-            <div class="control-group">
-                <label>2. Tuning</label>
-                
-                <label>Color Boost (Saturation)</label>
-                <input type="range" id="colorBoost" min="10" max="40" value="25" oninput="document.getElementById('boostVal').innerText=this.value/10">
-                <span style="font-size:0.7rem; color:#666; float:right;" id="boostVal">2.5</span>
-                
-                <label style="margin-top:15px;">White Cutoff (Sensitivity)</label>
-                <input type="range" id="whiteThresh" min="150" max="255" value="230">
-                <span style="font-size:0.7rem; color:#666;">Lower = More likely to turn OFF</span>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div style="text-align:right; font-size:0.8rem; color:#666; margin-top:5px;" id="timeDisplay">0:00</div>
+
+            <div class="control-row">
+                <button class="btn-play" id="playBtn" onclick="togglePlay()" disabled>▶ Run Show</button>
+                <button class="btn-stop" onclick="stopShow()">⏹ Reset</button>
             </div>
         </div>
     </div>
-
-    <!-- Video Element for Capture (Kept in DOM but invisible) -->
-    <video id="captureVideo" autoplay playsinline muted></video>
 
     <script>
         // --- CONSTANTS ---
@@ -199,217 +238,246 @@
 
         // --- STATE ---
         let characteristic;
-        let isSyncing = false;
-        let lastSent = { r: -1, g: -1, b: -1 };
-        let lastSentTime = 0;
-        const UPDATE_INTERVAL = 100; // ms 
+        let audioBuffers = { bg: null, sfx1: null, sfx2: null, sfx3: null };
+        let showEvents = [];
+        let isPlaying = false;
+        let startTime = 0;
+        let animationFrame;
+        
+        // --- INIT ---
+        const storedKey = localStorage.getItem('openrouter_key');
+        if(storedKey) document.getElementById('apiKey').value = storedKey;
 
-        // --- SCREEN CAPTURE ---
-        async function startScreenShare() {
-            try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { cursor: "never" },
-                    audio: false
-                });
-                
-                const video = document.getElementById('captureVideo');
-                video.srcObject = stream;
-                video.play(); // Force play
-                
-                isSyncing = true;
-                document.getElementById('syncBtn').innerText = "Running... (Switch Tab)";
-                requestAnimationFrame(analyzeLoop);
-                
-                stream.getVideoTracks()[0].onended = () => {
-                    isSyncing = false;
-                    document.getElementById('syncBtn').innerText = "👁️ Start Screen Sync";
-                    document.getElementById('signalDot').classList.remove('active');
-                };
-            } catch(e) {
-                console.error(e);
-                alert("Screen share failed or cancelled.");
-            }
+        // --- AUDIO ENGINE ---
+        function loadAudio(slot, input) {
+            const file = input.files[0];
+            if(!file) return;
+            
+            const url = URL.createObjectURL(file);
+            audioBuffers[slot] = new Audio(url);
+            
+            // UI
+            const lbl = document.getElementById('lbl-'+slot);
+            lbl.classList.add('loaded');
+            lbl.innerHTML = (slot === 'bg' ? '🎵' : '🔊') + ' ' + file.name;
         }
 
-        // --- ANALYSIS LOOP ---
-        function analyzeLoop() {
-            if(!isSyncing) return;
-            
-            const video = document.getElementById('captureVideo');
-            const canvas = document.getElementById('analysisCanvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            const dot = document.getElementById('signalDot');
-            
-            if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                dot.classList.add('active'); // Signal OK
-                
-                // Downsample for performance (50x50px is enough for ambient light)
-                canvas.width = 50;
-                canvas.height = 50;
-                ctx.drawImage(video, 0, 0, 50, 50);
-                
-                const frame = ctx.getImageData(0, 0, 50, 50).data;
-                const pixelCount = frame.length / 4;
-                
-                let rTot=0, gTot=0, bTot=0;
-                let vibrantPixels = 0;
-                let whitePixels = 0;
-                
-                // User settings
-                const wThresh = parseInt(document.getElementById('whiteThresh').value); 
-                const gain = parseInt(document.getElementById('colorBoost').value) / 10;
-                
-                // Track dominant colors for UI meters
-                let rCount=0, bCount=0, wCount=0;
-                
-                for(let i=0; i<frame.length; i+=4) {
-                    const r = frame[i];
-                    const g = frame[i+1];
-                    const b = frame[i+2];
-                    
-                    const max = Math.max(r, g, b);
-                    const min = Math.min(r, g, b);
-                    const sat = max === 0 ? 0 : (max - min) / max;
-                    
-                    // 1. WHITE/CLASH DETECTION
-                    // High brightness AND Low saturation (White)
-                    if (max > wThresh && sat < 0.2) {
-                        whitePixels++;
-                        wCount++;
-                    }
-                    
-                    // 2. VIBRANT COLOR DETECTION (DULLNESS FILTER)
-                    // Must be bright enough (>60) AND Saturated enough (>0.5)
-                    else if (max > 60 && sat > 0.5) {
-                        rTot += r; gTot += g; bTot += b;
-                        vibrantPixels++;
-                        
-                        if (r > g+b) rCount++;
-                        if (b > r+g) bCount++;
-                    }
-                }
-                
-                // Update Meters
-                const activeTotal = vibrantPixels || 1;
-                document.getElementById('meterR').style.width = Math.min(100, (rCount/activeTotal)*100) + "%";
-                document.getElementById('meterB').style.width = Math.min(100, (bCount/activeTotal)*100) + "%";
-                document.getElementById('meterW').style.width = Math.min(100, (whitePixels/pixelCount)*1000) + "%"; 
-                
-                let sendR = 0, sendG = 0, sendB = 0;
-                
-                // 1. CLASH DETECT -> TURN OFF (Inverse)
-                // If there is significant white/flash, go dark
-                if (whitePixels > (pixelCount * 0.05)) { 
-                     sendR = 0; sendG = 0; sendB = 0;
-                     // UI Feedback
-                     document.getElementById('overlay-flash').style.opacity = 0.5;
-                     setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
-                } 
-                // 2. COLOR AVERAGE
-                // Require significant area (0.5%) to be vibrant to trigger light
-                else if (vibrantPixels > (pixelCount * 0.005)) {
-                     // Calculate average of lit pixels
-                     let avgR = rTot / vibrantPixels;
-                     let avgG = gTot / vibrantPixels;
-                     let avgB = bTot / vibrantPixels;
-                     
-                     // DEEP COLOR BOOST: Remove the white component
-                     const minVal = Math.min(avgR, avgG, avgB);
-                     avgR = Math.max(0, avgR - (minVal * 0.8));
-                     avgG = Math.max(0, avgG - (minVal * 0.8));
-                     avgB = Math.max(0, avgB - (minVal * 0.8));
-                     
-                     // Apply Gain
-                     sendR = Math.min(255, avgR * gain);
-                     sendG = Math.min(255, avgG * gain);
-                     sendB = Math.min(255, avgB * gain);
-
-                     // Final Dullness Safety: If resulting color is too dark, kill it
-                     if ((sendR + sendG + sendB) < 50) {
-                         sendR = 0; sendG = 0; sendB = 0;
-                     }
-                }
-                // 3. DARKNESS
-                else {
-                    sendR = 0; sendG = 0; sendB = 0;
-                }
-                
-                sendR = Math.floor(sendR);
-                sendG = Math.floor(sendG);
-                sendB = Math.floor(sendB);
-                
-                // Preview
-                document.getElementById('previewColor').style.background = `rgb(${sendR},${sendG},${sendB})`;
-                
-                // SEND BLUETOOTH
-                const now = Date.now();
-                if (now - lastSentTime > UPDATE_INTERVAL) {
-                    if (Math.abs(sendR - lastSent.r) > 5 || Math.abs(sendG - lastSent.g) > 5 || Math.abs(sendB - lastSent.b) > 5) {
-                        sendToLight(sendR, sendG, sendB);
-                        lastSent = { r: sendR, g: sendG, b: sendB };
-                        lastSentTime = now;
-                    }
-                }
-            } else {
-                dot.classList.remove('active'); // No Signal
+        function playSound(slot) {
+            const audio = audioBuffers[slot];
+            if(audio) {
+                audio.currentTime = 0;
+                audio.play().catch(e => console.warn("Audio play blocked", e));
             }
-            
-            requestAnimationFrame(analyzeLoop);
         }
         
-        async function sendToLight(r, g, b) {
-            if(!characteristic) return;
-            const pid = document.getElementById('protocol').value;
-            const p = PROTOCOLS[pid];
-            
-            try {
-                if (r < 10 && g < 10 && b < 10) {
-                    // Only send OFF if we aren't already OFF to save bandwidth
-                    if (lastSent.r >= 10 || lastSent.g >= 10 || lastSent.b >= 10) {
-                        await characteristic.writeValue(p.off);
-                    }
-                } else {
-                    // Auto-Wake: If coming from black, send ON
-                    if ((lastSent.r < 10 && lastSent.g < 10 && lastSent.b < 10) && p.on) {
-                         await characteristic.writeValue(p.on);
-                    }
-                    const data = p.write(r,g,b);
-                    await characteristic.writeValue(data);
-                }
-            } catch(e) {}
+        function stopAllSound() {
+            Object.values(audioBuffers).forEach(a => {
+                if(a) { a.pause(); a.currentTime = 0; }
+            });
         }
 
+        // --- LIGHT CONTROL ---
+        async function sendEvent(ev) {
+            if(!characteristic) return;
+            const pid = document.getElementById('protocolSelect').value;
+            const p = PROTOCOLS[pid];
+
+            try {
+                if (ev.type === 'off') {
+                    await characteristic.writeValue(p.off);
+                } else if (ev.type === 'flash') {
+                    // Flash is white then OFF
+                    await characteristic.writeValue(p.write(255,255,255));
+                    setTimeout(() => characteristic.writeValue(p.off), 100);
+                } else {
+                    // Color
+                    const hex = ev.color || "#000000";
+                    const r = parseInt(hex.substring(1,3), 16);
+                    const g = parseInt(hex.substring(3,5), 16);
+                    const b = parseInt(hex.substring(5,7), 16);
+                    
+                    // Auto-wake
+                    if(p.on && (r>0||g>0||b>0)) await characteristic.writeValue(p.on);
+                    
+                    await characteristic.writeValue(p.write(r,g,b));
+                }
+            } catch(e) { console.error("BT Error", e); }
+        }
+
+        // --- AI GENERATOR ---
+        function saveKey() {
+            localStorage.setItem('openrouter_key', document.getElementById('apiKey').value);
+        }
+
+        async function generateShow() {
+            const key = document.getElementById('apiKey').value;
+            const prompt = document.getElementById('promptInput').value;
+            const btn = document.getElementById('genBtn');
+            
+            if(!key) return alert("Please enter OpenRouter API Key");
+            if(!prompt) return alert("Please enter a prompt");
+            
+            btn.innerText = "Generating... (DeepSeek)";
+            btn.disabled = true;
+
+            const system = `
+            You are a Lighting Director.
+            Available SFX: sfx1, sfx2, sfx3.
+            Output JSON array of events sorted by time.
+            Schema: { "time": float (seconds), "type": "color"|"off"|"flash", "color": "#hex", "sound": "sfx1"|"sfx2"|"sfx3"|null, "desc": "string" }
+            "flash" = White burst (for impacts).
+            "off" = Blackout.
+            `;
+
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`,
+                        'HTTP-Referer': window.location.href,
+                        'X-Title': 'AI FX Studio'
+                    },
+                    body: JSON.stringify({
+                        model: "deepseek/deepseek-chat",
+                        messages: [
+                            { role: "system", content: system },
+                            { role: "user", content: prompt }
+                        ]
+                    })
+                });
+                
+                const data = await res.json();
+                let content = data.choices[0].message.content;
+                content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                showEvents = JSON.parse(content);
+                renderScript();
+                
+                btn.innerText = "✨ Generate Show with DeepSeek";
+                btn.disabled = false;
+                document.getElementById('playBtn').disabled = false;
+                alert(`Generated ${showEvents.length} events!`);
+
+            } catch(e) {
+                alert("AI Error: " + e.message);
+                btn.innerText = "Error (Try Again)";
+                btn.disabled = false;
+            }
+        }
+
+        function renderScript() {
+            const container = document.getElementById('scriptView');
+            container.innerHTML = "";
+            showEvents.forEach((ev, i) => {
+                const div = document.createElement('div');
+                div.className = 'script-line';
+                div.id = 'line-'+i;
+                
+                let sfxBadge = ev.sound ? `<span style="color:var(--sfx-2)">[${ev.sound.toUpperCase()}]</span>` : "";
+                let colorBadge = ev.color ? `<span style="color:${ev.color}">●</span>` : "";
+                if(ev.type === 'flash') colorBadge = "⚡";
+                if(ev.type === 'off') colorBadge = "⚫";
+                
+                div.innerHTML = `
+                    <div class="script-time">${ev.time.toFixed(1)}s</div>
+                    <div class="script-action">${colorBadge} ${ev.desc} ${sfxBadge}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // --- PLAYBACK ENGINE ---
+        function togglePlay() {
+            if(isPlaying) stopShow();
+            else runShow();
+        }
+
+        function runShow() {
+            if(showEvents.length === 0) return alert("Generate or Load a show first!");
+            
+            isPlaying = true;
+            startTime = Date.now();
+            document.getElementById('playBtn').innerText = "Running...";
+            
+            // Start BG Music
+            playSound('bg');
+            
+            // Reset executed flags
+            showEvents.forEach(e => e.executed = false);
+            
+            loop();
+        }
+
+        function stopShow() {
+            isPlaying = false;
+            cancelAnimationFrame(animationFrame);
+            stopAllSound();
+            sendEvent({ type: 'off' }); // Kill lights
+            document.getElementById('playBtn').innerText = "▶ Run Show";
+            document.querySelector('.progress-fill').style.width = "0%";
+            document.getElementById('timeDisplay').innerText = "0:00";
+        }
+
+        function loop() {
+            if(!isPlaying) return;
+            
+            const now = (Date.now() - startTime) / 1000;
+            const maxTime = showEvents[showEvents.length-1].time + 2;
+            
+            // Update UI
+            document.querySelector('.progress-fill').style.width = (now/maxTime)*100 + "%";
+            document.getElementById('timeDisplay').innerText = now.toFixed(1);
+            
+            // Trigger Events
+            showEvents.forEach((ev, i) => {
+                if (ev.time <= now && !ev.executed) {
+                    // FIRE
+                    sendEvent(ev);
+                    if(ev.sound) playSound(ev.sound);
+                    
+                    // Mark done
+                    ev.executed = true;
+                    
+                    // Highlight Line
+                    document.querySelectorAll('.script-line').forEach(l => l.classList.remove('active'));
+                    const el = document.getElementById('line-'+i);
+                    if(el) {
+                        el.classList.add('active');
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                }
+            });
+            
+            if (now > maxTime) stopShow();
+            else animationFrame = requestAnimationFrame(loop);
+        }
+
+        // --- BLUETOOTH CONNECT ---
         async function connect() {
             try {
-                if (!navigator.bluetooth) throw new Error("Browser not supported");
-                const device = await navigator.bluetooth.requestDevice({
+                device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
                 const server = await device.gatt.connect();
-                
+                // Find service
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
-                
                 const charUUIDs = ['0000ffd9-0000-1000-8000-00805f9b34fb', '0000ffe9-0000-1000-8000-00805f9b34fb', '0000fff3-0000-1000-8000-00805f9b34fb'];
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
 
                 if(characteristic) {
-                    const btn = document.getElementById('connectBtn');
-                    btn.innerText = "Connected";
-                    btn.style.backgroundColor = "#22c55e";
-                    btn.style.color = "white";
-                    document.getElementById('syncBtn').disabled = false;
-                    
-                    const pid = document.getElementById('protocol').value;
-                    const p = PROTOCOLS[pid];
-                    if(p.on) await characteristic.writeValue(p.on);
-                    setTimeout(() => sendToLight(0,0,0), 500);
+                    const badge = document.getElementById('connectionStatus');
+                    badge.innerText = "Connected";
+                    badge.classList.add('connected');
+                    document.getElementById('connectBtn').style.display = 'none';
+                    // Force Off
+                    sendEvent({ type: 'off' });
                 }
-            } catch(e) { alert("Connect Error: " + e.message); }
+            } catch(e) { alert("Error: " + e.message); }
         }
-
     </script>
 </body>
 </html>
