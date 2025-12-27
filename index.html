@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Light Controller</title>
+    <title>Universal LED Controller</title>
     <style>
         :root {
             --bg-color: #121212;
             --card-color: #1e1e1e;
             --text-color: #e0e0e0;
-            --accent-color: #3b82f6;
+            --accent-color: #8b5cf6;
             --danger-color: #ef4444;
             --success-color: #22c55e;
         }
@@ -37,15 +37,8 @@
             text-align: center;
         }
 
-        h1 {
-            margin-bottom: 0.5rem;
-            font-size: 1.5rem;
-        }
-
-        p {
-            color: #888;
-            margin-bottom: 2rem;
-        }
+        h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+        p { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
 
         button {
             width: 100%;
@@ -55,282 +48,208 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.1s, opacity 0.2s;
+            transition: opacity 0.2s;
             margin-bottom: 10px;
         }
+        button:active { transform: scale(0.98); }
 
-        button:active {
-            transform: scale(0.98);
-        }
+        .btn-primary { background-color: var(--accent-color); color: white; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-success { background-color: var(--success-color); color: white; }
 
-        .btn-primary {
-            background-color: var(--accent-color);
-            color: white;
-        }
+        .hidden { display: none; }
 
-        .btn-danger {
-            background-color: var(--danger-color);
-            color: white;
-        }
-
-        .btn-success {
-            background-color: var(--success-color);
-            color: white;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .color-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .color-btn {
-            height: 50px;
-            border-radius: 50%;
-            border: 2px solid #333;
-            cursor: pointer;
-            padding: 0;
-            margin: 0;
-        }
-        
         input[type="color"] {
             -webkit-appearance: none;
             border: none;
             width: 100%;
-            height: 60px;
+            height: 80px;
             cursor: pointer;
             background: none;
             margin-bottom: 20px;
         }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 12px; }
 
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0;
-        }
-        
-        input[type="color"]::-webkit-color-swatch {
-            border: none;
-            border-radius: 12px;
-        }
-
-        #status {
+        #log {
             margin-top: 1rem;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             color: #666;
-            min-height: 1.25rem;
-        }
-
-        .error-msg {
-            color: #ef4444 !important;
-            background: rgba(239, 68, 68, 0.1);
+            text-align: left;
+            background: #000;
             padding: 10px;
             border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            display: none;
+            height: 100px;
+            overflow-y: auto;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Magic Lantern Control</h1>
-        <p id="subtext">Control ELK-BLEDOM devices</p>
-
-        <!-- Error Message for unsupported browsers -->
-        <div id="browserError" class="error-msg">
-            <strong>Browser not supported.</strong><br>
-            If on iPhone, you MUST use the <strong>Bluefy</strong> app.<br>
-            If on Desktop, use Chrome or Edge.<br>
-            Safari is not supported.
-        </div>
+        <h1>Universal Controller</h1>
+        <p>Supports: ELK, BLEDOM, ZENGGE, TRIONES</p>
 
         <!-- Connect Screen -->
         <div id="connectScreen">
-            <button id="connectBtn" class="btn-primary">📡 Connect to Light</button>
+            <button id="connectBtn" class="btn-primary">🔍 Scan & Auto-Connect</button>
         </div>
 
-        <!-- Control Screen (Hidden initially) -->
+        <!-- Control Screen -->
         <div id="controlScreen" class="hidden">
-            
             <input type="color" id="colorPicker" value="#ff0000">
-
-            <div class="color-grid">
-                <button class="color-btn" style="background: #ff0000" onclick="quickColor(255,0,0)"></button>
-                <button class="color-btn" style="background: #00ff00" onclick="quickColor(0,255,0)"></button>
-                <button class="color-btn" style="background: #0000ff" onclick="quickColor(0,0,255)"></button>
-                <button class="color-btn" style="background: #ffffff" onclick="quickColor(255,255,255)"></button>
-                <button class="color-btn" style="background: #ff00ff" onclick="quickColor(255,0,255)"></button>
-                <button class="color-btn" style="background: #ffff00" onclick="quickColor(255,255,0)"></button>
-                <button class="color-btn" style="background: #00ffff" onclick="quickColor(0,255,255)"></button>
-                <button class="color-btn" style="background: #ff8800" onclick="quickColor(255,136,0)"></button>
-            </div>
-
+            
             <div style="display: flex; gap: 10px;">
                 <button id="offBtn" class="btn-danger">OFF</button>
                 <button id="onBtn" class="btn-success">ON</button>
             </div>
             
             <button id="disconnectBtn" style="background: #333; margin-top: 10px;">Disconnect</button>
+            <p id="protocol-info" style="margin-top:10px; font-size:0.8rem; color: #8b5cf6;"></p>
         </div>
 
-        <div id="status">Status: Ready to pair</div>
+        <div id="log">Logs will appear here...</div>
     </div>
 
     <script>
-        // --- CONSTANTS ---
-        // Common UUIDs for Magic Lantern / ELK-BLEDOM chips
-        const SERVICE_UUID = '0000ffd5-0000-1000-8000-00805f9b34fb';
-        const CHAR_UUID = '0000ffd9-0000-1000-8000-00805f9b34fb';
+        // --- KNOWN PROTOCOLS ---
+        // We will try these one by one until we find a match
+        const PROTOCOLS = [
+            {
+                name: "Standard (ELK-BLEDOM)",
+                service: '0000ffd5-0000-1000-8000-00805f9b34fb',
+                char:    '0000ffd9-0000-1000-8000-00805f9b34fb',
+                on:      [0xcc, 0x23, 0x33],
+                off:     [0xcc, 0x24, 0x33],
+                // Header 0x56, R, G, B, 0x00, 0xF0, 0xAA
+                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
+            },
+            {
+                name: "Variant 2 (ZENGGE/FFE5)",
+                service: '0000ffe5-0000-1000-8000-00805f9b34fb',
+                char:    '0000ffe9-0000-1000-8000-00805f9b34fb',
+                on:      [0xcc, 0x23, 0x33],
+                off:     [0xcc, 0x24, 0x33],
+                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
+            },
+            {
+                name: "Variant 3 (Triones/FFF0)",
+                service: '0000fff0-0000-1000-8000-00805f9b34fb',
+                char:    '0000fff3-0000-1000-8000-00805f9b34fb',
+                on:      [0xcc, 0x23, 0x33],
+                off:     [0xcc, 0x24, 0x33],
+                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
+            }
+        ];
+
+        // Collect all service UUIDs for the scanner
+        const ALL_SERVICES = PROTOCOLS.map(p => p.service);
 
         // --- STATE ---
-        let bluetoothDevice;
-        let characteristic;
+        let device, characteristic;
+        let currentProtocol = null; // To store which protocol worked
 
-        // --- DOM ELEMENTS ---
-        const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
-        const onBtn = document.getElementById('onBtn');
-        const offBtn = document.getElementById('offBtn');
-        const colorPicker = document.getElementById('colorPicker');
-        const statusDisplay = document.getElementById('status');
-        const connectScreen = document.getElementById('connectScreen');
-        const controlScreen = document.getElementById('controlScreen');
-        const browserError = document.getElementById('browserError');
-
-        // --- INITIALIZATION ---
-        function checkBrowserSupport() {
-            if (!navigator.bluetooth) {
-                browserError.style.display = 'block';
-                connectBtn.disabled = true;
-                connectBtn.style.opacity = '0.5';
-                statusDisplay.innerText = "Web Bluetooth API unavailable.";
-                return false;
-            }
-            return true;
+        // --- UI ---
+        const logBox = document.getElementById('log');
+        function log(msg) {
+            logBox.innerText = `> ${msg}\n` + logBox.innerText;
         }
-        
-        checkBrowserSupport();
 
-        // --- CONNECTION LOGIC ---
-        connectBtn.addEventListener('click', async () => {
-            if (!checkBrowserSupport()) return;
-
+        document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
-                statusDisplay.innerText = "Scanning for devices...";
+                if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported (Use Bluefy App)");
+
+                log("Scanning...");
                 
-                bluetoothDevice = await navigator.bluetooth.requestDevice({
-                    // Filters help find the specific device faster
-                    filters: [
-                        { namePrefix: "ELK" },
-                        { namePrefix: "BLEDOM" },
-                        { namePrefix: "QHM" },
-                        { namePrefix: "Triones" }
-                    ],
-                    optionalServices: [SERVICE_UUID] 
-                    // Note: 'acceptAllDevices: true' could be used instead of filters, 
-                    // but you still need optionalServices.
+                // 1. Scan for ANY device, but ask for access to our known services
+                device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ALL_SERVICES
                 });
 
-                statusDisplay.innerText = `Connecting to ${bluetoothDevice.name}...`;
+                log(`Selected: ${device.name || "Unknown Device"}`);
                 
-                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                device.addEventListener('gattserverdisconnected', () => {
+                    log("Disconnected.");
+                    document.getElementById('connectScreen').classList.remove('hidden');
+                    document.getElementById('controlScreen').classList.add('hidden');
+                });
 
-                const server = await bluetoothDevice.gatt.connect();
-                const service = await server.getPrimaryService(SERVICE_UUID);
-                characteristic = await service.getCharacteristic(CHAR_UUID);
+                const server = await device.gatt.connect();
+                log("GATT Connected. Searching for protocol...");
 
-                // UI Updates
-                connectScreen.classList.add('hidden');
-                controlScreen.classList.remove('hidden');
-                statusDisplay.innerText = "Connected!";
-                
-            } catch (error) {
-                console.error(error);
-                statusDisplay.innerText = `Error: ${error.message}`;
-                
-                if (error.name === 'SecurityError') {
-                    statusDisplay.innerText = "Security blocked. Try opening outside of iframe.";
+                // 2. Hunt for the correct Service
+                for (let proto of PROTOCOLS) {
+                    try {
+                        log(`Trying ${proto.name}...`);
+                        const service = await server.getPrimaryService(proto.service);
+                        characteristic = await service.getCharacteristic(proto.char);
+                        
+                        // If we get here, we found it!
+                        currentProtocol = proto;
+                        log(`MATCH! Using ${proto.name}`);
+                        document.getElementById('protocol-info').innerText = `Protocol: ${proto.name}`;
+                        break; // Stop looking
+                    } catch (e) {
+                        // Service not found on this device, try next
+                        console.log(`Not ${proto.name}`);
+                    }
                 }
+
+                if (!currentProtocol) {
+                    throw new Error("Connected, but no compatible service found.");
+                }
+
+                // 3. Success UI
+                document.getElementById('connectScreen').classList.add('hidden');
+                document.getElementById('controlScreen').classList.remove('hidden');
+
+            } catch (err) {
+                log("Error: " + err.message);
             }
         });
 
-        function onDisconnected() {
-            connectScreen.classList.remove('hidden');
-            controlScreen.classList.add('hidden');
-            statusDisplay.innerText = "Device disconnected.";
-            characteristic = null;
-            bluetoothDevice = null;
-        }
-
-        disconnectBtn.addEventListener('click', () => {
-            if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-                bluetoothDevice.gatt.disconnect();
-            }
+        document.getElementById('disconnectBtn').addEventListener('click', () => {
+            if (device && device.gatt.connected) device.gatt.disconnect();
         });
 
-        // --- COMMAND LOGIC ---
+        // --- CONTROLS ---
 
-        // Send raw bytes to the device
-        async function sendCommand(bytes) {
-            if (!characteristic) {
-                statusDisplay.innerText = "Not connected.";
-                return;
-            }
+        async function write(data) {
+            if (!characteristic) return;
             try {
-                await characteristic.writeValue(new Uint8Array(bytes));
-            } catch (error) {
-                console.error("Write error:", error);
-                statusDisplay.innerText = "Command failed.";
+                await characteristic.writeValue(new Uint8Array(data));
+                log(`Sent: ${data}`);
+            } catch (e) {
+                log("Write failed: " + e.message);
             }
         }
 
-        // 1. Color Change
-        // Protocol: 0x56, R, G, B, 0x00, 0xF0, 0xAA
-        async function setRGB(r, g, b) {
-            await sendCommand([0x56, r, g, b, 0x00, 0xf0, 0xaa]);
-        }
-
-        // 2. Turn ON
-        // Protocol: 0xCC, 0x23, 0x33
-        onBtn.addEventListener('click', () => {
-            sendCommand([0xcc, 0x23, 0x33]);
-            statusDisplay.innerText = "Sent: ON";
+        document.getElementById('onBtn').addEventListener('click', () => {
+            if(currentProtocol) write(currentProtocol.on);
         });
 
-        // 3. Turn OFF
-        // Protocol: 0xCC, 0x24, 0x33
-        offBtn.addEventListener('click', () => {
-            sendCommand([0xcc, 0x24, 0x33]);
-            statusDisplay.innerText = "Sent: OFF";
+        document.getElementById('offBtn').addEventListener('click', () => {
+            if(currentProtocol) write(currentProtocol.off);
         });
 
-        // --- INPUT HANDLERS ---
-
-        // Helper for the quick color buttons
-        window.quickColor = (r, g, b) => {
-            setRGB(r, g, b);
-            // Update the picker visual to match
-            const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-            colorPicker.value = hex;
-        };
-
-        // Handle the color picker wheel
-        let debounceTimer;
+        const colorPicker = document.getElementById('colorPicker');
+        let debounce;
+        
         colorPicker.addEventListener('input', (e) => {
-            // Debounce to prevent flooding the bluetooth chip
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
+            clearTimeout(debounce);
+            debounce = setTimeout(() => {
                 const hex = e.target.value;
                 const r = parseInt(hex.substring(1, 3), 16);
                 const g = parseInt(hex.substring(3, 5), 16);
                 const b = parseInt(hex.substring(5, 7), 16);
-                setRGB(r, g, b);
-            }, 50); // 50ms delay
+                
+                if(currentProtocol) {
+                    const command = currentProtocol.writeColor(r, g, b);
+                    characteristic.writeValue(command).catch(e => console.log(e));
+                }
+            }, 100);
         });
 
     </script>
