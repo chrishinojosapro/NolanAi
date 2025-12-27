@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: Grand Finale v11</title>
+    <title>Carol of the Bells: Absolute Symphony v12</title>
     <style>
         :root {
             --bg: #010409;
             --panel: #0d1117;
             --red: #ff0000;
             --green: #00ff00;
-            --blue: #0088ff;
+            --blue: #00aaff;
             --white: #ffffff;
-            --accent: #f59e0b;
+            --gold: #f59e0b;
         }
 
         body {
@@ -28,103 +28,105 @@
             padding: 20px;
         }
 
-        .maestro-box {
+        .maestro-hub {
             width: 100%;
             max-width: 600px;
             background: var(--panel);
-            padding: 40px;
+            padding: 35px;
             border-radius: 40px;
             border: 1px solid #30363d;
             text-align: center;
-            box-shadow: 0 0 100px rgba(0,0,0,0.8);
+            box-shadow: 0 0 100px rgba(0,0,0,0.9);
         }
 
-        h1 { margin: 0; font-size: 1.6rem; letter-spacing: 8px; color: var(--white); text-transform: uppercase; font-weight: 900; }
-        .subtitle { font-size: 0.7rem; color: #8b949e; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 4px; font-weight: 700;}
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 10px; color: var(--white); text-transform: uppercase; font-weight: 900; }
+        .subtitle { font-size: 0.6rem; color: #8b949e; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 5px;}
         
-        /* THE VISUALIZER */
-        .stage-view {
+        /* VISUALIZER RING */
+        .stage {
             position: relative;
-            width: 250px;
-            height: 250px;
+            width: 220px;
+            height: 220px;
             margin: 0 auto 30px;
         }
         .conductor-ring {
             width: 100%; height: 100%;
             border-radius: 50%;
-            border: 10px solid #21262d;
+            border: 8px solid #21262d;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             background: #000;
-            transition: all 0.04s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.05s ease-out;
             z-index: 2; position: relative;
             overflow: hidden;
         }
         .stage-glow {
-            position: absolute; width: 160%; height: 160%;
-            top: -30%; left: -30%;
-            border-radius: 50%; filter: blur(70px); opacity: 0;
-            transition: opacity 0.05s, background 0.05s;
+            position: absolute; width: 150%; height: 150%;
+            top: -25%; left: -25%;
+            border-radius: 50%; filter: blur(60px); opacity: 0;
+            transition: opacity 0.1s, background 0.1s;
         }
 
-        .hud-bpm { font-family: monospace; font-size: 3.5rem; font-weight: 900; z-index: 3; color: white; text-shadow: 0 0 30px rgba(0,0,0,1); }
-        .hud-measure { font-size: 0.8rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 3px; z-index: 3; margin-top: 10px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; border: 1px solid #444;}
+        .hud-display { font-family: monospace; font-size: 3rem; font-weight: 900; z-index: 3; color: white; text-shadow: 0 0 20px black; }
+        .hud-act { font-size: 0.75rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; z-index: 3; margin-top: 5px; background: rgba(0,0,0,0.8); padding: 4px 15px; border-radius: 20px; border: 1px solid #444;}
 
-        /* CONSOLE */
+        /* CONTROLS */
         .console {
             background: #010409;
-            padding: 25px;
+            padding: 20px;
             border-radius: 24px;
             margin: 20px 0;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 12px;
             border: 1px solid #30363d;
         }
 
         .btn-tap {
             grid-column: span 2;
-            padding: 24px;
+            padding: 20px;
             background: linear-gradient(135deg, var(--red), #800000);
             color: white;
-            border-radius: 18px;
-            font-size: 1.3rem;
+            border-radius: 16px;
+            font-size: 1.2rem;
             font-weight: 900;
             border: none;
             cursor: pointer;
-            box-shadow: 0 0 40px rgba(255, 0, 0, 0.2);
             transition: 0.1s;
         }
-        .btn-tap:active { transform: scale(0.92); filter: brightness(1.4); }
+        .btn-tap:active { transform: scale(0.95); }
 
         button {
-            padding: 14px; border-radius: 14px; border: none; font-weight: 800; cursor: pointer; transition: 0.2s;
+            padding: 14px; border-radius: 12px; border: none; font-weight: 800; cursor: pointer; transition: 0.2s;
         }
         .btn-util { background: #21262d; color: white; border: 1px solid #30363d; }
-        .btn-launch { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.4rem; letter-spacing: 2px; }
+        .btn-audio { background: var(--blue); color: white; }
+        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.3rem; letter-spacing: 2px; }
         .connected { background: var(--green) !important; color: #003300 !important; }
 
-        .slider-row { grid-column: span 2; text-align: left; font-size: 0.75rem; color: #8b949e; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .slider-row { grid-column: span 2; text-align: left; font-size: 0.7rem; color: #8b949e; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         input[type=range] { width: 100%; accent-color: var(--white); cursor: pointer; }
 
-        .beat-orbs { position: absolute; bottom: 30px; display: flex; gap: 15px; z-index: 3; }
-        .orb { width: 14px; height: 14px; background: #21262d; border-radius: 50%; transition: 0.08s; border: 1px solid #30363d; }
-        .orb.active { background: var(--white); box-shadow: 0 0 25px var(--white); transform: scale(1.6); }
+        .beat-orbs { position: absolute; bottom: 25px; display: flex; gap: 12px; z-index: 3; }
+        .orb { width: 12px; height: 12px; background: #21262d; border-radius: 50%; border: 1px solid #30363d; transition: 0.1s; }
+        .orb.active { background: var(--white); box-shadow: 0 0 15px white; transform: scale(1.5); }
 
-        input[type="file"] { margin-top: 20px; background: #21262d; border: 2px dashed #30363d; padding: 15px; border-radius: 16px; color: #8b949e; font-size: 0.8rem; width: 100%; box-sizing: border-box;}
+        .file-input { margin-top: 15px; font-size: 0.8rem; color: #666; width: 100%; }
+        
+        canvas#audioVisualizer { width: 100%; height: 40px; background: #000; border-radius: 8px; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="maestro-box">
-        <h1>Christmas Finale</h1>
-        <div class="subtitle">Symphony Engine v11</div>
+    <div class="maestro-hub">
+        <h1>Bells Symphony</h1>
+        <div class="subtitle">Ultimate Choreography Matrix v12</div>
         
-        <div class="stage-view">
+        <div class="stage">
             <div class="stage-glow" id="glow"></div>
             <div class="conductor-ring" id="ring">
-                <div class="hud-bpm" id="bpmText">160</div>
-                <div class="hud-measure" id="measureText">Standby</div>
+                <div class="hud-display" id="bpmText">160</div>
+                <div class="hud-act" id="actText">Standby</div>
                 <div class="beat-orbs">
                     <div class="orb" id="orb-1"></div>
                     <div class="orb" id="orb-2"></div>
@@ -133,13 +135,15 @@
             </div>
         </div>
 
+        <canvas id="audioVisualizer"></canvas>
+
         <div class="console">
-            <button class="btn-tap" onclick="tapTempo()">TAP TO SYNC</button>
+            <button class="btn-tap" onclick="tapTempo()">TAP BEAT TO SYNC</button>
             
             <div class="slider-row">
                 <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                    <span>BPM: <b id="bpmVal" style="color:var(--white)">160</b></span>
-                    <span>DELAY COMP: <b id="offVal" style="color:var(--blue)">0ms</b></span>
+                    <span>BPM: <b id="bpmVal">160</b></span>
+                    <span>LATENCY ADJ: <b id="offVal" style="color:var(--blue)">0ms</b></span>
                 </div>
                 <input type="range" id="bpmSlider" min="100" max="220" value="160" oninput="updateBPM(this.value)">
                 <input type="range" id="offsetSlider" min="-300" max="300" value="0" step="5" oninput="document.getElementById('offVal').innerText=this.value+'ms'">
@@ -150,23 +154,22 @@
                 <option value="0">Protocol: ELK-BLEDOM</option>
             </select>
             <button class="btn-util" id="connBtn" onclick="connect()">Connect Light</button>
+            <button class="btn-audio" onclick="startScreenAudio()">📡 Sync Tab Audio</button>
+            <input type="file" id="audioFile" accept="audio/*" class="file-input" onchange="loadAudio(this)">
         </div>
 
-        <input type="file" id="audioFile" accept="audio/*" onchange="loadAudio(this)">
-        <button class="btn-launch" id="startBtn" onclick="togglePlay()" disabled>▶ LAUNCH PERFORMANCE</button>
+        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ LAUNCH SHOW</button>
     </div>
 
     <audio id="audioPlayer"></audio>
 
     <script>
         // --- PERFORMANCE PALETTE ---
-        const COLORS = {
-            R: [255, 0, 0],
-            G: [0, 255, 0],
-            B: [0, 80, 255],
-            W: [255, 255, 255],
-            OFF: [0,0,0]
-        };
+        const RED = [255, 0, 0];
+        const GREEN = [0, 255, 0];
+        const BLUE = [0, 100, 255];
+        const WHITE = [255, 255, 255];
+        const BLACK = [0, 0, 0];
 
         const PROTOCOLS = [
             { 
@@ -184,13 +187,15 @@
             }
         ];
 
-        // --- ENGINE STATE ---
+        // --- STATE ---
         let device, characteristic;
         let isPlaying = false, isLightOn = false;
         let bpm = 160;
         let lastTap = 0, tapTimes = [];
         let engineLoop;
         let lastBeatIndex = -1;
+        let bleBusy = false;
+        let audioCtx, analyser, dataArray;
 
         // --- TEMPO ---
         function tapTempo() {
@@ -210,6 +215,8 @@
             document.getElementById('bpmVal').innerText = bpm;
             document.getElementById('bpmSlider').value = bpm;
         }
+
+        // --- AUDIO ---
         function loadAudio(input) {
             const file = input.files[0];
             if(!file) return;
@@ -217,16 +224,37 @@
             document.getElementById('startBtn').disabled = false;
         }
 
-        // --- TRANSPORT ---
+        async function startScreenAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                if (stream.getAudioTracks().length > 0) {
+                    audioCtx = new AudioContext();
+                    const source = audioCtx.createMediaStreamSource(stream);
+                    analyser = audioCtx.createAnalyser();
+                    source.connect(analyser);
+                    analyser.fftSize = 256;
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    document.getElementById('audioVisualizer').style.display = 'block';
+                    document.getElementById('startBtn').disabled = false;
+                    alert("Tab Audio Linked! Ensure music is playing in that tab.");
+                }
+            } catch(e) { alert("Enable Screen Share + Audio."); }
+        }
+
+        // --- ENGINE ---
         function togglePlay() { if(isPlaying) stop(); else start(); }
+        
         function start() {
             if(!characteristic) return alert("Connect light first!");
-            isPlaying = true; lastBeatIndex = -1;
-            document.getElementById('audioPlayer').play();
+            isPlaying = true;
+            lastBeatIndex = -1;
+            document.getElementById('audioPlayer').play().catch(()=>{});
             document.getElementById('startBtn').innerText = "⏹ TERMINATE SHOW";
             document.getElementById('startBtn').style.background = "var(--red)";
+            document.getElementById('startBtn').style.color = "white";
             runEngine();
         }
+
         function stop() {
             isPlaying = false;
             cancelAnimationFrame(engineLoop);
@@ -234,134 +262,155 @@
             document.getElementById('audioPlayer').currentTime = 0;
             document.getElementById('startBtn').innerText = "▶ LAUNCH PERFORMANCE";
             document.getElementById('startBtn').style.background = "white";
+            document.getElementById('startBtn').style.color = "black";
             sendOff();
         }
 
         function runEngine() {
             if(!isPlaying) return;
             const player = document.getElementById('audioPlayer');
-            const time = player.currentTime;
             const latency = parseInt(document.getElementById('offsetSlider').value) / 1000;
             
+            // Check current time from either file player or internal clock
+            const time = player.currentTime || (Date.now() / 1000); 
             const adjustedTime = time + latency;
             const msPerBeat = 60 / bpm;
             
-            // 3/4 Time Signature
             const totalBeats = adjustedTime / msPerBeat;
             const currentBeat = Math.floor(totalBeats);
-            const beatInMeasure = (currentBeat % 3) + 1; 
-            const totalMeasures = Math.floor(totalBeats / 3);
+            const beatInMeasure = (currentBeat % 3) + 1; // 3/4 Time
+            const measure = Math.floor(totalBeats / 3);
 
             if (currentBeat !== lastBeatIndex) {
                 lastBeatIndex = currentBeat;
-                executeMovement(beatInMeasure, totalMeasures, adjustedTime);
+                executePerformance(beatInMeasure, measure, adjustedTime);
             }
 
-            // AUTO-OFF AT END
-            if (player.ended) stop();
-            else engineLoop = requestAnimationFrame(runEngine);
+            engineLoop = requestAnimationFrame(runEngine);
         }
 
-        // --- THE CHOREOGRAPHY MATRIX ---
-        async function executeMovement(beatNum, measure, time) {
+        // --- THE MASTER CHOREOGRAPHY ---
+        async function executePerformance(beat, measure, time) {
             const ring = document.getElementById('ring');
             const glow = document.getElementById('glow');
-            const hud = document.getElementById('measureText');
-            
-            document.querySelectorAll('.orb').forEach(o => o.classList.remove('active'));
-            document.getElementById(`orb-${beatNum}`).classList.add('active');
+            const actHud = document.getElementById('actText');
 
-            // 1. HARD OFF AT VERY START (Silence)
-            if (time < 1.0) {
-                sendColor(COLORS.OFF);
-                hud.innerText = "SILENCE";
+            // Beat Indicator
+            document.querySelectorAll('.orb').forEach(o => o.classList.remove('active'));
+            document.getElementById(`orb-${beat}`).classList.add('active');
+
+            // --- ACTS OF THE SYMPHONY ---
+            
+            // ACT 0: INITIAL BLACKOUT
+            if (time < 1.5) {
+                sendColor(BLACK);
+                actHud.innerText = "SILENCE";
                 return;
             }
 
-            // 2. MUSICAL PHASING
-            if (measure < 4) {
-                // INTRO: Mysterious Frost
-                hud.innerText = "FROST PULSE";
-                if(beatNum === 1) {
-                    sendColor(COLORS.B);
+            // ACT 1: FROST AWAKENING (0-15s)
+            if (time < 15) {
+                actHud.innerText = "ACT I: FROST";
+                if (beat === 1) {
+                    sendColor(BLUE);
                     ring.style.borderColor = "var(--blue)";
-                    glow.style.background = "var(--blue)"; glow.style.opacity = "0.8";
+                    glow.style.background = "var(--blue)"; glow.style.opacity = "0.7";
                 } else {
-                    sendColor(COLORS.OFF);
+                    sendColor(BLACK);
                     glow.style.opacity = "0";
                 }
-            } 
-            else if (measure < 12) {
-                // THE GALLOP: Theme Entry
-                hud.innerText = "THE GALLOP";
-                const isRed = (beatNum === 2);
-                const color = (beatNum === 1) ? COLORS.W : (isRed ? COLORS.R : COLORS.G);
-                const css = (beatNum === 1) ? "white" : (isRed ? "var(--red)" : "var(--green)");
+            }
+            // ACT 2: THE DANCE BEGINS (15-35s)
+            else if (time < 35) {
+                actHud.innerText = "ACT II: THE DANCE";
+                const isEven = (beat % 2 === 0);
+                const col = (beat === 1) ? WHITE : (isEven ? RED : GREEN);
+                const css = (beat === 1) ? "white" : (isEven ? "var(--red)" : "var(--green)");
                 
-                if(beatNum === 1) {
-                    await sendMode(180); // White Sparkle
+                if (beat === 1) {
+                    sendMode(180); // White Flash
                     ring.style.transform = "scale(1.2)";
                 } else {
-                    await sendColor(color);
+                    sendColor(col);
                     ring.style.transform = "scale(1.0)";
                 }
                 ring.style.borderColor = css;
-                glow.style.background = css; glow.style.opacity = "0.6";
+                glow.style.background = css; glow.style.opacity = "0.5";
             }
-            else if (measure < 24) {
-                // THE VIOLIN CLIMB: Sub-Beat Variation
-                hud.innerText = "CLIMBING SCALES";
-                // Every beat is a new hardware mode to create chaotic variety
+            // ACT 3: MOTION GALLOP (35-55s)
+            else if (time < 55) {
+                actHud.innerText = "ACT III: GALLOP";
                 const modes = [37, 38, 45, 181];
-                const mode = modes[beatNum % modes.length];
-                const cols = ["var(--red)", "var(--green)", "var(--blue)"];
+                const m = modes[beat % modes.length];
+                const cols = ["var(--red)", "var(--green)", "var(--white)"];
                 
-                await sendMode(mode);
-                ring.style.borderColor = cols[beatNum-1];
-                glow.style.background = cols[beatNum-1];
-                ring.style.transform = `rotate(${beatNum * 20}deg)`;
+                sendMode(m);
+                ring.style.borderColor = cols[beat-1];
+                glow.style.background = cols[beat-1];
+                ring.style.transform = `rotate(${measure * 10}deg)`;
             }
-            else if (measure < 40) {
-                // THE STORM (MAX INTENSITY)
-                hud.innerText = "SYMPHONY STORM";
-                // High speed strobe mode cycle
-                const chaosModes = [1, 3, 80, 161, 182];
-                const m = chaosModes[Math.floor(Math.random() * chaosModes.length)];
-                await sendMode(m);
+            // ACT 4: THE STORM (55-80s)
+            else if (time < 80) {
+                actHud.innerText = "ACT IV: THE STORM";
+                // High speed variety using random intense modes
+                const intense = [1, 3, 80, 161, 182];
+                const randomMode = intense[Math.floor(Math.random() * intense.length)];
+                
+                sendMode(randomMode);
+                const colors = [RED, GREEN, WHITE];
+                setTimeout(() => sendColor(colors[beat-1]), 20); // Filter for palette
                 
                 ring.style.borderColor = "white";
                 glow.style.background = "white"; glow.style.opacity = "1";
                 ring.style.transform = "scale(1.3)";
             }
+            // ACT 5: THE FINALE PEAK (80-110s)
+            else if (time < 110) {
+                actHud.innerText = "ACT V: CRESCENDO";
+                // Strobe effect
+                if (beat === 1) {
+                    sendMode(180); // White Peak
+                } else {
+                    sendMode(3); // Rainbow but filtered in our head to Red/Green
+                    sendColor(beat === 2 ? RED : GREEN);
+                }
+                ring.style.borderColor = "white";
+                ring.style.transform = "scale(1.4) rotate(-5deg)";
+            }
+            // ACT 6: THE MELT (110s+)
             else {
-                // THE FINALE: Melt into Darkness
-                hud.innerText = "FINALE";
-                if(time > audioPlayer.duration - 2) {
+                actHud.innerText = "ACT VI: SILENCE";
+                if (time > audioPlayer.duration - 2) {
                     sendOff();
                 } else {
-                    sendMode(165); // Falling Blue
+                    sendMode(165); // Falling flow to off
                     ring.style.borderColor = "var(--blue)";
+                    glow.style.background = "var(--blue)"; glow.style.opacity = "0.2";
                 }
             }
         }
 
-        // --- BLUETOOTH HELPERS ---
+        // --- BLUETOOTH COMMAND BUFFER ---
         async function sendColor(rgb) {
-            if(!characteristic) return;
+            if(!characteristic || bleBusy) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
+            bleBusy = true;
             try {
-                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; await new Promise(r=>setTimeout(r,40)); }
+                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; }
                 await characteristic.writeValue(p.write(rgb[0], rgb[1], rgb[2]));
             } catch(e){}
+            setTimeout(() => { bleBusy = false; }, 60); // Strict throttle
         }
 
         async function sendMode(m) {
-            if(!characteristic) return;
+            if(!characteristic || bleBusy) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
+            bleBusy = true;
             try {
                 if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; }
                 await characteristic.writeValue(p.setMode(m));
             } catch(e){}
+            setTimeout(() => { bleBusy = false; }, 60); // Strict throttle
         }
 
         async function sendOff() {
@@ -385,7 +434,7 @@
                 }
                 document.getElementById('connBtn').innerText = "LINKED";
                 document.getElementById('connBtn').classList.add('connected');
-                sendColor(COLORS.B); 
+                sendColor(BLUE); 
             } catch(e) { alert(e.message); }
         }
     </script>
