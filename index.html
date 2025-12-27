@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v9 (Ignition Fix)</title>
+    <title>Universal LED Controller v11 (Mode Finder)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -65,6 +65,7 @@
         .btn-magic { background-color: var(--magic-color); color: white; }
         .btn-battle { background-color: var(--battle-color); color: black; }
         .btn-small { padding: 8px 12px; font-size: 0.8rem; width: auto; }
+        .btn-scan { background-color: #0ea5e9; color: white; font-size: 0.8rem; padding: 10px;}
 
         .hidden { display: none; }
 
@@ -180,7 +181,6 @@
             border-top: 1px solid #444;
         }
 
-        /* Toggle Switch for Duel Mode */
         .duel-toggle-btn {
             background: #333;
             color: #888;
@@ -196,6 +196,21 @@
             color: white;
             border-color: var(--duel-color);
             box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+        }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .scanning { animation: pulse 1s infinite; background: #eab308; color: black; }
+        
+        .quick-jump {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .quick-jump button {
+            padding: 5px;
+            font-size: 0.7rem;
+            margin: 0;
+            background: #333;
         }
     </style>
 </head>
@@ -251,13 +266,10 @@
             <div id="section-magic" class="hidden">
                 <div class="section-box" style="border-color: var(--magic-color);">
                     <h3 style="margin:0 0 10px 0; font-size:1rem; color:var(--magic-color);">✨ Magic Effects</h3>
-                    <p style="font-size:0.8rem; margin-bottom:15px;">Cycle through built-in modes</p>
-                    
                     <div class="slider-row">
                         <span>Mode ID: <span id="modeVal">1</span></span>
                     </div>
                     <input type="range" id="modeRange" min="1" max="200" value="1" oninput="updateMode(this.value)">
-                    
                     <div style="display:flex; gap:10px; margin-top:5px;">
                         <button class="btn-secondary" onclick="changeMode(-1)">Prev</button>
                         <button class="btn-magic" onclick="changeMode(1)">Next</button>
@@ -296,18 +308,28 @@
                     <div class="tuning-panel">
                         <h4 style="margin:0 0 10px 0; font-size:0.8rem; color:#aaa;">Ignition Tuning</h4>
                         
-                        <div class="slider-row">
-                            <span>Ignition Mode: <span id="igniteModeVal">181</span></span>
+                        <!-- Quick Jumps -->
+                        <div class="quick-jump">
+                            <button onclick="setIgniteMode(1)">Start (1)</button>
+                            <button onclick="setIgniteMode(50)">Wipes (50)</button>
+                            <button onclick="setIgniteMode(100)">Trails (100)</button>
+                            <button onclick="setIgniteMode(150)">Flows (150)</button>
                         </div>
-                        <input type="range" id="igniteModeRange" min="1" max="200" value="181" oninput="updateIgniteSettings()">
+
+                        <div class="slider-row">
+                            <span>Ignition Mode: <span id="igniteModeVal">1</span></span>
+                        </div>
+                        <input type="range" id="igniteModeRange" min="1" max="200" value="1" oninput="updateIgniteSettings()">
                         
+                        <!-- Manual Stepper -->
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                              <button class="btn-secondary btn-small" onclick="stepIgniteMode(-1)">-</button>
                              <button class="btn-secondary btn-small" onclick="testIgnitionMode()">Test Mode</button>
                              <button class="btn-secondary btn-small" onclick="stepIgniteMode(1)">+</button>
                         </div>
-                        <p style="font-size:0.7rem; color:#888; margin-top:-5px;">Use +/- to find Black background (Try 180, 182)</p>
-
+                        
+                        <button id="scanBtn" class="btn-scan" onclick="toggleScan()">▶ Auto-Scan Next 20</button>
+                        
                         <div class="slider-row" style="margin-top:10px;">
                             <span>Chip Speed (1=Fast): <span id="igniteSpeedVal">1</span></span>
                         </div>
@@ -317,9 +339,16 @@
                             <span>Lock Time (ms): <span id="igniteTimeVal">1500</span></span>
                         </div>
                         <input type="range" id="igniteTimeRange" min="100" max="4000" step="100" value="1500" oninput="updateIgniteSettings()">
+                        
+                        <div style="margin-top:10px; border-top:1px solid #444; padding-top:10px;">
+                            <label style="font-size:0.8rem; display:flex; align-items:center; gap:5px;">
+                                <input type="checkbox" id="simpleFadeCheck"> 
+                                Can't find it? Use Simple Fade-In
+                            </label>
+                        </div>
                     </div>
 
-                    <!-- Audio Input for Battle -->
+                    <!-- Audio Input -->
                     <p style="margin: 15px 0 5px 0; font-size: 0.8rem;">Upload Soundtrack:</p>
                     <input type="file" id="battleAudioFile" accept="audio/*">
                     <audio id="battlePlayer" controls style="width:100%; margin-top:5px;"></audio>
@@ -354,7 +383,6 @@
             {
                 name: "Lotus/Keepsmile (0x7E)",
                 writeColor: (r, g, b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
-                // Protocol 2 specific mode setting - FIXED: Now uses 'speed' argument instead of hardcoded 0x03
                 setMode: (mode, speed) => new Uint8Array([0x7e, 0x05, 0x03, mode, speed, 0xff, 0xff, 0x00, 0xef]),
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef])
@@ -393,6 +421,7 @@
         // --- STATE ---
         let device, characteristic;
         let showInterval = null; 
+        let scanInterval = null;
         let currentMode = 1;
         
         // --- AUDIO STATE ---
@@ -409,7 +438,7 @@
         let opponentColor = [0, 0, 255]; 
         let clashColor = [255, 255, 255]; 
         let blasterColor = [255, 150, 0];
-        let igniteMode = 181;
+        let igniteMode = 1;
         let igniteDuration = 1500;
         let igniteSpeed = 1;
 
@@ -431,7 +460,6 @@
             document.getElementById('section-' + tabName).classList.remove('hidden');
             document.getElementById('tab-' + tabName).style.opacity = '1.0';
             document.getElementById('tab-' + tabName).classList.add('active-tab');
-            
             isBattleActive = (tabName === 'battle');
         }
 
@@ -440,28 +468,22 @@
             try {
                 if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported (Use Bluefy App)");
                 log("Scanning...");
-                
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: SERVICES
                 });
-
                 log(`Connecting to ${device.name}...`);
-                
                 device.addEventListener('gattserverdisconnected', () => {
                     log("Disconnected.");
                     document.getElementById('connectScreen').classList.remove('hidden');
                     document.getElementById('controlScreen').classList.add('hidden');
                 });
-
                 const server = await device.gatt.connect();
-                
                 let service = null;
                 for (let uuid of SERVICES) {
                     try { service = await server.getPrimaryService(uuid); break; } catch (e) { }
                 }
                 if (!service) throw new Error("No service found.");
-
                 let char = null;
                 for (let uuid of CHARACTERISTICS) {
                     try { char = await service.getCharacteristic(uuid); break; } catch (e) { }
@@ -471,12 +493,10 @@
                      if(chars.length > 0) char = chars[0];
                      else throw new Error("No characteristic found.");
                 }
-                
                 characteristic = char;
                 document.getElementById('connectScreen').classList.add('hidden');
                 document.getElementById('controlScreen').classList.remove('hidden');
                 log("Connected.");
-
             } catch (err) {
                 log("Error: " + err.message);
             }
@@ -538,7 +558,6 @@
         const setupAudioListeners = (inputId, playerId, canvasId) => {
             const input = document.getElementById(inputId);
             const player = document.getElementById(playerId);
-            
             input.addEventListener('change', function() {
                 const file = this.files[0];
                 if (file) {
@@ -598,13 +617,11 @@
                 const blasterThresh = document.getElementById('blasterSens').value;
 
                 if (bassAvg > clashThresh && (now - lastBeatTime > 150)) {
-                    // BASS HIT (Clash)
                     send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
                     lastBeatTime = now;
                     setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 100);
 
                 } else if (trebleAvg > blasterThresh && (now - lastBeatTime > 100)) {
-                    // HIGH HIT (Blaster or Saber Strike)
                     const flashColor = isDuelMode ? opponentColor : blasterColor;
                     send(proto.writeColor(flashColor[0], flashColor[1], flashColor[2]));
                     lastBeatTime = now;
@@ -626,20 +643,9 @@
         window.setSaber = function(type) {
             document.querySelectorAll('.saber-btn').forEach(b => b.classList.remove('selected'));
             document.getElementById('saber-'+type).classList.add('selected');
-
-            if (type === 'jedi') {
-                saberColor = [0, 0, 255]; // Blue
-                opponentColor = [255, 0, 0]; // Vs Red
-            }
-            else if (type === 'sith') {
-                saberColor = [255, 0, 0]; // Red
-                opponentColor = [0, 0, 255]; // Vs Blue
-            }
-            else if (type === 'green') {
-                saberColor = [0, 255, 0]; // Green
-                opponentColor = [255, 0, 0]; // Vs Red
-            }
-            
+            if (type === 'jedi') { saberColor = [0, 0, 255]; opponentColor = [255, 0, 0]; }
+            else if (type === 'sith') { saberColor = [255, 0, 0]; opponentColor = [0, 0, 255]; }
+            else if (type === 'green') { saberColor = [0, 255, 0]; opponentColor = [255, 0, 0]; }
             const proto = getActiveProtocol();
             send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
         }
@@ -661,7 +667,6 @@
             igniteMode = parseInt(document.getElementById('igniteModeRange').value);
             igniteDuration = parseInt(document.getElementById('igniteTimeRange').value);
             igniteSpeed = parseInt(document.getElementById('igniteSpeedRange').value);
-            
             document.getElementById('igniteModeVal').innerText = igniteMode;
             document.getElementById('igniteTimeVal').innerText = igniteDuration;
             document.getElementById('igniteSpeedVal').innerText = igniteSpeed;
@@ -675,6 +680,12 @@
              updateIgniteSettings();
              testIgnitionMode();
         }
+        
+        window.setIgniteMode = function(val) {
+            document.getElementById('igniteModeRange').value = val;
+            updateIgniteSettings();
+            testIgnitionMode();
+        }
 
         window.testIgnitionMode = function() {
             const proto = getActiveProtocol();
@@ -682,30 +693,60 @@
                 send(proto.on); 
                 setTimeout(() => {
                     send(proto.setMode(igniteMode, igniteSpeed)); 
-                }, 100);
+                }, 50); 
+            }
+        }
+
+        // --- AUTO SCANNER ---
+        window.toggleScan = function() {
+            const btn = document.getElementById('scanBtn');
+            if(scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+                btn.innerText = "▶ Auto-Scan Next 20";
+                btn.classList.remove('scanning');
+            } else {
+                btn.innerText = "⏹ STOP (Scanning...)";
+                btn.classList.add('scanning');
+                let startMode = igniteMode;
+                let count = 0;
+                
+                scanInterval = setInterval(() => {
+                    stepIgniteMode(1); 
+                    count++;
+                    if(count >= 20) toggleScan(); // Auto stop after 20
+                }, 1500); 
             }
         }
 
         // THE MAIN IGNITION SEQUENCE
         document.getElementById('igniteBtn').addEventListener('click', () => {
              const proto = getActiveProtocol();
-             
-             // 1. Turn Off (Reset)
-             send(proto.off);
-             
-             setTimeout(() => {
-                 // 2. Turn On
-                 send(proto.on);
-                 
-                 setTimeout(() => {
-                    // 3. Trigger "Fill" Mode (The Bottom-Up Effect)
-                    if(proto.setMode) send(proto.setMode(igniteMode, igniteSpeed));
+             const useSimple = document.getElementById('simpleFadeCheck').checked;
 
-                    // 4. Wait for fill, then Lock Saber Color
+             if (useSimple) {
+                 // Simple Fade-In Fallback
+                 send(proto.off);
+                 setTimeout(() => {
+                     // Just turning it on usually fades it in on these chips
+                     send(proto.on);
+                     // Force color just in case
+                     setTimeout(() => {
+                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+                     }, 200);
+                 }, 500);
+                 return;
+             }
+
+             // Complex Mode Ignition
+             send(proto.off);
+             setTimeout(() => {
+                 send(proto.on);
+                 setTimeout(() => {
+                    if(proto.setMode) send(proto.setMode(igniteMode, igniteSpeed));
                     setTimeout(() => {
                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
                     }, igniteDuration);
-
                  }, 100);
              }, 300);
         });
