@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v17 (Description Fix)</title>
+    <title>AI Vision Scanner v18 (Real-Time Log)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -97,6 +97,7 @@
             resize: none;
             font-size: 0.8rem;
             min-height: 300px;
+            line-height: 1.4;
         }
         
         .ai-config { border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px; font-size: 0.8rem; color: #aaa; }
@@ -104,7 +105,7 @@
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Fixed Descriptions)</h1>
+    <h1>👁️ Light Scanner (Live Log)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -155,10 +156,9 @@
 
             <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Scan</button>
             
-            <textarea id="log" readonly>// JSON Result:
-{
-}</textarea>
-            <button onclick="copyLog()">Copy to Clipboard</button>
+            <textarea id="log" readonly>// Console Log:
+</textarea>
+            <button onclick="copyLibrary()">Copy Final JSON</button>
         </div>
     </div>
 
@@ -177,6 +177,13 @@
         let currentMode = 1;
         let frameBuffer = [];
         let detectedLibrary = { modes: {} };
+
+        // --- LOGGER ---
+        function appendLog(msg) {
+            const log = document.getElementById('log');
+            log.value += `> ${msg}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
 
         // --- CAMERA ---
         document.getElementById('useAi').addEventListener('change', (e) => {
@@ -200,7 +207,7 @@
                     slider.disabled = false;
                     document.getElementById('expVal').innerText = slider.value;
                 }
-
+                appendLog("Camera started.");
                 requestAnimationFrame(analyzeLoop);
             } catch(e) { alert("Camera Error: " + e.message); }
         }
@@ -326,11 +333,13 @@
             } else {
                 if(!characteristic) return alert("Connect light first!");
                 if(!stream) return alert("Start camera first!");
+                
                 isScanning = true;
                 document.getElementById('scanBtn').innerText = "⏹ Stop";
                 document.getElementById('scanBtn').classList.add('danger');
                 currentMode = parseInt(document.getElementById('startMode').value);
                 detectedLibrary = { modes: {} };
+                appendLog(`Started Scan: Mode ${currentMode} to ${document.getElementById('endMode').value}`);
                 performScanStep();
             }
         }
@@ -340,30 +349,26 @@
             const end = parseInt(document.getElementById('endMode').value);
             frameBuffer = [];
             
-            // UI Update
-            document.getElementById('scanBtn').innerText = `Scanning Mode ${currentMode}...`;
+            appendLog(`Setting Mode ${currentMode}...`);
             
-            // Set Mode with Error Handling
+            // Set Mode
             const pid = document.getElementById('protocol').value;
             try {
-                characteristic.writeValue(PROTOCOLS[pid].setMode(currentMode)).catch(e => console.log("BT Error:", e));
-            } catch(err) {
-                console.log("Mode Set Error:", err);
-            }
+                characteristic.writeValue(PROTOCOLS[pid].setMode(currentMode)).catch(e => appendLog("BT Error: " + e.message));
+            } catch(err) { appendLog("Protocol Error: " + err); }
             
-            // Wait 3s to capture full loop
+            // Wait 3s
             setTimeout(async () => {
                 if(!isScanning) return;
+                
+                appendLog(`Analyzing Mode ${currentMode} (${frameBuffer.length} frames)...`);
                 
                 try {
                     const result = await analyzeBuffer(frameBuffer);
                     detectedLibrary.modes[currentMode] = result;
-                    
-                    const log = document.getElementById('log');
-                    log.value = JSON.stringify(detectedLibrary, null, 2);
-                    log.scrollTop = log.scrollHeight;
+                    appendLog(`--> Result: ${result.desc}`);
                 } catch(err) {
-                    console.log("Analysis Error:", err);
+                    appendLog("Analysis Failed: " + err.message);
                     detectedLibrary.modes[currentMode] = { hex: "#000", desc: "Analysis Error", motion: "ERROR", type: "Error" };
                 }
 
@@ -372,7 +377,7 @@
                     performScanStep();
                 } else {
                     toggleScan();
-                    alert("Scan Complete!");
+                    appendLog("SCAN COMPLETE! Copy the library below.");
                 }
             }, 3000);
         }
@@ -390,23 +395,21 @@
             const topColors = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
             const mainColor = topColors[0] || "Black";
             
-            // Calc Hex of brightest
+            // Calc Hex
             let maxBri=0, hex="#000000";
             midF.forEach(p => {
                 if(p.r+p.g+p.b > maxBri) { maxBri = p.r+p.g+p.b; hex = rgbToHex(p.r,p.g,p.b); }
             });
 
-            // 2. Motion (Pixel Correlation)
+            // 2. Motion
             let upScore=0, downScore=0, totalDiff=0;
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
-                
                 let diffStatic=0, diffUp=0, diffDown=0;
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
                 for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
                 for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
-                
                 totalDiff += diffStatic;
                 if(diffUp < diffStatic) upScore++;
                 if(diffDown < diffStatic) downScore++;
@@ -427,22 +430,25 @@
             // Description
             let texture = topColors.length > 1 ? "Multicolor" : "Solid";
             if (motion.includes("Flash")) texture = "Sparkle";
-            
             let type = "Solid";
             if (motion.includes("UP") || motion.includes("DOWN")) type = "Chase";
             if (motion.includes("RANDOM")) type = "Flash";
             if (topColors.length > 1) type = "Multicolor";
 
-            // ALWAYS Generate Local Description
             let desc = `${mainColor} ${texture} ${motion}`;
             if(mainColor === "Black") desc = "Off";
 
-            // AI Override (Only if enabled)
+            // AI Override
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
             if(useAi && apiKey) {
-                const aiDesc = await getAiDescription(frames, apiKey);
-                if(aiDesc) desc = aiDesc;
+                try {
+                    const controller = new AbortController();
+                    const id = setTimeout(() => controller.abort(), 5000); // 5s timeout
+                    const aiDesc = await getAiDescription(frames, apiKey, controller.signal);
+                    clearTimeout(id);
+                    if(aiDesc) desc = aiDesc;
+                } catch(e) { appendLog("AI Timeout/Error: " + e.message); }
             }
 
             return { hex: hex, desc: desc, type: type, motion: motion };
@@ -454,12 +460,12 @@
             return count;
         }
         
-        async function getAiDescription(frames, key) {
+        async function getAiDescription(frames, key, signal) {
             const snap = [0, 0.5, 1].map(p => {
                 const f = frames[Math.floor(p * (frames.length-1))];
                 return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
             });
-            const prompt = `LED Strip. T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe visual. Max 3 words.`;
+            const prompt = `LED Strip T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe motion/texture. Max 3 words.`;
             try {
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
@@ -468,11 +474,12 @@
                         model: "deepseek/deepseek-chat",
                         messages: [{role: "user", content: prompt}],
                         max_tokens: 10
-                    })
+                    }),
+                    signal: signal
                 });
                 const data = await res.json();
                 return data.choices[0].message.content.trim();
-            } catch(e) { return ""; }
+            } catch(e) { throw e; }
         }
 
         // --- BLUETOOTH ---
@@ -493,6 +500,7 @@
                     document.getElementById('status').innerText = "Connected: " + device.name;
                     document.getElementById('status').style.color = "#22c55e";
                     document.getElementById('connectBtn').style.display = 'none';
+                    appendLog("Bluetooth Connected.");
                     const pid = document.getElementById('protocol').value;
                     if(PROTOCOLS[pid].on) characteristic.writeValue(PROTOCOLS[pid].on);
                 }
@@ -500,10 +508,15 @@
         });
 
         function copyLog() {
-            document.getElementById('log').select();
+            const logBox = document.getElementById('log');
+            logBox.value = JSON.stringify(detectedLibrary, null, 2);
+            logBox.select();
             document.execCommand('copy');
-            alert('Copied!');
+            alert('Library JSON Copied!');
         }
+        
+        // Initial Log
+        appendLog("Ready. Start Camera then Connect.");
     </script>
 </body>
 </html>
