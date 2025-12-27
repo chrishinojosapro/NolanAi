@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v16 (Crash Protection)</title>
+    <title>AI Vision Scanner v17 (Description Fix)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -66,6 +66,7 @@
             position: absolute; top: 10px; left: 10px;
             background: rgba(0,0,0,0.8); padding: 5px;
             color: #0f0; font-size: 0.8rem; pointer-events: none;
+            white-space: pre-wrap;
         }
 
         /* CONTROLS */
@@ -97,11 +98,13 @@
             font-size: 0.8rem;
             min-height: 300px;
         }
+        
+        .ai-config { border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px; font-size: 0.8rem; color: #aaa; }
     </style>
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Crash Protected)</h1>
+    <h1>👁️ Light Scanner (Fixed Descriptions)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -144,10 +147,15 @@
                     <input type="number" id="endMode" value="50" min="1" max="200">
                 </div>
             </div>
+            
+            <div class="ai-config">
+                <label><input type="checkbox" id="useAi"> Use DeepSeek AI (Optional)</label>
+                <input type="password" id="apiKey" placeholder="OpenRouter API Key" style="display:none; margin-top:5px;">
+            </div>
 
             <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Scan</button>
             
-            <textarea id="log" readonly>// Copy this JSON when done:
+            <textarea id="log" readonly>// JSON Result:
 {
 }</textarea>
             <button onclick="copyLog()">Copy to Clipboard</button>
@@ -171,6 +179,10 @@
         let detectedLibrary = { modes: {} };
 
         // --- CAMERA ---
+        document.getElementById('useAi').addEventListener('change', (e) => {
+            document.getElementById('apiKey').style.display = e.target.checked ? 'block' : 'none';
+        });
+
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
@@ -313,6 +325,7 @@
                 document.getElementById('scanBtn').classList.remove('danger');
             } else {
                 if(!characteristic) return alert("Connect light first!");
+                if(!stream) return alert("Start camera first!");
                 isScanning = true;
                 document.getElementById('scanBtn').innerText = "⏹ Stop";
                 document.getElementById('scanBtn').classList.add('danger');
@@ -340,19 +353,18 @@
             
             // Wait 3s to capture full loop
             setTimeout(async () => {
-                // Safety: Ensure scanning didn't stop during timeout
                 if(!isScanning) return;
                 
                 try {
-                    const desc = await analyzeBuffer(frameBuffer);
-                    detectedLibrary.modes[currentMode] = desc;
+                    const result = await analyzeBuffer(frameBuffer);
+                    detectedLibrary.modes[currentMode] = result;
                     
                     const log = document.getElementById('log');
                     log.value = JSON.stringify(detectedLibrary, null, 2);
                     log.scrollTop = log.scrollHeight;
                 } catch(err) {
                     console.log("Analysis Error:", err);
-                    detectedLibrary.modes[currentMode] = { hex: "#000", motion: "ERROR", type: "Error" };
+                    detectedLibrary.modes[currentMode] = { hex: "#000", desc: "Analysis Error", motion: "ERROR", type: "Error" };
                 }
 
                 currentMode++;
@@ -366,7 +378,7 @@
         }
 
         async function analyzeBuffer(frames) {
-            if(frames.length < 5) return { hex: "#000", desc: "No Data", type: "Unknown", motion: "NO DATA" };
+            if(frames.length < 5) return { hex: "#000", desc: "No Video Data", motion: "NO DATA", type: "Unknown" };
             
             // 1. Dominant Color (Middle Frame)
             const midF = frames[Math.floor(frames.length/2)];
@@ -401,8 +413,8 @@
             }
             
             let motion = "STATIC";
-            const litStart = frames[0].filter(p=>p.r+p.g+p.b>60).length;
-            const litEnd = frames[frames.length-1].filter(p=>p.r+p.g+p.b>60).length;
+            const litStart = countLitPixels(frames[0]);
+            const litEnd = countLitPixels(frames[frames.length-1]);
             
             if (litEnd > litStart + 2) motion = "UP (Fill)";
             else if (litEnd < litStart - 2) motion = "DOWN (Drain)";
@@ -416,14 +428,51 @@
             let texture = topColors.length > 1 ? "Multicolor" : "Solid";
             if (motion.includes("Flash")) texture = "Sparkle";
             
-            // Simple type classification
             let type = "Solid";
             if (motion.includes("UP") || motion.includes("DOWN")) type = "Chase";
             if (motion.includes("RANDOM")) type = "Flash";
             if (topColors.length > 1) type = "Multicolor";
 
-            const desc = `${mainColor} ${texture} ${motion}`;
+            // ALWAYS Generate Local Description
+            let desc = `${mainColor} ${texture} ${motion}`;
+            if(mainColor === "Black") desc = "Off";
+
+            // AI Override (Only if enabled)
+            const useAi = document.getElementById('useAi').checked;
+            const apiKey = document.getElementById('apiKey').value;
+            if(useAi && apiKey) {
+                const aiDesc = await getAiDescription(frames, apiKey);
+                if(aiDesc) desc = aiDesc;
+            }
+
             return { hex: hex, desc: desc, type: type, motion: motion };
+        }
+        
+        function countLitPixels(f) {
+            let count = 0;
+            f.forEach(p => { if(p.r+p.g+p.b > 60) count++; });
+            return count;
+        }
+        
+        async function getAiDescription(frames, key) {
+            const snap = [0, 0.5, 1].map(p => {
+                const f = frames[Math.floor(p * (frames.length-1))];
+                return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
+            });
+            const prompt = `LED Strip. T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe visual. Max 3 words.`;
+            try {
+                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model: "deepseek/deepseek-chat",
+                        messages: [{role: "user", content: prompt}],
+                        max_tokens: 10
+                    })
+                });
+                const data = await res.json();
+                return data.choices[0].message.content.trim();
+            } catch(e) { return ""; }
         }
 
         // --- BLUETOOTH ---
