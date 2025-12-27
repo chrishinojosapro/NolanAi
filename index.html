@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync v3</title>
+    <title>Universal Screen Sync v4</title>
     <style>
         :root {
             --bg: #050505;
@@ -134,7 +134,7 @@
     <div id="overlay-flash"></div>
 
     <div class="container">
-        <h1>Universal Screen Sync v3</h1>
+        <h1>Universal Screen Sync v4</h1>
         
         <div class="instructions">
             <strong>How to use:</strong><br>
@@ -259,10 +259,9 @@
                 const wThresh = parseInt(document.getElementById('whiteThresh').value); 
                 const gain = parseInt(document.getElementById('colorBoost').value) / 10;
                 
-                // Stats for meters
-                let rCount=0, bCount=0;
+                // Track dominant colors for UI meters
+                let rCount=0, bCount=0, wCount=0;
                 
-                // --- PIXEL SCAN ---
                 for(let i=0; i<frame.length; i+=4) {
                     const r = frame[i];
                     const g = frame[i+1];
@@ -276,11 +275,12 @@
                     // High brightness AND Low saturation (White)
                     if (max > wThresh && sat < 0.2) {
                         whitePixels++;
+                        wCount++;
                     }
                     
-                    // 2. VIBRANT COLOR DETECTION
-                    // Ignore dark pixels (<60) and desaturated pixels (<40%)
-                    else if (max > 60 && sat > 0.4) {
+                    // 2. VIBRANT COLOR DETECTION (DULLNESS FILTER)
+                    // Must be bright enough (>60) AND Saturated enough (>0.5)
+                    else if (max > 60 && sat > 0.5) {
                         rTot += r; gTot += g; bTot += b;
                         vibrantPixels++;
                         
@@ -293,28 +293,27 @@
                 const activeTotal = vibrantPixels || 1;
                 document.getElementById('meterR').style.width = Math.min(100, (rCount/activeTotal)*100) + "%";
                 document.getElementById('meterB').style.width = Math.min(100, (bCount/activeTotal)*100) + "%";
-                document.getElementById('meterW').style.width = Math.min(100, (whitePixels/pixelCount)*1000) + "%"; // Scale up
+                document.getElementById('meterW').style.width = Math.min(100, (whitePixels/pixelCount)*1000) + "%"; 
                 
                 let sendR = 0, sendG = 0, sendB = 0;
                 
-                // --- LOGIC TREE ---
-                
-                // 1. WHITE = OFF (Inverse Clash)
+                // 1. CLASH DETECT -> TURN OFF (Inverse)
+                // If there is significant white/flash, go dark
                 if (whitePixels > (pixelCount * 0.05)) { 
                      sendR = 0; sendG = 0; sendB = 0;
-                     // UI Flash (Black overlay for user feedback on tool)
-                     // document.getElementById('overlay-flash').style.opacity = 0.5;
-                     // setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
+                     // UI Feedback
+                     document.getElementById('overlay-flash').style.opacity = 0.5;
+                     setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
                 } 
-                // 2. COLOR FOUND
-                else if (vibrantPixels > 0) {
-                     // Get Average
+                // 2. COLOR AVERAGE
+                // Require significant area (0.5%) to be vibrant to trigger light
+                else if (vibrantPixels > (pixelCount * 0.005)) {
+                     // Calculate average of lit pixels
                      let avgR = rTot / vibrantPixels;
                      let avgG = gTot / vibrantPixels;
                      let avgB = bTot / vibrantPixels;
                      
                      // DEEP COLOR BOOST: Remove the white component
-                     // If RGB is (200, 50, 50), min is 50. Subtract 50 from all -> (150, 0, 0). Pure Red.
                      const minVal = Math.min(avgR, avgG, avgB);
                      avgR = Math.max(0, avgR - (minVal * 0.8));
                      avgG = Math.max(0, avgG - (minVal * 0.8));
@@ -324,6 +323,11 @@
                      sendR = Math.min(255, avgR * gain);
                      sendG = Math.min(255, avgG * gain);
                      sendB = Math.min(255, avgB * gain);
+
+                     // Final Dullness Safety: If resulting color is too dark, kill it
+                     if ((sendR + sendG + sendB) < 50) {
+                         sendR = 0; sendG = 0; sendB = 0;
+                     }
                 }
                 // 3. DARKNESS
                 else {
