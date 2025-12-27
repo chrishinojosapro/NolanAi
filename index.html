@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v11 (Mode Finder)</title>
+    <title>Universal LED Controller v12 (Saber Priority)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -355,11 +355,11 @@
                     
                     <div class="slider-row" style="margin-top:15px;">
                         <span>Clash (Bass) Sens.</span>
-                        <input type="range" id="clashSens" min="150" max="250" value="200" style="direction:rtl">
+                        <input type="range" id="clashSens" min="150" max="250" value="230" style="direction:rtl">
                     </div>
                     <div class="slider-row">
                         <span>Strike (Highs) Sens.</span>
-                        <input type="range" id="blasterSens" min="50" max="200" value="120" style="direction:rtl">
+                        <input type="range" id="blasterSens" min="50" max="200" value="90" style="direction:rtl">
                     </div>
                 </div>
             </div>
@@ -616,16 +616,26 @@
                 const clashThresh = document.getElementById('clashSens').value;
                 const blasterThresh = document.getElementById('blasterSens').value;
 
-                if (bassAvg > clashThresh && (now - lastBeatTime > 150)) {
-                    send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
-                    lastBeatTime = now;
-                    setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 100);
-
-                } else if (trebleAvg > blasterThresh && (now - lastBeatTime > 100)) {
+                // PRIORITY 1: Treble (Strikes/Blasters)
+                if (trebleAvg > blasterThresh && (now - lastBeatTime > 100)) {
                     const flashColor = isDuelMode ? opponentColor : blasterColor;
                     send(proto.writeColor(flashColor[0], flashColor[1], flashColor[2]));
+                    lastBeatTime = now + 50; // Add extra delay to prevent bass overlapping immediately
+                    
+                    // Return to saber color after 60ms (Short flash)
+                    setTimeout(() => {
+                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+                    }, 60);
+
+                // PRIORITY 2: Bass (Clashes/Explosions)
+                } else if (bassAvg > clashThresh && (now - lastBeatTime > 150)) {
+                    send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
                     lastBeatTime = now;
-                    setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 80);
+                    
+                    // Return to saber color after 50ms (Short flash)
+                    setTimeout(() => {
+                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+                    }, 50);
                 }
 
             } else if (!isBattleActive && proto && characteristic) {
