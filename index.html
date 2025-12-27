@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High Contrast Sync v4 (White Support)</title>
+    <title>High Contrast Sync v5 (Dominant Lock)</title>
     <style>
         :root {
             --bg: #000000;
@@ -46,22 +46,22 @@
             -webkit-text-fill-color: transparent;
         }
 
-        /* LIVE PREVIEW */
+        /* THE HUE HALO */
         .preview-box {
-            width: 100%;
-            height: 120px;
+            width: 140px;
+            height: 140px;
             background: #000;
-            border: 2px solid #333;
-            border-radius: 15px;
-            margin-bottom: 20px;
+            border: 4px solid #222;
+            border-radius: 50%;
+            margin: 0 auto 20px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
             font-weight: bold;
+            font-size: 1rem;
             color: #fff;
             text-shadow: 0 0 10px black;
-            transition: background-color 0.05s linear, box-shadow 0.05s linear;
+            transition: background-color 0.1s linear, box-shadow 0.1s linear;
         }
 
         /* CONTROLS */
@@ -84,7 +84,7 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: 0.2s;
             margin-bottom: 10px;
         }
         button:hover { filter: brightness(1.2); }
@@ -113,20 +113,16 @@
 
         #status { font-size: 0.7rem; color: #444; margin-top: 10px; font-family: monospace; }
 
-        /* VIDEO CAPTURE (Hidden) */
-        #captureVideo {
-            position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none;
-        }
+        /* HIDDEN CAPTURE */
+        #captureVideo { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Sync v4: White Support</h1>
+        <h1>Sync v5: Dominant Lock</h1>
         
-        <div class="preview-box" id="preview">
-            OFF
-        </div>
+        <div class="preview-box" id="preview">OFF</div>
 
         <button class="btn-sync" id="syncBtn" onclick="startCapture()">1. Start Screen Sync</button>
         
@@ -140,178 +136,140 @@
 
         <div class="slider-group">
             <div class="slider-label">
-                <span>Fade Smoothing (Lerp)</span>
-                <span id="fadeVal">15%</span>
+                <span>Color Sensitivity (Blackout)</span>
+                <span id="satVal">25%</span>
             </div>
-            <input type="range" id="fadeSpeed" min="2" max="80" value="15" oninput="updateLabels()">
+            <input type="range" id="satThresh" min="0" max="80" value="25" oninput="updateLabels()">
             
             <div class="slider-label">
-                <span>Color Purification</span>
-                <span id="purityVal">50%</span>
+                <span>Fade Smoothing</span>
+                <span id="fadeVal">20%</span>
             </div>
-            <input type="range" id="purityFactor" min="0" max="100" value="50" oninput="updateLabels()">
+            <input type="range" id="fadeSpeed" min="2" max="90" value="20" oninput="updateLabels()">
             
             <div class="slider-label">
-                <span>Min Brightness</span>
+                <span>Brightness Boost</span>
                 <span id="briVal">10%</span>
             </div>
-            <input type="range" id="briThresh" min="0" max="100" value="10" oninput="updateLabels()">
+            <input type="range" id="briThresh" min="0" max="50" value="10" oninput="updateLabels()">
         </div>
         
         <div id="status">BT_IDLE</div>
     </div>
 
-    <!-- Hidden Canvas & Video -->
     <video id="captureVideo" autoplay playsinline muted></video>
     <canvas id="analysisCanvas" style="display:none;"></canvas>
 
     <script>
-        // --- CONSTANTS ---
         const PROTOCOLS = [
             { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
             { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) },
             { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) }
         ];
 
-        // --- STATE ---
         let characteristic;
         let isSyncing = false;
         let isPoweredOn = false;
         
-        // Interpolation State
+        // Smoothing state
         let curR = 0, curG = 0, curB = 0; 
         let lastSentTime = 0;
-        const BLUETOOTH_FPS_LIMIT = 90; 
+        const BT_LIMIT = 85; 
 
         function updateLabels() {
             document.getElementById('fadeVal').innerText = document.getElementById('fadeSpeed').value + "%";
-            document.getElementById('purityVal').innerText = document.getElementById('purityFactor').value + "%";
+            document.getElementById('satVal').innerText = document.getElementById('satThresh').value + "%";
             document.getElementById('briVal').innerText = document.getElementById('briThresh').value + "%";
         }
 
-        // --- CAPTURE ---
         async function startCapture() {
             try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { cursor: "never" },
-                    audio: false
-                });
-                
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "never" }, audio: false });
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
-                video.play();
-                
                 isSyncing = true;
-                document.getElementById('syncBtn').innerText = "LIVE SYNC ACTIVE";
+                document.getElementById('syncBtn').innerText = "LIVE";
                 document.getElementById('syncBtn').style.background = "#22c55e";
-                document.getElementById('syncBtn').style.color = "#fff";
-                
                 requestAnimationFrame(analyzeLoop);
-                
                 stream.getVideoTracks()[0].onended = () => {
                     isSyncing = false;
                     document.getElementById('syncBtn').innerText = "1. Start Screen Sync";
-                    document.getElementById('syncBtn').style.background = "var(--highlight)";
-                    document.getElementById('syncBtn').style.color = "#000";
                     sendToLight(0,0,0);
                 };
             } catch(e) { console.error(e); }
         }
 
-        // --- CORE LOGIC ---
         function analyzeLoop() {
             if(!isSyncing) return;
-            
             const video = document.getElementById('captureVideo');
             const canvas = document.getElementById('analysisCanvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Analysis Grid
                 canvas.width = 40; canvas.height = 40;
                 ctx.drawImage(video, 0, 0, 40, 40);
                 const frame = ctx.getImageData(0, 0, 40, 40).data;
                 
-                let rTot=0, gTot=0, bTot=0;
-                let validPixels = 0;
+                // DOMINANT LOCK LOGIC
+                let bestR = 0, bestG = 0, bestB = 0;
+                let maxImpact = 0;
                 
                 const minBri = parseInt(document.getElementById('briThresh').value) * 2.55; 
-                const purityFactor = parseInt(document.getElementById('purityFactor').value) / 100;
+                const satCutoff = parseInt(document.getElementById('satThresh').value) / 100;
 
                 for(let i=0; i<frame.length; i+=4) {
                     const r = frame[i], g = frame[i+1], b = frame[i+2];
                     const max = Math.max(r, g, b);
+                    const min = Math.min(r, g, b);
+                    const sat = max === 0 ? 0 : (max - min) / max;
                     
-                    // Filter by brightness
-                    if (max > minBri) {
-                        rTot += r; gTot += g; bTot += b;
-                        validPixels++;
+                    // Score = Vibrancy x Intensity
+                    // We look for pixels that are bright AND colorful
+                    const impact = sat * max;
+
+                    if (impact > maxImpact) {
+                        maxImpact = impact;
+                        bestR = r; bestG = g; bestB = b;
                     }
                 }
                 
                 let targetR = 0, targetG = 0, targetB = 0;
                 
-                if (validPixels > 10) {
-                    let avgR = rTot / validPixels;
-                    let avgG = gTot / validPixels;
-                    let avgB = bTot / validPixels;
-                    
-                    // --- ADAPTIVE COLOR ENGINE ---
-                    const maxChan = Math.max(avgR, avgG, avgB);
-                    const minChan = Math.min(avgR, avgG, avgB);
-                    const saturation = maxChan === 0 ? 0 : (maxChan - minChan) / maxChan;
+                // If the most vibrant pixel is too desaturated/dim -> Blackout
+                const bestMax = Math.max(bestR, bestG, bestB);
+                const bestMin = Math.min(bestR, bestG, bestB);
+                const bestSat = bestMax === 0 ? 0 : (bestMax - bestMin) / bestMax;
 
-                    // Apply Purification only if saturation exists and user wants it
-                    if (saturation > 0.1 && purityFactor > 0) {
-                        // Subtract "white component" weighted by user preference
-                        const whiteToClear = minChan * purityFactor;
-                        avgR -= whiteToClear;
-                        avgG -= whiteToClear;
-                        avgB -= whiteToClear;
-                        
-                        // Normalize back to original brightness
-                        const newMax = Math.max(avgR, avgG, avgB, 1);
-                        const boost = maxChan / newMax;
-                        avgR *= boost;
-                        avgG *= boost;
-                        avgB *= boost;
+                if (bestMax > minBri && bestSat > satCutoff) {
+                    // Normalize best pixel to full brightness
+                    const norm = 255 / bestMax;
+                    targetR = bestR * norm;
+                    targetG = bestG * norm;
+                    targetB = bestB * norm;
 
-                        // Extreme Crushing for high-purity saber effects
-                        if (purityFactor > 0.7 && saturation > 0.5) {
-                            if (avgR < 80) avgR = 0;
-                            if (avgG < 80) avgG = 0;
-                            if (avgB < 80) avgB = 0;
-                        }
-                    }
+                    // Crushing: Deepen Primary Hues
+                    if (targetR > targetG * 2 && targetR > targetB * 2) { targetG = 0; targetB = 0; }
+                    else if (targetB > targetR * 2 && targetB > targetG * 2) { targetR = 0; targetG = 0; }
+                    else if (targetG > targetR * 2 && targetG > targetB * 2) { targetR = 0; targetB = 0; }
+                }
 
-                    targetR = avgR;
-                    targetG = avgG;
-                    targetB = avgB;
-                } 
-
-                // --- FADE ENGINE (LERP) ---
-                const lerpBase = parseInt(document.getElementById('fadeSpeed').value) / 100;
-                // Higher values make it reactive, lower values make it buttery smooth
-                curR += (targetR - curR) * lerpBase;
-                curG += (targetG - curG) * lerpBase;
-                curB += (targetB - curB) * lerpBase;
+                // FADE ENGINE
+                const lerp = parseInt(document.getElementById('fadeSpeed').value) / 200;
+                curR += (targetR - curR) * lerp;
+                curG += (targetG - curG) * lerp;
+                curB += (targetB - curB) * lerp;
                 
-                const outR = Math.max(0, Math.min(255, Math.floor(curR)));
-                const outG = Math.max(0, Math.min(255, Math.floor(curG)));
-                const outB = Math.max(0, Math.min(255, Math.floor(curB)));
-                
-                // UI Visuals
-                const preview = document.getElementById('preview');
-                const isBlack = (outR + outG + outB) < 10;
+                const outR = Math.floor(curR), outG = Math.floor(curG), outB = Math.floor(curB);
+                const isBlack = (outR + outG + outB) < 15;
                 const colStr = `rgb(${outR},${outG},${outB})`;
                 
-                preview.style.backgroundColor = isBlack ? '#000' : colStr;
-                preview.style.boxShadow = isBlack ? 'none' : `0 0 40px ${colStr}`;
-                preview.innerText = isBlack ? "OFF" : "";
+                const prev = document.getElementById('preview');
+                prev.style.backgroundColor = isBlack ? '#000' : colStr;
+                prev.style.boxShadow = isBlack ? 'none' : `0 0 40px ${colStr}`;
+                prev.innerText = isBlack ? "OFF" : "";
 
-                // Bluetooth Throttle
                 const now = Date.now();
-                if (now - lastSentTime > BLUETOOTH_FPS_LIMIT) {
+                if (now - lastSentTime > BT_LIMIT) {
                     sendToLight(outR, outG, outB);
                     lastSentTime = now;
                 }
@@ -319,22 +277,14 @@
             requestAnimationFrame(analyzeLoop);
         }
 
-        // --- BLUETOOTH ---
         async function sendToLight(r, g, b) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
             try {
                 if (r < 5 && g < 5 && b < 5) {
-                    if(isPoweredOn) {
-                        await characteristic.writeValue(p.off);
-                        isPoweredOn = false;
-                    }
+                    if(isPoweredOn) { await characteristic.writeValue(p.off); isPoweredOn = false; }
                 } else {
-                    if(!isPoweredOn) {
-                         await characteristic.writeValue(p.on);
-                         isPoweredOn = true;
-                         await new Promise(res => setTimeout(res, 40)); 
-                    }
+                    if(!isPoweredOn) { await characteristic.writeValue(p.on); isPoweredOn = true; await new Promise(r => setTimeout(r, 40)); }
                     await characteristic.writeValue(p.write(r,g,b));
                 }
             } catch(e) {}
@@ -342,29 +292,23 @@
 
         async function connect() {
             try {
-                const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
-                });
+                const device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'] });
                 const server = await device.gatt.connect();
-                const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
-                let service;
-                for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
-                const charUUIDs = ['0000ffd9-0000-1000-8000-00805f9b34fb', '0000ffe9-0000-1000-8000-00805f9b34fb', '0000fff3-0000-1000-8000-00805f9b34fb'];
-                for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
-
-                if(characteristic) {
-                    document.getElementById('connectBtn').style.background = "#22c55e";
-                    document.getElementById('connectBtn').innerText = "CONNECTED";
-                    document.getElementById('status').innerText = "READY: " + device.name.toUpperCase();
-                    
-                    const p = PROTOCOLS[document.getElementById('protocol').value];
-                    await characteristic.writeValue(p.on);
-                    isPoweredOn = true;
+                const services = await server.getPrimaryServices();
+                for(let s of services) {
+                    const chars = await s.getCharacteristics();
+                    for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; } }
+                    if(characteristic) break;
                 }
-            } catch(e) { alert("Connect Error: " + e.message); }
+                if(characteristic) {
+                    const btn = document.getElementById('connectBtn');
+                    btn.style.background = "#22c55e"; btn.innerText = "CONNECTED";
+                    document.getElementById('status').innerText = "READY: " + device.name.toUpperCase();
+                    const p = PROTOCOLS[document.getElementById('protocol').value];
+                    await characteristic.writeValue(p.on); isPoweredOn = true;
+                }
+            } catch(e) { alert(e.message); }
         }
-
         updateLabels();
     </script>
 </body>
