@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Bridge Calibrator v2 (Motion Engine)</title>
+    <title>Light Bridge Calibrator v3 (Auto-Wake Fix)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -154,6 +154,13 @@
         
         /* Hidden */
         #procCanvas { display: none; }
+        
+        .manual-row {
+            display: flex; gap: 10px; margin-top: 10px;
+        }
+        .manual-row button {
+            padding: 10px; font-size: 0.9rem; flex: 1;
+        }
 
     </style>
 </head>
@@ -185,6 +192,11 @@
                     <option value="2">Protocol: Triones</option>
                 </select>
                 <button class="btn-host" style="width:100%; font-size:1rem;" id="btConnectBtn" onclick="connectBluetooth()">📡 Connect Bluetooth</button>
+                
+                <div class="manual-row">
+                    <button class="btn-client" onclick="sendOn()">🟢 ON</button>
+                    <button class="btn-danger" onclick="sendOff()">⚫ OFF</button>
+                </div>
                 
                 <h3 style="margin-top:20px;">2. Scan with Phone</h3>
                 <div id="qrbox"></div>
@@ -225,9 +237,27 @@
         // --- CONFIG ---
         const SEGMENTS = 10;
         const PROTOCOLS = [
-            { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
-            { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
-            { name: "triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
+            { 
+                name: "elk", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
+            },
+            { 
+                name: "lotus", 
+                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
+                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
+                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
+                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) 
+            },
+            { 
+                name: "triones", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
+            }
         ];
 
         // --- GLOBAL STATE ---
@@ -236,7 +266,7 @@
         
         // Host State
         let bleDevice, bleChar;
-        let library = {};
+        let library = { modes: {} };
 
         // Client State
         let stream;
@@ -285,9 +315,8 @@
                 if (data.cmd === 'setMode') {
                     setLightMode(data.val);
                 } else if (data.cmd === 'log') {
-                    library[data.mode] = data.data;
+                    library.modes[data.mode] = data.data;
                     document.getElementById('libraryLog').value = JSON.stringify(library, null, 2);
-                    // Scroll to bottom
                     document.getElementById('libraryLog').scrollTop = document.getElementById('libraryLog').scrollHeight;
                 }
             });
@@ -300,6 +329,7 @@
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
                 const server = await bleDevice.gatt.connect();
+                // Basic service scan
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
@@ -310,6 +340,9 @@
                     const btn = document.getElementById('btConnectBtn');
                     btn.innerText = "Connected to Light";
                     btn.style.background = "#22c55e";
+                    
+                    // Auto-Wake
+                    sendOn();
                 }
             } catch(e) { alert(e.message); }
         }
@@ -317,7 +350,25 @@
         async function setLightMode(m) {
             if(!bleChar) return;
             const pIndex = document.getElementById('protocol').value;
-            try { await bleChar.writeValue(PROTOCOLS[pIndex].setMode(m)); } catch(e){}
+            const p = PROTOCOLS[pIndex];
+            
+            try { 
+                // Auto-wake before setting mode
+                if(p.on) await bleChar.writeValue(p.on);
+                await bleChar.writeValue(p.setMode(m)); 
+            } catch(e){}
+        }
+        
+        async function sendOn() {
+            if(!bleChar) return;
+            const pIndex = document.getElementById('protocol').value;
+            try { await bleChar.writeValue(PROTOCOLS[pIndex].on); } catch(e){}
+        }
+        
+        async function sendOff() {
+            if(!bleChar) return;
+            const pIndex = document.getElementById('protocol').value;
+            try { await bleChar.writeValue(PROTOCOLS[pIndex].off); } catch(e){}
         }
 
         function copyLog() {
@@ -347,7 +398,7 @@
 
         async function startCamera() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } });
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 const video = document.getElementById('video');
                 video.srcObject = stream;
                 requestAnimationFrame(analyzeLoop);
@@ -383,7 +434,7 @@
             // 2. Clear buffer and wait
             frameBuffer = [];
             
-            // 3. Collect data for 3 seconds
+            // 3. Collect data for 2 seconds
             setTimeout(async () => {
                 if(!isScanning) return;
                 
@@ -397,29 +448,20 @@
                 currentMode++;
                 runScanStep();
                 
-            }, 3000);
+            }, 2500);
         }
 
 
-        // --- VISION ENGINE (Ported v17) ---
+        // --- V15 ANALYSIS ENGINE (Ported to Client) ---
         function analyzeLoop() {
             const video = document.getElementById('video');
             const canvas = document.getElementById('procCanvas');
-            const overlayCanvas = document.getElementById('overlayCanvas');
             const ctx = canvas.getContext('2d');
-            const overlayCtx = overlayCanvas.getContext('2d');
             const dimmer = parseFloat(document.getElementById('exposure').value);
 
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.width = 160; canvas.height = 120;
-                overlayCanvas.width = video.clientWidth; overlayCanvas.height = video.clientHeight;
-                
                 ctx.drawImage(video, 0, 0, 160, 120);
-                
-                // Scale overlay
-                const scaleX = overlayCanvas.width / 160;
-                const scaleY = overlayCanvas.height / 120;
-                overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
                 
                 const stripW = Math.floor(160 * 0.1); 
                 const stripX = Math.floor((160 - stripW) / 2);
@@ -429,7 +471,6 @@
                 
                 const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
                 let rawColors = [];
-                let dispColors = [];
 
                 for(let i=0; i<SEGMENTS; i++) {
                     let rTot=0, gTot=0, bTot=0, count=0;
@@ -446,27 +487,12 @@
                             }
                         }
                     }
-                    
-                    let r = Math.floor((rTot/count)*dimmer);
-                    let g = Math.floor((gTot/count)*dimmer);
-                    let b = Math.floor((bTot/count)*dimmer);
-                    r=Math.min(255,r); g=Math.min(255,g); b=Math.min(255,b);
-                    
-                    rawColors.push({r,g,b});
-                    const cName = getColorName(r,g,b);
-                    
-                    // Draw overlay box
-                    const boxX = (stripX + stripX) * scaleX / 2;
-                    const boxY = (stripY + i * segmentH) * scaleY;
-                    const boxW = stripW * scaleX * 2;
-                    const boxH = segmentH * scaleY;
-                    
-                    overlayCtx.fillStyle = `rgb(${r},${g},${b})`;
-                    overlayCtx.globalAlpha = 0.5;
-                    overlayCtx.fillRect(boxX - (boxW/2), boxY, boxW, boxH-2);
-                    overlayCtx.globalAlpha = 1.0;
-                    overlayCtx.strokeStyle = "rgba(0,255,0,0.5)";
-                    overlayCtx.strokeRect(boxX - (boxW/2), boxY, boxW, boxH-2);
+                    // Apply Dimmer
+                    rawColors.push({
+                        r: Math.floor((rTot/count)*dimmer),
+                        g: Math.floor((gTot/count)*dimmer),
+                        b: Math.floor((bTot/count)*dimmer)
+                    });
                 }
                 
                 if(isScanning) frameBuffer.push(rawColors);
@@ -502,7 +528,7 @@
         function getColorName(r, g, b) {
             const [h, s, l] = rgbToHsl(r, g, b);
             if (l < 0.1) return "Off";
-            if (s < 0.15 && l > 0.2) return "White";
+            if (s < 0.15) return "White";
             if (h >= 340 || h <= 15) return "Red";
             if (h > 15 && h <= 45) return "Orange";
             if (h > 45 && h <= 75) return "Yellow";
@@ -513,67 +539,46 @@
             return "Mix";
         }
 
-        function countLitPixels(f) {
-            let count = 0;
-            f.forEach(p => { if(p.r+p.g+p.b > 60) count++; });
-            return count;
-        }
-
         async function analyzeBuffer(frames) {
             if(frames.length < 5) return { hex: "#000", motion: "NO DATA", type: "Unknown" };
             
             const midF = frames[Math.floor(frames.length/2)];
             
-            // 1. Dominant Hex
+            // Dominant Hex
             let rSum=0, gSum=0, bSum=0, count=0;
             midF.forEach(p => { if(p.r+p.g+p.b > 40) { rSum+=p.r; gSum+=p.g; bSum+=p.b; count++; }});
             const hex = count>0 ? rgbToHex(Math.round(rSum/count), Math.round(gSum/count), Math.round(bSum/count)) : "#000000";
             
-            // 2. Motion Tracking
-            let upScore = 0; let downScore = 0;
-            let totalDiff = 0;
-            
+            // Motion
+            let totalDiff=0, upScore=0, downScore=0;
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
-                let diffStatic = 0;
+                let diffStatic=0, diffUp=0, diffDown=0;
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
-                totalDiff += diffStatic;
-                
-                let diffUp = 0;
                 for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
-                
-                let diffDown = 0;
                 for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
-                if (diffUp < diffStatic) upScore++;
-                if (diffDown < diffStatic) downScore++;
+                totalDiff += diffStatic;
+                if(diffUp < diffStatic) upScore++;
+                if(diffDown < diffStatic) downScore++;
             }
             
             let motion = "STATIC";
-            const litStart = countLitPixels(frames[0]);
-            const litEnd = countLitPixels(frames[frames.length-1]);
-            
-            if (litEnd > litStart + 2) motion = "UP (Fill)";
-            else if (litEnd < litStart - 2) motion = "DOWN (Drain)";
-            else if (totalDiff > 500) { 
-                if (upScore > downScore && upScore > frames.length/4) motion = "UP";
-                else if (downScore > upScore && downScore > frames.length/4) motion = "DOWN";
+            if(totalDiff > 1000) {
+                if(upScore > downScore && upScore > frames.length/4) motion = "UP";
+                else if(downScore > upScore && downScore > frames.length/4) motion = "DOWN";
                 else motion = "RANDOM";
             }
             
-            // 3. Type
+            // Type
             const colors = new Set(midF.map(p => getColorName(p.r, p.g, p.b)).filter(c=>c!=='Off'));
             let type = colors.size > 1 ? "Multicolor" : "Solid";
             if(motion === "UP" || motion === "DOWN") type = "Chase";
             if(motion === "RANDOM") type = "Flash/Sparkle";
 
-            // Description string
-            const colorDesc = Array.from(colors).join("/");
-            const desc = `${colorDesc || 'Black'} ${type} ${motion}`;
-
-            return { hex: hex, desc: desc };
+            return { hex: hex, motion: motion, type: type };
         }
 
     </script>
