@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI FX Studio v11 (Error Fix)</title>
+    <title>Light Bridge Calibrator</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         :root {
-            --bg: #09090b;
-            --panel: #18181b;
-            --border: #27272a;
-            --text: #e4e4e7;
-            --accent: #8b5cf6; /* Violet */
-            --accent-hover: #7c3aed;
-            --success: #10b981;
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --accent: #3b82f6;
+            --success: #22c55e;
             --danger: #ef4444;
-            --sfx-1: #3b82f6;
-            --sfx-2: #f59e0b;
-            --sfx-3: #ec4899;
         }
 
         body {
@@ -24,574 +21,508 @@
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
 
-        /* CONTAINER */
-        .app-container {
-            width: 100%;
-            max-width: 800px;
+        /* LANDING SCREEN */
+        #landing {
             display: flex;
             flex-direction: column;
             gap: 20px;
+            text-align: center;
+            margin-top: 100px;
         }
 
-        /* HEADER */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-        }
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-        
-        .status-badge {
-            font-size: 0.75rem; background: #27272a; padding: 4px 8px; border-radius: 4px; color: #71717a; border: 1px solid #3f3f46;
-        }
-        .status-badge.connected { color: var(--success); border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.1); }
-
-        /* SECTIONS */
-        .section {
-            background: var(--panel);
-            border: 1px solid var(--border);
+        button {
+            padding: 15px 30px;
+            font-size: 1.2rem;
             border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        .btn-host { background: var(--accent); color: white; }
+        .btn-client { background: var(--success); color: white; }
+
+        /* HOST UI (Laptop) */
+        #hostUI {
+            display: none;
+            width: 100%;
+            max-width: 800px;
             padding: 20px;
         }
-        .section-title { margin: 0 0 15px 0; font-size: 0.9rem; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px; }
 
-        /* AUDIO GRID */
-        .audio-grid {
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+
+        #qrbox {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        /* CLIENT UI (Phone) */
+        #clientUI {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .camera-view {
+            flex: 1;
+            background: black;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hud-overlay {
+            position: absolute;
+            top: 20px; left: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            pointer-events: none;
+            font-family: monospace;
+            white-space: pre;
+            color: #0f0;
+        }
+
+        .controls-bar {
+            background: var(--panel);
+            padding: 20px;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
+            border-top: 1px solid #334155;
         }
-        .file-upload {
-            position: relative;
-            background: #27272a;
-            border: 1px dashed #52525b;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: #a1a1aa;
-        }
-        .file-upload:hover { border-color: var(--text); color: var(--text); background: #3f3f46; }
-        .file-upload.loaded { border-style: solid; background: rgba(255,255,255,0.05); }
-        .file-upload.sfx1.loaded { border-color: var(--sfx-1); color: var(--sfx-1); }
-        .file-upload.sfx2.loaded { border-color: var(--sfx-2); color: var(--sfx-2); }
-        .file-upload.sfx3.loaded { border-color: var(--sfx-3); color: var(--sfx-3); }
-        
-        .file-upload input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
 
-        /* PROMPT AREA */
-        textarea {
-            width: 100%;
-            height: 100px;
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            padding: 12px;
-            font-family: inherit;
-            resize: vertical;
-            box-sizing: border-box;
+        .status-pill {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            background: #333;
+            color: #aaa;
             margin-bottom: 10px;
         }
-        textarea:focus { outline: none; border-color: var(--accent); }
-
-        .api-row { display: flex; gap: 10px; margin-bottom: 15px; }
-        .api-input { flex: 1; background: #000; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; }
-
-        /* BUTTONS */
-        button {
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-            font-size: 0.95rem;
-        }
-        button:hover { filter: brightness(1.2); }
-        button:active { transform: scale(0.98); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-gen { background: var(--accent); color: white; width: 100%; }
-        .btn-play { background: var(--success); color: black; flex: 2; font-size: 1.1rem;}
-        .btn-stop { background: var(--danger); color: white; flex: 1; }
-        .btn-connect { background: #3f3f46; color: white; padding: 6px 12px; font-size: 0.8rem; }
-
-        /* SCRIPT VIEWER */
-        .script-view {
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            height: 200px;
-            overflow-y: auto;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 0.8rem;
-            color: #a1a1aa;
-        }
-        .script-line { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid #222; }
-        .script-time { color: var(--accent); min-width: 50px; }
-        .script-action { flex: 1; }
-        .script-line.active { background: rgba(255,255,255,0.1); color: white; }
-
-        /* PROGRESS */
-        .progress-bar {
-            height: 4px; width: 100%; background: #27272a; margin-top: 20px; border-radius: 2px; overflow: hidden;
-        }
-        .progress-fill { height: 100%; width: 0%; background: var(--success); transition: width 0.1s linear; }
-
-        .control-row { display: flex; gap: 10px; margin-top: 10px; }
-        
-        /* Modal for Generator */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 100;
-            display: none; justify-content: center; align-items: center;
-        }
-        .modal {
-            background: #222; padding: 20px; border-radius: 10px; width: 400px;
-            text-align: center; border: 1px solid #444; color: #eee;
-        }
-        input[type="password"] {
-            width: 100%; background: #111; color: #ddd; border: 1px solid #444; padding: 8px; border-radius: 6px; margin-bottom: 10px;
-        }
+        .status-pill.active { background: var(--success); color: white; }
 
     </style>
 </head>
 <body>
 
-    <!-- AI Choreographer Modal -->
-    <div id="aiModal" class="modal-overlay">
-        <div class="modal">
-            <h3 style="margin-top:0; color:var(--ai-color);">🤖 AI Choreographer</h3>
-            
-            <div style="text-align:left; margin-bottom:10px;">
-                <label style="font-size:0.8rem; color:#aaa;">AI Provider:</label>
-                <select id="aiProvider" style="width:100%; background:#111; color:white; border:1px solid #444; padding:5px; border-radius:4px;" onchange="updateAiConfig()">
-                    <option value="openrouter">OpenRouter (DeepSeek/Mistral)</option>
-                    <option value="openai">OpenAI (GPT-4o/Turbo)</option>
+    <!-- LANDING -->
+    <div id="landing">
+        <h1>Light Bridge</h1>
+        <p style="color:#94a3b8">Select your role:</p>
+        <button class="btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
+        <p style="font-size:0.8rem; color:#666">OR</p>
+        <div id="clientMsg" style="color:#aaa">Scan QR on Laptop to start Camera Mode</div>
+    </div>
+
+    <!-- HOST UI -->
+    <div id="hostUI">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2>Laptop Control Hub</h2>
+            <div class="status-pill" id="hostConnectionStatus">Waiting for Phone...</div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Left: Connection -->
+            <div class="panel">
+                <h3>1. Connect Light</h3>
+                <select id="protocol" style="width:100%; padding:10px; margin-bottom:10px; background:#0f172a; color:white; border:1px solid #475569; border-radius:6px;">
+                    <option value="1">Protocol: Lotus (Keepsmile)</option>
+                    <option value="0">Protocol: ELK (Standard)</option>
+                    <option value="2">Protocol: Triones</option>
                 </select>
+                <button class="btn-host" style="width:100%; font-size:1rem;" id="btConnectBtn" onclick="connectBluetooth()">📡 Connect Bluetooth</button>
+                
+                <h3 style="margin-top:20px;">2. Scan with Phone</h3>
+                <div id="qrbox"></div>
+                <p style="font-size:0.8rem; color:#aaa; text-align:center; margin-top:5px;">Scan to open Camera Remote</p>
             </div>
 
-            <div style="text-align:left; margin-bottom:5px;">
-                <label style="font-size:0.8rem; color:#aaa;" id="apiKeyLabel">OpenRouter API Key:</label>
-                <input type="password" id="apiKey" placeholder="sk-..." onchange="saveKey()">
+            <!-- Right: Log -->
+            <div class="panel">
+                <h3>3. Live Library</h3>
+                <textarea id="libraryLog" readonly>// Library will populate from phone data...
+{
+  "modes": {}
+}</textarea>
+                <button onclick="copyLog()" style="width:100%; margin-top:10px; background:#333; color:white; font-size:0.9rem; padding:10px;">Copy to Clipboard</button>
             </div>
-
-            <div style="text-align:left;">
-                <label style="font-size:0.8rem; color:#aaa;">Describe the Show:</label>
-                <textarea id="aiPrompt" placeholder="Example: Star Wars battle. 0-10s silence. 10s Red Saber ignite (Mode 37). 30s fight starts with flashes. End with Fire (Mode 80)."></textarea>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; margin-top:10px;">
-                <button onclick="closeAiModal()">Cancel</button>
-                <button class="btn-gen" onclick="runAiGen()" id="genBtn">Generate Show</button>
-            </div>
-            <p id="aiStatus" style="font-size:0.8rem; color:#aaa; margin-top:10px; word-break: break-all;"></p>
         </div>
     </div>
 
-    <div class="app-container">
-        <!-- HEADER -->
-        <header>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <h1>AI FX Studio</h1>
-                <div id="connectionStatus" class="status-badge">Disconnected</div>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <select id="protocolSelect" style="background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; padding:5px;">
-                    <option value="1">Lotus/Keepsmile</option>
-                    <option value="0">ELK-BLEDOM</option>
-                    <option value="2">Triones</option>
-                </select>
-                <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect</button>
-            </div>
-        </header>
-
-        <!-- 1. AUDIO ASSETS -->
-        <div class="section">
-            <h2 class="section-title">1. Upload Assets</h2>
-            <div class="audio-grid">
-                <label class="file-upload" id="lbl-bg">
-                    🎵 Backing Track
-                    <input type="file" accept="audio/*" onchange="loadAudio('bg', this)">
-                </label>
-                <label class="file-upload sfx1" id="lbl-sfx1">
-                    🔵 SFX 1 (Start/Ignite)
-                    <input type="file" accept="audio/*" onchange="loadAudio('sfx1', this)">
-                </label>
-                <label class="file-upload sfx2" id="lbl-sfx2">
-                    💥 SFX 2 (Clash/Hit)
-                    <input type="file" accept="audio/*" onchange="loadAudio('sfx2', this)">
-                </label>
-                <label class="file-upload sfx3" id="lbl-sfx3">
-                    🔻 SFX 3 (End/Retract)
-                    <input type="file" accept="audio/*" onchange="loadAudio('sfx3', this)">
-                </label>
-            </div>
+    <!-- CLIENT UI -->
+    <div id="clientUI">
+        <div class="camera-view">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="procCanvas" style="display:none;"></canvas>
+            <div class="hud-overlay" id="hud">Waiting for Host...</div>
         </div>
-
-        <!-- 2. AI GENERATOR -->
-        <div class="section">
-            <h2 class="section-title">2. AI Choreography</h2>
-            <button class="btn-gen" onclick="openAiModal()">🤖 Open AI Creator</button>
-        </div>
-
-        <!-- 3. PLAYBACK -->
-        <div class="section">
-            <h2 class="section-title">3. Run Show</h2>
-            <div class="script-view" id="scriptView">
-                <div style="text-align:center; padding-top:80px; color:#444;">Script will appear here...</div>
+        
+        <div class="controls-bar">
+            <div style="grid-column: span 2; display:flex; gap:10px; margin-bottom:10px;">
+                <input type="range" id="exposure" min="0.1" max="2.0" step="0.1" value="1.0" style="flex:1">
+                <span style="font-size:0.8rem; color:#aaa; align-self:center;">Dimmer</span>
             </div>
-            
-            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-            <div style="text-align:right; font-size:0.8rem; color:#666; margin-top:5px;" id="timeDisplay">0:00</div>
-
-            <div class="control-row">
-                <button class="btn-play" id="playBtn" onclick="togglePlay()" disabled>▶ Run Show</button>
-                <button class="btn-stop" onclick="stopShow()">⏹ Reset</button>
-            </div>
+            <button class="btn-host" id="scanToggle" onclick="toggleScan()">🤖 Auto-Scan</button>
+            <button style="background:#333; color:white;" onclick="manualNext()">Next Mode ></button>
         </div>
     </div>
 
     <script>
-        // --- CONSTANTS ---
+        // --- CONFIG ---
+        const SEGMENTS = 10;
         const PROTOCOLS = [
-            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
-            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) },
-            { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) }
+            { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
+            { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
+            { name: "triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
         ];
-        const NOLAN_MODEL = "deepseek/deepseek-chat"; 
 
-        // --- STATE ---
-        let characteristic;
-        let audioBuffers = { bg: null, sfx1: null, sfx2: null, sfx3: null };
-        let showEvents = [];
-        let isPlaying = false;
-        let startTime = 0;
-        let animationFrame;
-        let audioDuration = 60; // Default
+        // --- GLOBAL STATE ---
+        let peer, conn;
+        let isHost = false;
         
-        // --- INIT ---
-        const storedKey = localStorage.getItem('openrouter_key');
-        if(storedKey) document.getElementById('apiKey').value = storedKey;
+        // Host State
+        let bleDevice, bleChar;
+        let library = { modes: {} };
 
-        // --- AUDIO ENGINE ---
-        function loadAudio(slot, input) {
-            const file = input.files[0];
-            if(!file) return;
+        // Client State
+        let stream;
+        let isScanning = false;
+        let currentMode = 1;
+        let frameBuffer = [];
+
+        // --- INITIALIZATION ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const hostId = urlParams.get('host');
+
+        if (hostId) {
+            // WE ARE CLIENT
+            initClient(hostId);
+        }
+
+        // --- HOST LOGIC ---
+        function initHost() {
+            document.getElementById('landing').style.display = 'none';
+            document.getElementById('hostUI').style.display = 'block';
+            isHost = true;
+
+            peer = new Peer(); // Auto-gen ID
             
-            const url = URL.createObjectURL(file);
-            audioBuffers[slot] = new Audio(url);
-            
-            // Get duration if BG
-            if(slot === 'bg') {
-                audioBuffers[slot].addEventListener('loadedmetadata', function() {
-                    audioDuration = audioBuffers[slot].duration;
-                    console.log("Audio duration: " + audioDuration);
+            peer.on('open', (id) => {
+                const url = `${window.location.href.split('?')[0]}?host=${id}`;
+                new QRCode(document.getElementById("qrbox"), {
+                    text: url,
+                    width: 150,
+                    height: 150
                 });
-            }
-            
-            // UI
-            const lbl = document.getElementById('lbl-'+slot);
-            lbl.classList.add('loaded');
-            lbl.innerHTML = (slot === 'bg' ? '🎵' : '🔊') + ' ' + file.name;
-        }
+                console.log("Host ID:", id);
+            });
 
-        function playSound(slot) {
-            const audio = audioBuffers[slot];
-            if(audio) {
-                audio.currentTime = 0;
-                audio.play().catch(e => console.warn("Audio play blocked", e));
-            }
-        }
-        
-        function stopAllSound() {
-            Object.values(audioBuffers).forEach(a => {
-                if(a) { a.pause(); a.currentTime = 0; }
+            peer.on('connection', (c) => {
+                conn = c;
+                setupHostConnection();
             });
         }
 
-        // --- LIGHT CONTROL ---
-        async function sendEvent(ev) {
-            if(!characteristic) return;
-            const pid = document.getElementById('protocolSelect').value;
-            const p = PROTOCOLS[pid];
+        function setupHostConnection() {
+            document.getElementById('hostConnectionStatus').innerText = "📱 Phone Connected";
+            document.getElementById('hostConnectionStatus').classList.add('active');
 
-            try {
-                if (ev.type === 'off') {
-                    await characteristic.writeValue(p.off);
-                } else if (ev.type === 'flash') {
-                    await characteristic.writeValue(p.write(255,255,255));
-                    setTimeout(() => characteristic.writeValue(p.off), 100);
-                } else {
-                    const hex = ev.color || "#000000";
-                    const r = parseInt(hex.substring(1,3), 16);
-                    const g = parseInt(hex.substring(3,5), 16);
-                    const b = parseInt(hex.substring(5,7), 16);
-                    if(p.on && (r>0||g>0||b>0)) await characteristic.writeValue(p.on);
-                    await characteristic.writeValue(p.write(r,g,b));
-                }
-            } catch(e) { console.error("BT Error", e); }
-        }
-
-        // --- AI GENERATOR ---
-        function openAiModal() {
-            document.getElementById('aiModal').style.display = 'flex';
-            const provider = localStorage.getItem('ai_provider') || 'openrouter';
-            document.getElementById('aiProvider').value = provider;
-            updateAiConfig();
-        }
-        
-        function updateAiConfig() {
-            const provider = document.getElementById('aiProvider').value;
-            const label = document.getElementById('apiKeyLabel');
-            const input = document.getElementById('apiKey');
-            
-            localStorage.setItem('ai_provider', provider);
-            
-            if(provider === 'openai') {
-                label.innerText = "OpenAI API Key:";
-                input.placeholder = "sk-proj-...";
-                input.value = localStorage.getItem('openai_key') || '';
-            } else {
-                label.innerText = "OpenRouter API Key:";
-                input.placeholder = "sk-or-v1-...";
-                input.value = localStorage.getItem('openrouter_key') || '';
-            }
-        }
-
-        function closeAiModal() {
-            document.getElementById('aiModal').style.display = 'none';
-        }
-        
-        function saveKey() {
-            const provider = document.getElementById('aiProvider').value;
-            const key = document.getElementById('apiKey').value;
-            if(provider === 'openai') localStorage.setItem('openai_key', key);
-            else localStorage.setItem('openrouter_key', key);
-        }
-
-        async function runAiGen() {
-            const provider = document.getElementById('aiProvider').value;
-            const key = document.getElementById('apiKey').value;
-            const userPrompt = document.getElementById('aiPrompt').value;
-            const status = document.getElementById('aiStatus');
-            const btn = document.getElementById('genBtn');
-            
-            if(!key) return alert("API Key required");
-            if(!userPrompt) return alert("Please describe the scene");
-            
-            status.innerText = "Generating...";
-            status.style.color = "#aaa";
-            btn.disabled = true;
-            
-            const systemPrompt = `
-            Act as a Lighting Designer. Audio Duration: ${Math.floor(audioDuration)}s.
-            Return ONLY a valid JSON array of events. No text.
-            Schema: { "time": float (seconds), "type": "color"|"flash"|"clash"|"off", "color": "#hex", "sound": "sfx1"|"sfx2"|"sfx3"|null, "desc": "string" }
-            "flash" = White burst. "off" = Blackout.
-            `;
-
-            let url, body, headers;
-            
-            if (provider === 'openai') {
-                url = 'https://api.openai.com/v1/chat/completions';
-                headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` };
-                body = JSON.stringify({
-                    model: "gpt-4o-mini",
-                    messages: [{role: "system", content: systemPrompt}, {role: "user", content: userPrompt}],
-                    temperature: 0.7,
-                    max_tokens: 1000
-                });
-            } else {
-                url = 'https://openrouter.ai/api/v1/chat/completions';
-                headers = {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${key}`,
-                    'HTTP-Referer': window.location.href,
-                    'X-Title': 'LightShowStudio'
-                };
-                body = JSON.stringify({
-                    model: NOLAN_MODEL,
-                    messages: [{role: "system", content: systemPrompt}, {role: "user", content: userPrompt}],
-                    temperature: 0.7,
-                    max_tokens: 1000
-                });
-            }
-
-            try {
-                // Timeout controller
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 45000); 
-
-                const response = await fetch(url, { 
-                    method: 'POST', 
-                    headers: headers, 
-                    body: body,
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    // Try to parse error json
-                    try {
-                        const errJson = JSON.parse(errText);
-                        throw new Error(errJson.error?.message || errText);
-                    } catch(e) {
-                        throw new Error(`API Error ${response.status}: ${errText}`);
-                    }
-                }
-
-                const data = await response.json();
-                
-                if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-                if(!data.choices || !data.choices.length) throw new Error("No choices returned. API response: " + JSON.stringify(data));
-                
-                let content = data.choices[0].message.content;
-                const jsonMatch = content.match(/\[[\s\S]*\]/);
-                if (jsonMatch) content = jsonMatch[0];
-                
-                const newEvents = JSON.parse(content);
-                
-                showEvents = newEvents.sort((a,b) => a.time - b.time);
-                showEvents.forEach(e => e.executed = false);
-                
-                renderScript();
-                closeAiModal();
-                btn.disabled = false;
-                document.getElementById('playBtn').disabled = false;
-
-            } catch(e) {
-                console.error(e);
-                status.innerText = "Error: " + e.message;
-                status.style.color = "#ef4444";
-                btn.disabled = false;
-            }
-        }
-
-        function renderScript() {
-            const container = document.getElementById('scriptView');
-            container.innerHTML = "";
-            showEvents.forEach((ev, i) => {
-                const div = document.createElement('div');
-                div.className = 'script-line';
-                div.id = 'line-'+i;
-                
-                let sfxBadge = ev.sound ? `<span style="color:var(--sfx-2)">[${ev.sound.toUpperCase()}]</span>` : "";
-                let colorBadge = ev.color ? `<span style="color:${ev.color}">●</span>` : "";
-                if(ev.type === 'flash') colorBadge = "⚡";
-                if(ev.type === 'off') colorBadge = "⚫";
-                
-                div.innerHTML = `
-                    <div class="script-time">${ev.time.toFixed(1)}s</div>
-                    <div class="script-action">${colorBadge} ${ev.desc} ${sfxBadge}</div>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        // --- PLAYBACK ENGINE ---
-        function togglePlay() {
-            if(isPlaying) stopShow();
-            else runShow();
-        }
-
-        function runShow() {
-            if(showEvents.length === 0) return alert("Generate or Load a show first!");
-            
-            isPlaying = true;
-            startTime = Date.now();
-            document.getElementById('playBtn').innerText = "Running...";
-            
-            // Start BG Music
-            playSound('bg');
-            
-            // Reset executed flags
-            showEvents.forEach(e => e.executed = false);
-            
-            loop();
-        }
-
-        function stopShow() {
-            isPlaying = false;
-            cancelAnimationFrame(animationFrame);
-            stopAllSound();
-            sendEvent({ type: 'off' }); 
-            document.getElementById('playBtn').innerText = "▶ Run Show";
-            document.querySelector('.progress-fill').style.width = "0%";
-            document.getElementById('timeDisplay').innerText = "0:00";
-        }
-
-        function loop() {
-            if(!isPlaying) return;
-            
-            const now = (Date.now() - startTime) / 1000;
-            const maxTime = showEvents[showEvents.length-1].time + 2;
-            
-            // Update UI
-            document.querySelector('.progress-fill').style.width = (now/maxTime)*100 + "%";
-            document.getElementById('timeDisplay').innerText = now.toFixed(1);
-            
-            // Trigger Events
-            showEvents.forEach((ev, i) => {
-                if (ev.time <= now && !ev.executed) {
-                    sendEvent(ev);
-                    if(ev.sound) playSound(ev.sound);
-                    ev.executed = true;
-                    
-                    document.querySelectorAll('.script-line').forEach(l => l.classList.remove('active'));
-                    const el = document.getElementById('line-'+i);
-                    if(el) {
-                        el.classList.add('active');
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
+            conn.on('data', (data) => {
+                // Handle commands from phone
+                if (data.cmd === 'setMode') {
+                    setLightMode(data.val);
+                } else if (data.cmd === 'log') {
+                    // Update Library
+                    library.modes[data.mode] = data.data;
+                    document.getElementById('libraryLog').value = JSON.stringify(library, null, 2);
                 }
             });
-            
-            if (now > maxTime) stopShow();
-            else animationFrame = requestAnimationFrame(loop);
         }
 
-        // --- BLUETOOTH CONNECT ---
-        async function connect() {
+        async function connectBluetooth() {
             try {
-                device = await navigator.bluetooth.requestDevice({
+                bleDevice = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
-                const server = await device.gatt.connect();
+                const server = await bleDevice.gatt.connect();
+                // Basic service scan
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
                 const charUUIDs = ['0000ffd9-0000-1000-8000-00805f9b34fb', '0000ffe9-0000-1000-8000-00805f9b34fb', '0000fff3-0000-1000-8000-00805f9b34fb'];
-                for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
+                for(let c of charUUIDs) { try{ bleChar = await service.getCharacteristic(c); break; }catch(e){} }
 
-                if(characteristic) {
-                    const badge = document.getElementById('connectionStatus');
-                    badge.innerText = "Connected";
-                    badge.classList.add('connected');
-                    document.getElementById('connectBtn').style.display = 'none';
-                    sendEvent({ type: 'off' });
+                if(bleChar) {
+                    const btn = document.getElementById('btConnectBtn');
+                    btn.innerText = "Connected to Light";
+                    btn.style.background = "#22c55e";
                 }
-            } catch(e) { alert("Error: " + e.message); }
+            } catch(e) { alert(e.message); }
         }
+
+        async function setLightMode(m) {
+            if(!bleChar) return;
+            const pIndex = document.getElementById('protocol').value;
+            try { await bleChar.writeValue(PROTOCOLS[pIndex].setMode(m)); } catch(e){}
+        }
+
+        function copyLog() {
+            const copyText = document.getElementById("libraryLog");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Copied!");
+        }
+
+
+        // --- CLIENT LOGIC ---
+        function initClient(hostId) {
+            document.getElementById('landing').style.display = 'none';
+            document.getElementById('clientUI').style.display = 'flex';
+
+            startCamera();
+
+            peer = new Peer();
+            peer.on('open', () => {
+                conn = peer.connect(hostId);
+                conn.on('open', () => {
+                    document.getElementById('hud').innerText = "Connected to Laptop";
+                    document.getElementById('hud').style.color = "#22c55e";
+                });
+            });
+        }
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const video = document.getElementById('video');
+                video.srcObject = stream;
+                requestAnimationFrame(analyzeLoop);
+            } catch(e) { alert("Camera Error: " + e.message); }
+        }
+
+        function manualNext() {
+            currentMode++;
+            if(conn) conn.send({ cmd: 'setMode', val: currentMode });
+            document.getElementById('hud').innerText = `Manual: Mode ${currentMode}`;
+        }
+
+        function toggleScan() {
+            isScanning = !isScanning;
+            const btn = document.getElementById('scanToggle');
+            if (isScanning) {
+                btn.innerText = "⏹ Stop Scan";
+                btn.style.background = "#ef4444";
+                runScanStep();
+            } else {
+                btn.innerText = "🤖 Auto-Scan";
+                btn.style.background = "#3b82f6";
+            }
+        }
+
+        function runScanStep() {
+            if(!isScanning) return;
+            
+            // 1. Tell Host to switch mode
+            if(conn) conn.send({ cmd: 'setMode', val: currentMode });
+            document.getElementById('hud').innerText = `Scanning Mode ${currentMode}...`;
+            
+            // 2. Clear buffer and wait
+            frameBuffer = [];
+            
+            // 3. Collect data for 2 seconds
+            setTimeout(async () => {
+                if(!isScanning) return;
+                
+                // 4. Analyze
+                const result = await analyzeBuffer(frameBuffer);
+                
+                // 5. Send result to Host
+                if(conn) conn.send({ cmd: 'log', mode: currentMode, data: result });
+                
+                // 6. Next
+                currentMode++;
+                runScanStep();
+                
+            }, 2500);
+        }
+
+
+        // --- V15 ANALYSIS ENGINE (Ported to Client) ---
+        function analyzeLoop() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('procCanvas');
+            const ctx = canvas.getContext('2d');
+            const dimmer = parseFloat(document.getElementById('exposure').value);
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = 160; canvas.height = 120;
+                ctx.drawImage(video, 0, 0, 160, 120);
+                
+                const stripW = Math.floor(160 * 0.1); 
+                const stripX = Math.floor((160 - stripW) / 2);
+                const stripH = Math.floor(120 * 0.8);
+                const stripY = Math.floor(120 * 0.1);
+                const segmentH = Math.floor(stripH / SEGMENTS);
+                
+                const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
+                let rawColors = [];
+
+                for(let i=0; i<SEGMENTS; i++) {
+                    let rTot=0, gTot=0, bTot=0, count=0;
+                    const startY = i * segmentH;
+                    const endY = startY + segmentH;
+                    for(let y=startY; y<endY; y+=2) { 
+                        for(let x=0; x<stripW; x+=2) {
+                            const idx = (y * stripW + x) * 4;
+                            if (idx < stripData.data.length) {
+                                rTot += stripData.data[idx];
+                                gTot += stripData.data[idx+1];
+                                bTot += stripData.data[idx+2];
+                                count++;
+                            }
+                        }
+                    }
+                    // Apply Dimmer
+                    rawColors.push({
+                        r: Math.floor((rTot/count)*dimmer),
+                        g: Math.floor((gTot/count)*dimmer),
+                        b: Math.floor((bTot/count)*dimmer)
+                    });
+                }
+                
+                if(isScanning) frameBuffer.push(rawColors);
+            }
+            requestAnimationFrame(analyzeLoop);
+        }
+
+        function rgbToHex(r, g, b) {
+            return "#" + [r, g, b].map(x => {
+                const hex = Math.min(255, Math.max(0, x)).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            }).join('');
+        }
+        
+        // HSL & Color Naming (Simplified for brevity)
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            if (max === min) h = s = 0;
+            else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h * 360, s, l];
+        }
+
+        function getColorName(r, g, b) {
+            const [h, s, l] = rgbToHsl(r, g, b);
+            if (l < 0.1) return "Off";
+            if (s < 0.15) return "White";
+            if (h >= 340 || h <= 15) return "Red";
+            if (h > 15 && h <= 45) return "Orange";
+            if (h > 45 && h <= 75) return "Yellow";
+            if (h > 75 && h <= 165) return "Green";
+            if (h > 165 && h <= 200) return "Cyan";
+            if (h > 200 && h <= 270) return "Blue";
+            if (h > 270 && h <= 340) return "Purple";
+            return "Mix";
+        }
+
+        async function analyzeBuffer(frames) {
+            if(frames.length < 5) return { hex: "#000", motion: "NO DATA", type: "Unknown" };
+            
+            const midF = frames[Math.floor(frames.length/2)];
+            
+            // Dominant Hex
+            let rSum=0, gSum=0, bSum=0, count=0;
+            midF.forEach(p => { if(p.r+p.g+p.b > 40) { rSum+=p.r; gSum+=p.g; bSum+=p.b; count++; }});
+            const hex = count>0 ? rgbToHex(Math.round(rSum/count), Math.round(gSum/count), Math.round(bSum/count)) : "#000000";
+            
+            // Motion
+            let totalDiff=0, upScore=0, downScore=0;
+            for(let t=1; t<frames.length; t++) {
+                const prev = frames[t-1];
+                const curr = frames[t];
+                
+                let diffStatic=0, diffUp=0, diffDown=0;
+                for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
+                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
+                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                
+                totalDiff += diffStatic;
+                if(diffUp < diffStatic) upScore++;
+                if(diffDown < diffStatic) downScore++;
+            }
+            
+            let motion = "STATIC";
+            if(totalDiff > 1000) {
+                if(upScore > downScore && upScore > frames.length/4) motion = "UP";
+                else if(downScore > upScore && downScore > frames.length/4) motion = "DOWN";
+                else motion = "RANDOM";
+            }
+            
+            // Type
+            const colors = new Set(midF.map(p => getColorName(p.r, p.g, p.b)).filter(c=>c!=='Off'));
+            let type = colors.size > 1 ? "Multicolor" : "Solid";
+            if(motion === "UP" || motion === "DOWN") type = "Chase";
+            if(motion === "RANDOM") type = "Flash/Sparkle";
+
+            return { hex: hex, motion: motion, type: type };
+        }
+
     </script>
 </body>
 </html>
