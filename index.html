@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Screen Sync</title>
+    <title>Universal Screen Sync v2</title>
     <style>
         :root {
             --bg: #050505;
@@ -33,7 +33,11 @@
         }
 
         h1 { margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 2px; font-size: 1.5rem; background: linear-gradient(90deg, #f00, #fff, #00f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-        p { color: #888; margin-bottom: 30px; font-size: 0.9rem; }
+        
+        /* VIDEO ELEMENT (Must be visible to render, but hidden from view) */
+        #captureVideo {
+            position: fixed; bottom: 0; right: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; z-index: -1;
+        }
 
         /* MAIN PREVIEW AREA */
         .preview-box {
@@ -47,7 +51,15 @@
             gap: 15px;
             margin-bottom: 20px;
             box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            position: relative;
         }
+        
+        .signal-light {
+            position: absolute; top: 15px; right: 15px;
+            font-size: 0.7rem; color: #666; display: flex; align-items: center; gap: 5px;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; }
+        .dot.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
         
         canvas {
             width: 100%;
@@ -126,7 +138,7 @@
     <div id="overlay-flash"></div>
 
     <div class="container">
-        <h1>Universal Screen Sync</h1>
+        <h1>Universal Screen Sync v2</h1>
         
         <div class="instructions">
             <strong>How to use:</strong><br>
@@ -137,6 +149,7 @@
         </div>
 
         <div class="preview-box">
+            <div class="signal-light"><div class="dot" id="signalDot"></div> Video Signal</div>
             <canvas id="analysisCanvas"></canvas>
             
             <div style="width:100%; display:flex; flex-direction:column; gap:8px;">
@@ -156,9 +169,9 @@
                 
                 <label>Protocol</label>
                 <select id="protocol">
-                    <option value="1">Lotus/Keepsmile</option>
-                    <option value="0">ELK-BLEDOM</option>
-                    <option value="2">Triones</option>
+                    <option value="1">Protocol: Lotus/Keepsmile</option>
+                    <option value="0">Protocol: ELK-BLEDOM</option>
+                    <option value="2">Protocol: Triones</option>
                 </select>
                 <button class="connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
             </div>
@@ -177,8 +190,8 @@
         </div>
     </div>
 
-    <!-- Hidden Video Element for Capture -->
-    <video id="captureVideo" autoplay playsinline muted style="display:none;"></video>
+    <!-- Video Element for Capture (Kept in DOM but invisible) -->
+    <video id="captureVideo" autoplay playsinline muted></video>
 
     <script>
         // --- CONSTANTS ---
@@ -205,6 +218,7 @@
                 
                 const video = document.getElementById('captureVideo');
                 video.srcObject = stream;
+                video.play(); // Force play
                 
                 isSyncing = true;
                 document.getElementById('syncBtn').innerText = "Running... (Switch Tab)";
@@ -213,6 +227,7 @@
                 stream.getVideoTracks()[0].onended = () => {
                     isSyncing = false;
                     document.getElementById('syncBtn').innerText = "👁️ Start Screen Sync";
+                    document.getElementById('signalDot').classList.remove('active');
                 };
             } catch(e) {
                 console.error(e);
@@ -227,8 +242,11 @@
             const video = document.getElementById('captureVideo');
             const canvas = document.getElementById('analysisCanvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const dot = document.getElementById('signalDot');
             
             if(video.readyState === video.HAVE_ENOUGH_DATA) {
+                dot.classList.add('active'); // Signal OK
+                
                 // Downsample for performance (50x50px is enough for ambient light)
                 canvas.width = 50;
                 canvas.height = 50;
@@ -258,7 +276,7 @@
                     if(bri > wThresh) { whitePixels++; wCount++; }
 
                     // Only count "glowing" pixels (ignore dark background)
-                    if (bri > 40) { 
+                    if (bri > 30) {  // Lowered threshold to 30 for dark scenes
                         rTot += r; gTot += g; bTot += b;
                         activePixels++;
                         
@@ -270,33 +288,31 @@
                 const pixelCount = frame.length / 4;
                 
                 // Update Meters
-                document.getElementById('meterR').style.width = Math.min(100, (rCount/activePixels)*100) + "%";
-                document.getElementById('meterB').style.width = Math.min(100, (bCount/activePixels)*100) + "%";
+                const safeActive = activePixels || 1; // Prevent div/0
+                document.getElementById('meterR').style.width = Math.min(100, (rCount/safeActive)*100) + "%";
+                document.getElementById('meterB').style.width = Math.min(100, (bCount/safeActive)*100) + "%";
                 document.getElementById('meterW').style.width = Math.min(100, (whitePixels/pixelCount)*1000) + "%";
                 
                 let sendR = 0, sendG = 0, sendB = 0;
                 
                 // 1. CLASH DETECT (White Flash)
-                // If max brightness is high AND significant white pixels exist
-                if (maxBri >= 250 && whitePixels > (pixelCount * 0.01)) { // 1% white is enough for a saber clash
+                if (maxBri >= 250 && whitePixels > (pixelCount * 0.01)) { 
                      sendR = 255; sendG = 255; sendB = 255;
                      document.getElementById('overlay-flash').style.opacity = 0.5;
                      setTimeout(()=>document.getElementById('overlay-flash').style.opacity=0, 50);
                 } 
                 // 2. COLOR AVERAGE
                 else if (activePixels > 0) {
-                     // Calculate average of lit pixels
                      const avgR = rTot / activePixels;
                      const avgG = gTot / activePixels;
                      const avgB = bTot / activePixels;
                      
-                     // Apply Gain (Boost)
+                     // Apply Gain
                      sendR = Math.min(255, avgR * gain);
                      sendG = Math.min(255, avgG * gain);
                      sendB = Math.min(255, avgB * gain);
                 }
                 
-                // Snap to integer
                 sendR = Math.floor(sendR);
                 sendG = Math.floor(sendG);
                 sendB = Math.floor(sendB);
@@ -307,13 +323,14 @@
                 // SEND BLUETOOTH
                 const now = Date.now();
                 if (now - lastSentTime > UPDATE_INTERVAL) {
-                    // Send if color changed > 5 units
                     if (Math.abs(sendR - lastSent.r) > 5 || Math.abs(sendG - lastSent.g) > 5 || Math.abs(sendB - lastSent.b) > 5) {
                         sendToLight(sendR, sendG, sendB);
                         lastSent = { r: sendR, g: sendG, b: sendB };
                         lastSentTime = now;
                     }
                 }
+            } else {
+                dot.classList.remove('active'); // No Signal
             }
             
             requestAnimationFrame(analyzeLoop);
@@ -326,12 +343,10 @@
             
             try {
                 if (r < 10 && g < 10 && b < 10) {
-                    // Only send OFF if we weren't already OFF to save bandwidth
                     if (lastSent.r >= 10 || lastSent.g >= 10 || lastSent.b >= 10) {
                         await characteristic.writeValue(p.off);
                     }
                 } else {
-                    // Auto-Wake if starting from black
                     if ((lastSent.r < 10 && lastSent.g < 10 && lastSent.b < 10) && p.on) {
                          await characteristic.writeValue(p.on);
                     }
@@ -349,7 +364,7 @@
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
                 const server = await device.gatt.connect();
-                // Find service
+                
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
@@ -362,8 +377,8 @@
                     btn.innerText = "Connected";
                     btn.style.backgroundColor = "#22c55e";
                     btn.style.color = "white";
+                    document.getElementById('syncBtn').disabled = false;
                     
-                    // Initial ON then OFF
                     const pid = document.getElementById('protocol').value;
                     const p = PROTOCOLS[pid];
                     if(p.on) await characteristic.writeValue(p.on);
