@@ -3,513 +3,325 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v22 (Index Fix)</title>
+    <title>AI FX Studio v12 (Custom Data)</title>
     <style>
         :root {
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --text: #f1f5f9;
-            --accent: #3b82f6;
-            --success: #22c55e;
+            --bg: #09090b;
+            --panel: #18181b;
+            --border: #27272a;
+            --text: #e4e4e7;
+            --accent: #8b5cf6;
+            --success: #10b981;
             --danger: #ef4444;
+            --sfx-1: #3b82f6;
+            --sfx-2: #f59e0b;
+            --sfx-3: #ec4899;
         }
 
         body {
-            font-family: monospace;
-            background: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
             color: var(--text);
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
-            margin: 0;
             min-height: 100vh;
         }
 
-        .container {
-            display: grid;
-            grid-template-columns: 1.5fr 1fr;
-            gap: 20px;
-            width: 100%;
-            max-width: 1200px;
-        }
+        .app-container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 20px; }
 
-        .panel {
-            background: var(--panel);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #334155;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        /* VIDEO */
-        .video-wrapper {
-            position: relative;
-            background: black;
-            border-radius: 8px;
-            overflow: hidden;
-            aspect-ratio: 4/3; 
-        }
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.8;
-        }
-        canvas#overlayCanvas {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-        }
-        #analysisText {
-            position: absolute; top: 10px; left: 10px;
-            background: rgba(0,0,0,0.8); padding: 5px;
-            color: #0f0; font-size: 0.8rem; pointer-events: none;
-            white-space: pre-wrap;
-        }
-
-        /* CONTROLS */
-        button {
-            padding: 12px; border: none; border-radius: 6px; cursor: pointer;
-            font-weight: bold; background: #334155; color: white;
-            transition: 0.2s; font-family: inherit;
-        }
-        button:hover { filter: brightness(1.2); }
-        button.primary { background: var(--accent); }
-        button.success { background: var(--success); }
-        button.danger { background: var(--danger); }
-
-        select, input {
-            background: #020617; color: white; border: 1px solid #475569;
-            padding: 10px; border-radius: 6px; width: 100%; box-sizing: border-box;
-        }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.5px; background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
         
-        .range-row { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; }
-        input[type="range"] { flex: 1; accent-color: var(--accent); }
+        .status-badge { font-size: 0.75rem; background: #27272a; padding: 4px 8px; border-radius: 4px; color: #71717a; border: 1px solid #3f3f46; }
+        .status-badge.connected { color: var(--success); border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.1); }
+
+        .section { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+        .section-title { margin: 0 0 15px 0; font-size: 0.9rem; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .audio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .file-upload {
+            position: relative; background: #27272a; border: 1px dashed #52525b; border-radius: 8px; padding: 12px;
+            text-align: center; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center;
+            gap: 8px; font-size: 0.85rem; color: #a1a1aa;
+        }
+        .file-upload:hover { border-color: var(--text); color: var(--text); background: #3f3f46; }
+        .file-upload.loaded { border-style: solid; background: rgba(255,255,255,0.05); }
+        .file-upload input { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
 
         textarea {
-            flex: 1;
-            background: #020617; color: #0f0;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            padding: 10px;
-            resize: none;
-            font-size: 0.8rem;
-            min-height: 300px;
-            line-height: 1.4;
+            width: 100%; height: 80px; background: #000; border: 1px solid var(--border); border-radius: 8px;
+            color: var(--text); padding: 12px; font-family: inherit; resize: vertical; box-sizing: border-box; margin-bottom: 10px;
         }
-        
-        .ai-config { border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px; font-size: 0.8rem; color: #aaa; }
+        textarea:focus { outline: none; border-color: var(--accent); }
+
+        button {
+            padding: 12px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.95rem;
+        }
+        button:hover { filter: brightness(1.2); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-gen { background: var(--accent); color: white; width: 100%; }
+        .btn-play { background: var(--success); color: black; flex: 2; font-size: 1.1rem;}
+        .btn-stop { background: var(--danger); color: white; flex: 1; }
+        .btn-connect { background: #3f3f46; color: white; padding: 6px 12px; font-size: 0.8rem; }
+        .btn-battle { background: #eab308; color: black; width: 100%; margin-top: 10px; }
+
+        .script-view {
+            background: #000; border: 1px solid var(--border); border-radius: 8px; height: 200px; overflow-y: auto;
+            padding: 10px; font-family: monospace; font-size: 0.8rem; color: #a1a1aa;
+        }
+        .script-line { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid #222; }
+        .script-time { color: var(--accent); min-width: 50px; }
+        .script-line.active { background: rgba(255,255,255,0.1); color: white; }
+
+        .progress-bar { height: 4px; width: 100%; background: #27272a; margin-top: 20px; border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; background: var(--success); transition: width 0.1s linear; }
+        .control-row { display: flex; gap: 10px; margin-top: 10px; }
+
     </style>
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Index Fix)</h1>
-
-    <div class="container">
-        <!-- LEFT: VISION -->
-        <div class="panel">
-            <div class="video-wrapper">
-                <video id="video" autoplay playsinline muted></video>
-                <canvas id="overlayCanvas"></canvas>
-                <div id="analysisText">Waiting for camera...</div>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h1>AI FX Studio</h1>
+                <div id="connectionStatus" class="status-badge">Disconnected</div>
             </div>
-            
-            <div class="range-row">
-                <span>Exposure:</span>
-                <input type="range" id="exposureRange" min="-10" max="0" step="1" value="0" disabled oninput="updateExposure(this.value)">
-                <span id="expVal">Auto</span>
-            </div>
-            <div style="font-size:0.7rem; color:#aaa;">Slide LEFT to darken video so colors are visible.</div>
-
-            <button onclick="startCamera()">📷 Start Camera</button>
-        </div>
-
-        <!-- RIGHT: CONTROLS -->
-        <div class="panel">
-            <div style="display: flex; gap: 10px;">
-                <select id="protocol">
-                    <option value="1">Lotus (Keepsmile)</option>
-                    <option value="0">ELK (Standard)</option>
+            <div style="display:flex; gap:10px;">
+                <select id="protocolSelect" style="background:#27272a; color:#fff; border:1px solid #3f3f46; border-radius:6px; padding:5px;">
+                    <option value="1">Lotus/Keepsmile</option>
+                    <option value="0">ELK-BLEDOM</option>
                     <option value="2">Triones</option>
                 </select>
-                <button class="primary" id="connectBtn">Connect</button>
+                <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect</button>
             </div>
-            <div id="status" style="font-size:0.8rem; color:#666;">Disconnected</div>
+        </header>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <label style="font-size:0.7rem;">Start Mode</label>
-                    <input type="number" id="startMode" value="1" min="1" max="200">
-                </div>
-                <div>
-                    <label style="font-size:0.7rem;">End Mode</label>
-                    <input type="number" id="endMode" value="50" min="1" max="200">
-                </div>
+        <!-- 1. AUDIO ASSETS -->
+        <div class="section">
+            <h2 class="section-title">1. Upload Assets</h2>
+            <div class="audio-grid">
+                <label class="file-upload" id="lbl-bg">🎵 Backing Track <input type="file" accept="audio/*" onchange="loadAudio('bg', this)"></label>
+                <label class="file-upload sfx1" id="lbl-sfx1">🔵 SFX 1 (Ignite) <input type="file" accept="audio/*" onchange="loadAudio('sfx1', this)"></label>
+                <label class="file-upload sfx2" id="lbl-sfx2">💥 SFX 2 (Clash) <input type="file" accept="audio/*" onchange="loadAudio('sfx2', this)"></label>
+                <label class="file-upload sfx3" id="lbl-sfx3">⬇️ SFX 3 (Retract) <input type="file" accept="audio/*" onchange="loadAudio('sfx3', this)"></label>
+            </div>
+        </div>
+
+        <!-- 2. AI GENERATOR -->
+        <div class="section">
+            <h2 class="section-title">2. Choreography</h2>
+            <p style="font-size:0.8rem; color:#aaa; margin-top:0;">Using Scanned Library (200 Modes) for precise control.</p>
+            
+            <!-- AI Prompt (Optional) -->
+            <div style="display:none;">
+                <input type="password" id="apiKey" placeholder="OpenRouter API Key">
+                <textarea id="promptInput" placeholder="Describe..."></textarea>
+                <button class="btn-gen" onclick="generateShow()">✨ Generate with AI</button>
             </div>
             
-            <div class="ai-config">
-                <label><input type="checkbox" id="useAi"> Use DeepSeek AI (Optional)</label>
-                <input type="password" id="apiKey" placeholder="OpenRouter API Key" style="display:none; margin-top:5px;">
-            </div>
+            <button class="btn-battle" onclick="generateStarWars()">⚔️ Generate Star Wars Battle (Using Scanned Data)</button>
+        </div>
 
-            <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Scan</button>
+        <!-- 3. PLAYBACK -->
+        <div class="section">
+            <h2 class="section-title">3. Run Show</h2>
+            <div class="script-view" id="scriptView">
+                <div style="text-align:center; padding-top:80px; color:#444;">Script will appear here...</div>
+            </div>
             
-            <textarea id="log" readonly>// Console Log:
-</textarea>
-            <button onclick="copyLibrary()">Copy Final JSON</button>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div style="text-align:right; font-size:0.8rem; color:#666; margin-top:5px;" id="timeDisplay">0:00</div>
+
+            <div class="control-row">
+                <button class="btn-play" id="playBtn" onclick="togglePlay()" disabled>▶ Run Show</button>
+                <button class="btn-stop" onclick="stopShow()">⏹ Reset</button>
+            </div>
         </div>
     </div>
 
-    <canvas id="procCanvas" style="display:none;"></canvas>
-
     <script>
+        // --- CONSTANTS ---
         const PROTOCOLS = [
-            { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
-            { name: "lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
-            { name: "triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
+            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
+            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
+            { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
         ];
 
-        const SEGMENTS = 10;
-        let device, characteristic, stream, track;
-        let isScanning = false;
-        let currentMode = 1;
-        let frameBuffer = [];
-        let detectedLibrary = { modes: {} };
+        // --- YOUR SCANNED LIBRARY ---
+        const LIBRARY = {
+            "196": "Blackout/Off",
+            "198": "Blackout/Off",
+            "80": "Solid Red (Vader)",
+            "90": "Solid Red (Alt)",
+            "58": "Solid Red (Alt)",
+            "89": "Red Random/Flash (Vader Action)",
+            "77": "Solid Blue (Obi)",
+            "53": "Blue Random/Flash (Obi Action)",
+            "161": "White Random/Flash (Clash)",
+            "180": "Solid White",
+            "45": "Red/Blue Gradient (Lockup)"
+        };
 
-        // --- LOGGER ---
-        function appendLog(msg) {
-            const log = document.getElementById('log');
-            log.value += `> ${msg}\n`;
-            log.scrollTop = log.scrollHeight;
-        }
+        // --- STATE ---
+        let characteristic;
+        let audioBuffers = { bg: null, sfx1: null, sfx2: null, sfx3: null };
+        let showEvents = [];
+        let isPlaying = false;
+        let startTime = 0;
+        let animationFrame;
+        let audioDuration = 60;
 
-        // --- CAMERA ---
-        document.getElementById('useAi').addEventListener('change', (e) => {
-            document.getElementById('apiKey').style.display = e.target.checked ? 'block' : 'none';
-        });
-
-        async function startCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-                const video = document.getElementById('video');
-                video.srcObject = stream;
-                
-                track = stream.getVideoTracks()[0];
-                const caps = track.getCapabilities();
-                const slider = document.getElementById('exposureRange');
-                
-                if (caps.exposureCompensation) {
-                    slider.min = caps.exposureCompensation.min;
-                    slider.max = caps.exposureCompensation.max;
-                    slider.step = caps.exposureCompensation.step;
-                    slider.disabled = false;
-                    document.getElementById('expVal').innerText = slider.value;
-                }
-                appendLog("Camera started.");
-                requestAnimationFrame(analyzeLoop);
-            } catch(e) { alert("Camera Error: " + e.message); }
-        }
-
-        async function updateExposure(val) {
-            if(track) await track.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(val) }] });
-            document.getElementById('expVal').innerText = val;
-        }
-
-        // --- VISION ENGINE ---
-        function rgbToHsl(r, g, b) {
-            r/=255; g/=255; b/=255;
-            const max=Math.max(r,g,b), min=Math.min(r,g,b);
-            let h,s,l=(max+min)/2;
-            if(max===min) h=s=0;
-            else {
-                const d=max-min;
-                s=l>0.5?d/(2-max-min):d/(max+min);
-                switch(max){ case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; case b: h=(r-g)/d+4; break; }
-                h/=6;
+        // --- AUDIO ENGINE ---
+        function loadAudio(slot, input) {
+            const file = input.files[0];
+            if(!file) return;
+            const url = URL.createObjectURL(file);
+            audioBuffers[slot] = new Audio(url);
+            if(slot === 'bg') {
+                audioBuffers[slot].addEventListener('loadedmetadata', function() { audioDuration = audioBuffers[slot].duration; });
             }
-            return [h*360,s,l];
+            document.getElementById('lbl-'+slot).classList.add('loaded');
         }
 
-        function getColorName(r,g,b) {
-            const minC = Math.min(r,g,b);
-            let br=r-(minC*0.8), bg=g-(minC*0.8), bb=b-(minC*0.8);
-            const [h,s,l] = rgbToHsl(br, bg, bb);
-            
-            if (l < 0.1) return "Off";
-            if (s < 0.15) return "White"; 
-            
-            if (h>=340 || h<=15) return "Red";
-            if (h>15 && h<=45) return "Orange";
-            if (h>45 && h<=75) return "Yellow";
-            if (h>75 && h<=165) return "Green";
-            if (h>165 && h<=200) return "Cyan";
-            if (h>200 && h<=270) return "Blue";
-            if (h>270 && h<=340) return "Purple";
-            return "Mix";
-        }
-
-        function rgbToHex(r,g,b) {
-            return "#" + [r,g,b].map(x=>{
-                const hex = Math.min(255,Math.max(0,x)).toString(16);
-                return hex.length===1?'0'+hex:hex;
-            }).join('');
-        }
-
-        function analyzeLoop() {
-            if(!stream) return;
-            const video = document.getElementById('video');
-            const procCanvas = document.getElementById('procCanvas');
-            const overlayCanvas = document.getElementById('overlayCanvas');
-            const ctx = procCanvas.getContext('2d');
-            const oCtx = overlayCanvas.getContext('2d');
-
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                procCanvas.width = 160; procCanvas.height = 120;
-                overlayCanvas.width = video.clientWidth; overlayCanvas.height = video.clientHeight;
-                ctx.drawImage(video, 0, 0, 160, 120);
-                oCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
-
-                const stripW = Math.floor(160 * 0.1); 
-                const stripX = Math.floor((160 - stripW) / 2);
-                const stripH = Math.floor(120 * 0.8);
-                const stripY = Math.floor(120 * 0.1);
-                const segH = Math.floor(stripH / SEGMENTS);
-                const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
-
-                const scaleX = overlayCanvas.width / 160;
-                const scaleY = overlayCanvas.height / 120;
-
-                let rawFrame = [];
-                let segColors = [];
-
-                for(let i=0; i<SEGMENTS; i++) {
-                    let rTot=0, gTot=0, bTot=0, c=0;
-                    const startY = i * segH;
-                    const endY = startY + segH;
-                    
-                    for(let y=startY; y<endY; y+=2) {
-                        for(let x=0; x<stripW; x+=2) {
-                            const idx = (y * stripW + x) * 4;
-                            if(idx < stripData.data.length) {
-                                rTot+=stripData.data[idx]; gTot+=stripData.data[idx+1]; bTot+=stripData.data[idx+2]; c++;
-                            }
-                        }
-                    }
-                    
-                    const r = Math.floor(rTot/c)||0;
-                    const g = Math.floor(gTot/c)||0;
-                    const b = Math.floor(bTot/c)||0;
-                    
-                    rawFrame.push({r,g,b});
-                    segColors.push(getColorName(r,g,b));
-
-                    const boxX = (stripX + (stripW/2)) * scaleX;
-                    const boxY = (stripY + i * segH) * scaleY;
-                    const boxW = stripW * scaleX * 2;
-                    const boxH = segH * scaleY;
-                    
-                    oCtx.fillStyle = `rgb(${r},${g},${b})`;
-                    oCtx.globalAlpha = 0.6;
-                    oCtx.fillRect(boxX - (boxW/2), boxY, boxW, boxH-2);
-                    oCtx.globalAlpha = 1.0;
-                    oCtx.strokeStyle = "rgba(255,255,255,0.5)";
-                    oCtx.strokeRect(boxX - (boxW/2), boxY, boxW, boxH-2);
-                }
-
-                if(isScanning) frameBuffer.push(rawFrame);
-                document.getElementById('analysisText').innerText = `Top: ${segColors[0]}\nMid: ${segColors[4]}\nBot: ${segColors[9]}`;
-            }
-            requestAnimationFrame(analyzeLoop);
-        }
-
-        // --- SCANNER ---
-        function toggleScan() {
-            if(isScanning) {
-                isScanning = false;
-                document.getElementById('scanBtn').innerText = "🤖 Start Auto-Scan";
-                document.getElementById('scanBtn').classList.remove('danger');
-            } else {
-                if(!characteristic) return alert("Connect light first!");
-                if(!stream) return alert("Start camera first!");
-                
-                isScanning = true;
-                document.getElementById('scanBtn').innerText = "⏹ Stop";
-                document.getElementById('scanBtn').classList.add('danger');
-                currentMode = parseInt(document.getElementById('startMode').value);
-                detectedLibrary = { modes: {} };
-                appendLog(`Started Scan: Mode ${currentMode} to ${document.getElementById('endMode').value}`);
-                performScanStep();
-            }
-        }
-
-        function performScanStep() {
-            if(!isScanning) return;
-            const end = parseInt(document.getElementById('endMode').value);
-            frameBuffer = [];
-            
-            appendLog(`Setting Mode ${currentMode}...`);
-            
-            // Set Mode
-            const pid = document.getElementById('protocol').value;
-            try {
-                characteristic.writeValue(PROTOCOLS[pid].setMode(currentMode)).catch(e => appendLog("BT Error: " + e.message));
-            } catch(err) { appendLog("Protocol Error: " + err); }
-            
-            // Wait 3s
-            setTimeout(async () => {
-                if(!isScanning) return;
-                
-                appendLog(`Analyzing Mode ${currentMode} (${frameBuffer.length} frames)...`);
-                
-                try {
-                    const result = await analyzeBuffer(frameBuffer);
-                    detectedLibrary.modes[currentMode] = result;
-                    appendLog(`--> Result: ${result.desc}`);
-                } catch(err) {
-                    appendLog("Analysis Failed: " + err.message);
-                    detectedLibrary.modes[currentMode] = { hex: "#000", desc: "Analysis Error", motion: "ERROR", type: "Error" };
-                }
-
-                currentMode++;
-                if(currentMode <= end) {
-                    performScanStep();
-                } else {
-                    toggleScan();
-                    appendLog("SCAN COMPLETE! Copy the library below.");
-                }
-            }, 3000);
-        }
-
-        async function analyzeBuffer(frames) {
-            if(!frames || frames.length < 5) return { hex: "#000", desc: "No Video Data", motion: "NO DATA", type: "Unknown" };
-            
-            const midF = frames[Math.floor(frames.length/2)];
-            
-            // 1. Dominant Color (Middle Frame)
-            const topC = getColorName(midF[0].r, midF[0].g, midF[0].b);
-            const midC = getColorName(midF[4].r, midF[4].g, midF[4].b);
-            const botC = getColorName(midF[9].r, midF[9].g, midF[9].b);
-            
-            // Collect all unique
-            const allColors = new Set();
-            midF.forEach(p => { const n = getColorName(p.r,p.g,p.b); if(n!=='Off') allColors.add(n); });
-            const colorList = Array.from(allColors);
-
-            // Calc Hex
-            let maxBri=0, hex="#000000";
-            midF.forEach(p => {
-                if(p.r+p.g+p.b > maxBri) { maxBri = p.r+p.g+p.b; hex = rgbToHex(p.r,p.g,p.b); }
-            });
-
-            // 2. Motion Tracking
-            let upScore=0, downScore=0, totalDiff=0;
-            
-            for(let t=1; t<frames.length; t++) {
-                const prev = frames[t-1];
-                const curr = frames[t];
-                
-                if (!prev || !curr) continue; // Safety check
-
-                let diffStatic=0, diffUp=0, diffDown=0;
-                
-                // Static: i vs i
-                for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
-                
-                // Up: Content moves from i+1 to i (Visual Upward Flow)
-                // Curr[0] matches Prev[1]
-                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
-                
-                // Down: Content moves from i-1 to i (Visual Downward Flow)
-                // Curr[1] matches Prev[0]
-                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
-                
-                totalDiff += diffStatic;
-                if(diffUp < diffStatic) upScore++;
-                if(diffDown < diffStatic) downScore++;
-            }
-            
-            let motion = "Static";
-            const litStart = countLitPixels(frames[0]);
-            const litEnd = countLitPixels(frames[frames.length-1]);
-            
-            if (litEnd > litStart + 2) motion = "Filling UP";
-            else if (litEnd < litStart - 2) motion = "Draining DOWN";
-            else if (totalDiff > 1000) {
-                if (upScore > downScore && upScore > frames.length/4) motion = "Flowing UP";
-                else if (downScore > upScore && downScore > frames.length/4) motion = "Flowing DOWN";
-                else motion = "Random/Flash";
-            }
-
-            // 3. Construct Description
-            let desc = "";
-            let type = "Solid";
-
-            if (colorList.length === 0) {
-                desc = "Blackout/Off";
-                type = "Off";
-            } else if (colorList.length === 1) {
-                desc = `Solid ${colorList[0]}`;
-                if(motion !== "Static") desc = `${colorList[0]} ${motion}`;
-            } else {
-                // Multi
-                type = "Multicolor";
-                if(colorList.includes("Red") && colorList.includes("Blue") && colorList.includes("Green")) {
-                    desc = `Rainbow ${motion}`;
-                } else if (topC !== botC) {
-                    desc = `${botC}-to-${topC} Gradient ${motion}`;
-                } else {
-                    desc = `${colorList.slice(0,3).join("/")} ${motion}`;
-                }
-            }
-
-            // AI Override
-            const useAi = document.getElementById('useAi').checked;
-            const apiKey = document.getElementById('apiKey').value;
-            if(useAi && apiKey) {
-                try {
-                    const controller = new AbortController();
-                    const id = setTimeout(() => controller.abort(), 5000); 
-                    const aiDesc = await getAiDescription(frames, apiKey, controller.signal);
-                    clearTimeout(id);
-                    if(aiDesc) desc = aiDesc;
-                } catch(e) { appendLog("AI Timeout/Error: " + e.message); }
-            }
-
-            return { hex: hex, desc: desc, type: type, motion: motion };
+        function playSound(slot) {
+            const audio = audioBuffers[slot];
+            if(audio) { audio.currentTime = 0; audio.play().catch(e=>{}); }
         }
         
-        function countLitPixels(f) {
-            let count = 0;
-            f.forEach(p => { if(p.r+p.g+p.b > 60) count++; });
-            return count;
+        function stopAllSound() {
+            Object.values(audioBuffers).forEach(a => { if(a) { a.pause(); a.currentTime = 0; } });
         }
-        
-        async function getAiDescription(frames, key, signal) {
-            const snap = [0, 0.5, 1].map(p => {
-                const f = frames[Math.floor(p * (frames.length-1))];
-                return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
-            });
-            const prompt = `LED Strip T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe motion/texture. Max 3 words.`;
+
+        // --- LIGHT CONTROL ---
+        async function sendEvent(ev) {
+            if(!characteristic) return;
+            const pid = document.getElementById('protocolSelect').value;
+            const p = PROTOCOLS[pid];
+
             try {
-                const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                    body: JSON.stringify({
-                        model: "deepseek/deepseek-chat",
-                        messages: [{role: "user", content: prompt}],
-                        max_tokens: 10
-                    }),
-                    signal: signal
-                });
-                const data = await res.json();
-                return data.choices[0].message.content.trim();
-            } catch(e) { throw e; }
+                if (ev.type === 'off') {
+                    await characteristic.writeValue(p.off);
+                } else if (ev.type === 'mode') {
+                    if(p.on) await characteristic.writeValue(p.on);
+                    await characteristic.writeValue(p.setMode(ev.val));
+                }
+            } catch(e) { console.error("BT Error", e); }
+        }
+
+        // --- SMART GENERATOR ---
+        function generateStarWars() {
+            const events = [];
+            let t = 0;
+            const dur = Math.floor(audioDuration);
+            
+            // 1. Intro (Silence)
+            events.push({ time: 0, type: 'off', desc: "Silence" });
+            t += 5;
+
+            // 2. Vader Ignites
+            events.push({ time: t, type: 'mode', val: 80, sound: 'sfx1', desc: "Vader Ignite (Red)" });
+            t += 3;
+
+            // 3. Obi Ignites
+            events.push({ time: t, type: 'mode', val: 77, sound: 'sfx1', desc: "Obi Ignite (Blue)" });
+            t += 3;
+
+            // 4. Battle Loop
+            const battleEnd = dur - 5;
+            while(t < battleEnd) {
+                const action = Math.random();
+                
+                if(action < 0.3) {
+                    // Clash
+                    events.push({ time: t, type: 'mode', val: 161, sound: 'sfx2', desc: "Clash (White)" });
+                    t += 0.3; // Fast flash
+                    // Return to previous color randomly
+                    events.push({ time: t, type: 'mode', val: Math.random()>0.5 ? 89 : 53, desc: "Recoil" });
+                    t += 1 + Math.random();
+                } else if (action < 0.6) {
+                    // Vader Attack
+                    events.push({ time: t, type: 'mode', val: 89, desc: "Vader Swing (Red Flash)" });
+                    t += 1 + Math.random();
+                } else {
+                    // Obi Attack
+                    events.push({ time: t, type: 'mode', val: 53, desc: "Obi Swing (Blue Flash)" });
+                    t += 1 + Math.random();
+                }
+            }
+            
+            // 5. Finale
+            events.push({ time: battleEnd, type: 'mode', val: 196, sound: 'sfx3', desc: "End/Blackout" });
+
+            showEvents = events;
+            renderScript();
+            document.getElementById('playBtn').disabled = false;
+            alert("Battle Generated!");
+        }
+
+        function renderScript() {
+            const container = document.getElementById('scriptView');
+            container.innerHTML = "";
+            showEvents.forEach((ev, i) => {
+                const div = document.createElement('div');
+                div.className = 'script-line';
+                div.id = 'line-'+i;
+                div.innerHTML = `<div class="script-time">${ev.time.toFixed(1)}s</div><div class="script-action">${ev.desc}</div>`;
+                container.appendChild(div);
+            });
+        }
+
+        // --- PLAYBACK ---
+        function togglePlay() { if(isPlaying) stopShow(); else runShow(); }
+
+        function runShow() {
+            if(showEvents.length === 0) return;
+            isPlaying = true;
+            startTime = Date.now();
+            document.getElementById('playBtn').innerText = "Running...";
+            playSound('bg');
+            showEvents.forEach(e => e.executed = false);
+            loop();
+        }
+
+        function stopShow() {
+            isPlaying = false;
+            cancelAnimationFrame(animationFrame);
+            stopAllSound();
+            sendEvent({ type: 'off' });
+            document.getElementById('playBtn').innerText = "▶ Run Show";
+        }
+
+        function loop() {
+            if(!isPlaying) return;
+            const now = (Date.now() - startTime) / 1000;
+            const maxTime = showEvents[showEvents.length-1].time + 2;
+            
+            document.getElementById('timeDisplay').innerText = now.toFixed(1);
+            document.getElementById('progressFill').style.width = (now/maxTime)*100 + "%";
+
+            showEvents.forEach((ev, i) => {
+                if(ev.time <= now && !ev.executed) {
+                    sendEvent(ev);
+                    if(ev.sound) playSound(ev.sound);
+                    ev.executed = true;
+                    document.querySelectorAll('.script-line').forEach(l => l.classList.remove('active'));
+                    const el = document.getElementById('line-'+i);
+                    if(el) { el.classList.add('active'); el.scrollIntoView({behavior:"smooth", block:"center"}); }
+                }
+            });
+            
+            if(now > maxTime) stopShow();
+            else animationFrame = requestAnimationFrame(loop);
         }
 
         // --- BLUETOOTH ---
-        document.getElementById('connectBtn').addEventListener('click', async () => {
+        async function connect() {
             try {
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
@@ -523,26 +335,13 @@
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
 
                 if(characteristic) {
-                    document.getElementById('status').innerText = "Connected: " + device.name;
-                    document.getElementById('status').style.color = "#22c55e";
+                    document.getElementById('connectionStatus').innerText = "Connected";
+                    document.getElementById('connectionStatus').classList.add('connected');
                     document.getElementById('connectBtn').style.display = 'none';
-                    appendLog("Bluetooth Connected.");
-                    const pid = document.getElementById('protocol').value;
-                    if(PROTOCOLS[pid].on) characteristic.writeValue(PROTOCOLS[pid].on);
+                    sendEvent({type:'off'});
                 }
             } catch(e) { alert("Error: " + e.message); }
-        });
-
-        function copyLibrary() {
-            const logBox = document.getElementById('log');
-            logBox.value = JSON.stringify(detectedLibrary, null, 2);
-            logBox.select();
-            document.execCommand('copy');
-            alert('Library JSON Copied!');
         }
-        
-        // Initial Log
-        appendLog("Ready. Start Camera then Connect.");
     </script>
 </body>
 </html>
