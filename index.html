@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v18 (Real-Time Log)</title>
+    <title>AI Vision Scanner v19 (Crash Fix)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -105,7 +105,7 @@
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Live Log)</h1>
+    <h1>👁️ Light Scanner (Crash Fix)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -383,7 +383,7 @@
         }
 
         async function analyzeBuffer(frames) {
-            if(frames.length < 5) return { hex: "#000", desc: "No Video Data", motion: "NO DATA", type: "Unknown" };
+            if(!frames || frames.length < 5) return { hex: "#000", desc: "No Video Data", motion: "NO DATA", type: "Unknown" };
             
             // 1. Dominant Color (Middle Frame)
             const midF = frames[Math.floor(frames.length/2)];
@@ -406,10 +406,20 @@
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
+                
+                // Compare motion between segments
+                // FIX: Guard loop bounds
                 let diffStatic=0, diffUp=0, diffDown=0;
+                
+                // Static: i vs i
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
-                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
-                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                
+                // Up: curr[i] looks like prev[i+1] (moving up/index decreasing)
+                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
+                
+                // Down: curr[i] looks like prev[i-1] (moving down/index increasing)
+                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                
                 totalDiff += diffStatic;
                 if(diffUp < diffStatic) upScore++;
                 if(diffDown < diffStatic) downScore++;
