@@ -11,6 +11,7 @@
             --red: #ff0000;
             --blue: #0044ff;
             --white: #ffffff;
+            --panel: #1a1a1a;
         }
 
         body {
@@ -24,30 +25,58 @@
             min-height: 100vh;
             margin: 0;
             overflow: hidden;
-            transition: background-color 0.05s; /* Fast transition for flashes */
+            transition: background-color 0.05s;
         }
 
         .container {
             text-align: center;
             z-index: 10;
-            background: rgba(20, 20, 20, 0.8);
-            padding: 40px;
+            background: rgba(20, 20, 20, 0.9);
+            padding: 30px;
             border-radius: 20px;
             border: 1px solid #333;
             max-width: 500px;
             width: 90%;
             box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         h1 {
             margin: 0 0 20px 0;
-            font-size: 2rem;
+            font-size: 1.8rem;
             text-transform: uppercase;
             letter-spacing: 2px;
             background: linear-gradient(to right, #ff0000, #ffffff, #0044ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+
+        /* Sound FX Section */
+        .sfx-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .sfx-upload {
+            position: relative;
+            overflow: hidden;
+            border: 1px dashed #555;
+            border-radius: 8px;
+            padding: 15px 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: 0.2s;
+            color: #888;
+            background: rgba(255,255,255,0.05);
+        }
+        .sfx-upload:hover { border-color: #fff; color: #fff; }
+        .sfx-upload.loaded { border-color: #22c55e; color: #22c55e; background: rgba(34, 197, 94, 0.1); }
+        
+        .sfx-upload input { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+        .sfx-icon { font-size: 1.5rem; display: block; margin-bottom: 5px; }
 
         select {
             background: #222;
@@ -65,7 +94,7 @@
             color: white;
             border: 1px solid #555;
             padding: 15px 30px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
@@ -87,40 +116,30 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .btn-start:hover { transform: scale(1.02); }
-        .btn-start:active { transform: scale(0.98); }
 
-        .status {
-            margin-top: 20px;
-            font-size: 0.9rem;
-            color: #888;
-            height: 20px;
-        }
+        .status { margin-top: 20px; font-size: 0.9rem; color: #888; height: 20px; }
 
         /* Saber Visualizers */
         .saber-container {
             display: flex;
             justify-content: center;
             gap: 20px;
-            margin-bottom: 30px;
-            height: 200px;
+            margin-bottom: 20px;
+            height: 150px;
             align-items: flex-end;
         }
 
         .saber {
-            width: 15px;
-            height: 0%; /* Grows on ignition */
+            width: 12px;
+            height: 0%;
             border-radius: 10px 10px 0 0;
             box-shadow: 0 0 20px currentColor;
-            transition: height 0.2s ease-out;
+            transition: height 0.1s ease-out;
             position: relative;
         }
         .saber::after {
             content: '';
-            position: absolute;
-            bottom: -30px; left: -5px;
-            width: 25px; height: 30px;
-            background: #888;
-            border-radius: 2px;
+            position: absolute; bottom: -20px; left: -4px; width: 20px; height: 20px; background: #888; border-radius: 2px;
         }
 
         #saber-left { background: red; color: red; }
@@ -128,47 +147,15 @@
 
         .flash-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: white;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 5;
+            background: white; opacity: 0; pointer-events: none; z-index: 5;
             transition: opacity 0.05s;
         }
 
         #timeline-progress {
-            width: 100%;
-            height: 4px;
-            background: #333;
-            margin-top: 20px;
-            position: relative;
+            width: 100%; height: 4px; background: #333; margin-top: 20px; position: relative;
         }
         #progress-bar {
-            width: 0%;
-            height: 100%;
-            background: white;
-            transition: width 0.1s linear;
-        }
-
-        /* File Upload Styling */
-        input[type="file"] {
-            display: none;
-        }
-        .custom-file-upload {
-            border: 1px dashed #555;
-            display: block;
-            padding: 12px;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            color: #aaa;
-            transition: all 0.2s;
-        }
-        .custom-file-upload:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border-color: #777;
+            width: 0%; height: 100%; background: white; transition: width 0.1s linear;
         }
 
     </style>
@@ -178,11 +165,30 @@
     <div class="flash-overlay" id="flash"></div>
 
     <div class="container">
-        <h1>Duel Control</h1>
+        <h1>Duel FX Studio</h1>
         
         <div class="saber-container">
             <div id="saber-left" class="saber"></div>
             <div id="saber-right" class="saber"></div>
+        </div>
+
+        <!-- Sound FX Inputs -->
+        <div class="sfx-grid">
+            <label class="sfx-upload" id="lbl-ignite">
+                <span class="sfx-icon">🔊</span>
+                Ignition
+                <input type="file" onchange="loadSound('ignite', this)" accept="audio/*">
+            </label>
+            <label class="sfx-upload" id="lbl-clash">
+                <span class="sfx-icon">💥</span>
+                Clash/Hit
+                <input type="file" onchange="loadSound('clash', this)" accept="audio/*">
+            </label>
+            <label class="sfx-upload" id="lbl-retract">
+                <span class="sfx-icon">⬇️</span>
+                Retract
+                <input type="file" onchange="loadSound('retract', this)" accept="audio/*">
+            </label>
         </div>
 
         <select id="protocol">
@@ -191,58 +197,60 @@
             <option value="2">Protocol: Triones</option>
         </select>
 
-        <label for="audioUpload" class="custom-file-upload">
-            🎵 Upload Soundtrack (MP3/WAV)
-        </label>
-        <input type="file" id="audioUpload" accept="audio/*">
-        <audio id="battleAudio"></audio>
-
         <button class="btn-connect" id="connectBtn" onclick="connect()">📡 Connect Light</button>
-        <button class="btn-start" id="startBtn" onclick="startBattle()" disabled>⚔️ Start Battle Sequence</button>
+        <button class="btn-start" id="startBtn" onclick="startBattle()" disabled>⚔️ Start Battle</button>
         <button onclick="stopBattle()" style="background:#333; font-size:0.9rem; padding:10px;">⏹ Stop / Reset</button>
 
         <div id="timeline-progress"><div id="progress-bar"></div></div>
-        <div class="status" id="status">Waiting for connection...</div>
+        <div class="status" id="status">Upload sounds & Connect...</div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
-        const PROTOCOLS = [
-            { // 0: ELK
-                name: "ELK",
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
-                off: new Uint8Array([0xcc, 0x24, 0x33]),
-                on: new Uint8Array([0xcc, 0x23, 0x33])
-            },
-            { // 1: Lotus/Keepsmile
-                name: "Lotus",
-                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
-                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]),
-                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef])
-            },
-            { // 2: Triones
-                name: "Triones",
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
-                off: new Uint8Array([0xcc, 0x24, 0x33]),
-                on: new Uint8Array([0xcc, 0x23, 0x33])
+        // --- SOUND ENGINE ---
+        const sounds = {
+            ignite: null,
+            clash: null,
+            retract: null
+        };
+
+        function loadSound(type, input) {
+            const file = input.files[0];
+            if(!file) return;
+            const url = URL.createObjectURL(file);
+            sounds[type] = new Audio(url);
+            
+            // UI Feedback
+            const lbl = document.getElementById('lbl-'+type);
+            lbl.classList.add('loaded');
+            lbl.querySelector('.sfx-icon').innerText = "✅";
+        }
+
+        function playSound(type) {
+            if (sounds[type]) {
+                sounds[type].currentTime = 0;
+                sounds[type].play().catch(e => console.log("Audio play error", e));
             }
+        }
+
+        // --- PROTOCOLS ---
+        const PROTOCOLS = [
+            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) },
+            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]) },
+            { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]) }
         ];
 
-        // --- THE BATTLE SCRIPT ---
-        // Types: 'off', 'color', 'flash' (White burst then color), 'clash' (White burst then off)
-        // Duration is time UNTIL the next event
+        // --- BATTLE SCRIPT ---
         const BATTLE_SCRIPT = [
-            // INTRO: SILENCE THEN IGNITION
             { type: 'off', duration: 1000, desc: "Silence..." },
-            { type: 'color', r: 255, g: 0, b: 0, duration: 2000, desc: "Sith Ignite" }, // Red
-            { type: 'off', duration: 1500, desc: "Silence..." },
-            { type: 'color', r: 0, g: 0, b: 255, duration: 2000, desc: "Jedi Ignite" }, // Blue
+            { type: 'color', r: 255, g: 0, b: 0, duration: 2000, desc: "Sith Ignite" }, // Play Ignite
+            { type: 'off', duration: 1500, desc: "Retract/Silence" }, // Play Retract
+            { type: 'color', r: 0, g: 0, b: 255, duration: 2000, desc: "Jedi Ignite" }, // Play Ignite
             { type: 'off', duration: 500, desc: "Ready..." },
 
-            // PHASE 1: SPARRING (Hit, Hold, Off)
-            { type: 'clash', duration: 200, desc: "CLASH!" }, // White flash
+            // Sparring
+            { type: 'clash', duration: 200, desc: "CLASH!" }, // Play Clash
             { type: 'color', r: 255, g: 0, b: 0, duration: 800, desc: "Red Pushes" },
-            { type: 'off', duration: 400, desc: "Break" },
+            { type: 'off', duration: 400, desc: "Break" }, // Short break, maybe no retract sound?
 
             { type: 'clash', duration: 200, desc: "CLASH!" },
             { type: 'color', r: 0, g: 0, b: 255, duration: 800, desc: "Blue Parries" },
@@ -256,10 +264,10 @@
             { type: 'color', r: 0, g: 0, b: 255, duration: 400, desc: "Blue" },
             { type: 'off', duration: 200, desc: "Gap" },
 
-            // PHASE 2: FLURRY (Rapid Fire)
-            { type: 'flash', r: 255, g: 255, b: 255, duration: 150, desc: "Flurry 1" },
+            // Flurry
+            { type: 'flash', r: 255, g: 255, b: 255, duration: 150, desc: "Flurry" }, // Play Clash
             { type: 'color', r: 255, g: 0, b: 0, duration: 200, desc: "Red" },
-            { type: 'flash', r: 255, g: 255, b: 255, duration: 150, desc: "Flurry 2" },
+            { type: 'flash', r: 255, g: 255, b: 255, duration: 150, desc: "Flurry" },
             { type: 'color', r: 0, g: 0, b: 255, duration: 200, desc: "Blue" },
             { type: 'off', duration: 100, desc: "Gap" },
             
@@ -269,21 +277,13 @@
             { type: 'color', r: 0, g: 0, b: 255, duration: 150, desc: "Blue" },
             { type: 'off', duration: 50, desc: "Gap" },
 
+            // Finale
             { type: 'clash', duration: 50, desc: "CRASH" },
             { type: 'clash', duration: 50, desc: "CRASH" },
             { type: 'clash', duration: 50, desc: "CRASH" },
-            { type: 'color', r: 255, g: 100, b: 0, duration: 2000, desc: "Lock Up (Orange)" }, // Sabers locked
+            { type: 'color', r: 255, g: 100, b: 0, duration: 2000, desc: "Lock Up (Orange)" }, 
 
-            { type: 'off', duration: 1000, desc: "Break..." },
-
-            // PHASE 3: FINALE
-            { type: 'color', r: 0, g: 0, b: 255, duration: 300, desc: "Blue Strike" },
-            { type: 'off', duration: 100, desc: "" },
-            { type: 'color', r: 255, g: 0, b: 0, duration: 300, desc: "Red Strike" },
-            { type: 'off', duration: 100, desc: "" },
-            { type: 'clash', duration: 1000, desc: "FINAL BLOW" },
-            
-            { type: 'off', duration: 0, desc: "End" }
+            { type: 'off', duration: 0, desc: "End" } // Play Retract
         ];
 
         // --- STATE ---
@@ -291,56 +291,30 @@
         let isRunning = false;
         let timeoutId = null;
 
-        // --- AUDIO HANDLER ---
-        document.getElementById('audioUpload').addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                const url = URL.createObjectURL(file);
-                document.getElementById('battleAudio').src = url;
-                document.querySelector('.custom-file-upload').innerText = "🎵 Loaded: " + file.name;
-                document.querySelector('.custom-file-upload').style.borderColor = "#22c55e";
-                document.querySelector('.custom-file-upload').style.color = "#22c55e";
-            }
-        });
-
-        // --- BLUETOOTH CONNECTION ---
+        // --- BLUETOOTH ---
         async function connect() {
             const status = document.getElementById('status');
             try {
-                if (!navigator.bluetooth) throw new Error("Bluetooth not supported (Use Bluefy or Chrome)");
-                
+                if (!navigator.bluetooth) throw new Error("Bluetooth not supported");
                 status.innerText = "Scanning...";
-                
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
-
                 const server = await device.gatt.connect();
-                
-                // Hunt for Service
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
-                if(!service) throw new Error("Service not found");
-
-                // Hunt for Characteristic
                 const charUUIDs = ['0000ffd9-0000-1000-8000-00805f9b34fb', '0000ffe9-0000-1000-8000-00805f9b34fb', '0000fff3-0000-1000-8000-00805f9b34fb'];
                 for(let c of charUUIDs) { try{ characteristic = await service.getCharacteristic(c); break; }catch(e){} }
-
                 if(characteristic) {
-                    status.innerText = "Connected to " + device.name;
+                    status.innerText = "Connected: " + device.name;
                     status.style.color = "#22c55e";
                     document.getElementById('connectBtn').style.display = 'none';
                     document.getElementById('startBtn').disabled = false;
-                    
-                    // Initial Wake Up
                     sendOn();
                 }
-            } catch(e) {
-                status.innerText = "Error: " + e.message;
-                status.style.color = "#ef4444";
-            }
+            } catch(e) { status.innerText = "Error: " + e.message; status.style.color = "#ef4444"; }
         }
 
         // --- COMMANDS ---
@@ -350,7 +324,6 @@
             const pid = document.getElementById('protocol').value;
             const data = PROTOCOLS[pid].write(r,g,b);
             try { 
-                // Always send ON before color to ensure it wakes from blackout
                 if(PROTOCOLS[pid].on) await characteristic.writeValue(PROTOCOLS[pid].on);
                 await characteristic.writeValue(data); 
             } catch(e){}
@@ -369,31 +342,18 @@
             try { await characteristic.writeValue(PROTOCOLS[pid].on); } catch(e){}
         }
 
-        // --- UI UPDATES ---
         function updateUI(r, g, b, brightness) {
-            // Background Flash
             document.body.style.backgroundColor = `rgb(${r*0.2}, ${g*0.2}, ${b*0.2})`;
-            
-            // Saber Graphics
             const left = document.getElementById('saber-left');
             const right = document.getElementById('saber-right');
-            
-            // Logic to visualize who is attacking
             if (brightness === 0) {
-                left.style.height = '0%';
-                right.style.height = '0%';
+                left.style.height = '0%'; right.style.height = '0%';
             } else if (r > b) {
-                left.style.height = '100%'; // Red attack
-                right.style.height = '50%';
-                left.style.boxShadow = `0 0 50px red`;
+                left.style.height = '100%'; right.style.height = '50%'; left.style.boxShadow = `0 0 50px red`;
             } else if (b > r) {
-                right.style.height = '100%'; // Blue attack
-                left.style.height = '50%';
-                right.style.boxShadow = `0 0 50px blue`;
+                right.style.height = '100%'; left.style.height = '50%'; right.style.boxShadow = `0 0 50px blue`;
             } else {
-                // White/Clash
-                left.style.height = '80%';
-                right.style.height = '80%';
+                left.style.height = '80%'; right.style.height = '80%';
                 document.getElementById('flash').style.opacity = 0.8;
                 setTimeout(() => document.getElementById('flash').style.opacity = 0, 50);
             }
@@ -402,14 +362,6 @@
         // --- ENGINE ---
         function startBattle() {
             if(isRunning) return;
-            
-            // Start Audio
-            const audio = document.getElementById('battleAudio');
-            if (audio.src) {
-                audio.currentTime = 0;
-                audio.play();
-            }
-
             isRunning = true;
             document.getElementById('startBtn').innerText = "Running...";
             runStep(0);
@@ -418,14 +370,8 @@
         function stopBattle() {
             isRunning = false;
             clearTimeout(timeoutId);
-            
-            // Stop Audio
-            const audio = document.getElementById('battleAudio');
-            audio.pause();
-            audio.currentTime = 0;
-            
             sendOff();
-            document.getElementById('startBtn').innerText = "⚔️ Start Battle Sequence";
+            document.getElementById('startBtn').innerText = "⚔️ Start Battle";
             document.getElementById('status').innerText = "Stopped.";
             document.getElementById('progress-bar').style.width = '0%';
         }
@@ -437,35 +383,28 @@
             }
 
             const step = BATTLE_SCRIPT[index];
-            const duration = step.duration;
             const totalSteps = BATTLE_SCRIPT.length;
-            
-            // UI Status
             document.getElementById('status').innerText = `Step ${index+1}/${totalSteps}: ${step.desc}`;
             document.getElementById('progress-bar').style.width = `${(index/totalSteps)*100}%`;
 
-            // Execute Light Command
+            // AUDIO & LIGHT TRIGGER LOGIC
             if (step.type === 'off') {
                 sendOff();
+                // Only play retract if it's a significant pause (> 400ms)
+                if (step.duration > 400) playSound('retract');
             } 
             else if (step.type === 'color') {
                 sendRGB(step.r, step.g, step.b);
+                // Assume color change = Ignition or Clash push
+                if (step.desc.includes("Ignite")) playSound('ignite');
             }
-            else if (step.type === 'clash') {
-                // Clash = White Burst then OFF immediately
-                sendRGB(255, 255, 255);
-                setTimeout(() => { if(isRunning) sendOff(); }, duration - 50); // Turn off slightly before next step
-            }
-            else if (step.type === 'flash') {
-                // Flash = Burst color then OFF
-                sendRGB(step.r, step.g, step.b);
-                setTimeout(() => { if(isRunning) sendOff(); }, duration - 50);
+            else if (step.type === 'clash' || step.type === 'flash') {
+                sendRGB(255, 255, 255); // Flash White
+                playSound('clash');
+                setTimeout(() => { if(isRunning) sendOff(); }, step.duration - 50);
             }
 
-            // Schedule Next Step
-            timeoutId = setTimeout(() => {
-                runStep(index + 1);
-            }, duration);
+            timeoutId = setTimeout(() => runStep(index + 1), step.duration);
         }
 
     </script>
