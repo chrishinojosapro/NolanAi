@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>High-Contrast Screen Sync</title>
+    <title>High Contrast Sync v2 (Deep Color)</title>
     <style>
         :root {
             --bg: #000000;
@@ -122,7 +122,7 @@
 <body>
 
     <div class="container">
-        <h1>High Contrast Sync</h1>
+        <h1>High Contrast Sync v2</h1>
         
         <div class="preview-box" id="preview">
             OFF
@@ -140,16 +140,15 @@
 
         <div class="slider-group">
             <div class="slider-label">
-                <span>Vibrancy Threshold</span>
+                <span>Vibrancy Threshold (Color Purity)</span>
                 <span id="satVal">50%</span>
             </div>
             <input type="range" id="satThresh" min="0" max="100" value="50" oninput="updateLabels()">
-            <div style="font-size:0.7rem; color:#666; margin-top:2px;">Higher = Only highly colored pixels trigger light.</div>
             
             <br>
             
             <div class="slider-label">
-                <span>Min Brightness</span>
+                <span>Min Brightness (Ignore Darks)</span>
                 <span id="briVal">30%</span>
             </div>
             <input type="range" id="briThresh" min="0" max="100" value="30" oninput="updateLabels()">
@@ -225,7 +224,7 @@
                 
                 // Settings
                 const minSat = parseInt(document.getElementById('satThresh').value) / 100;
-                const minBri = parseInt(document.getElementById('briThresh').value) * 2.55; // Map 0-100 to 0-255
+                const minBri = parseInt(document.getElementById('briThresh').value) * 2.55; 
 
                 for(let i=0; i<frame.length; i+=4) {
                     const r = frame[i];
@@ -237,7 +236,6 @@
                     const sat = max === 0 ? 0 : (max - min) / max;
                     
                     // FILTER: Only count pixel if it is Vibrant AND Bright
-                    // This naturally ignores White (low sat) and Grey/Black (low sat/bri)
                     if (sat > minSat && max > minBri) {
                         rTot += r; gTot += g; bTot += b;
                         validPixels++;
@@ -253,34 +251,42 @@
                     let avgG = gTot / validPixels;
                     let avgB = bTot / validPixels;
                     
-                    // BOOST: Amplify the color to make it "Neon"
-                    // Find dominant channel and maximize it to 255, scale others
-                    const maxChan = Math.max(avgR, avgG, avgB);
-                    if(maxChan > 0) {
-                        const boost = 255 / maxChan;
-                        sendR = avgR * boost;
-                        sendG = avgG * boost;
-                        sendB = avgB * boost;
-                    }
+                    // --- DEEP COLOR ALGORITHM (New) ---
                     
-                    // Remove "whiteness" contamination for pure color
-                    // Subtract the minimum channel value from all channels
-                    const minChan = Math.min(sendR, sendG, sendB);
-                    sendR -= minChan * 0.8; 
-                    sendG -= minChan * 0.8;
-                    sendB -= minChan * 0.8;
+                    // 1. Subtraction: Remove "Whiteness" completely
+                    const whiteLevel = Math.min(avgR, avgG, avgB);
+                    avgR -= whiteLevel;
+                    avgG -= whiteLevel;
+                    avgB -= whiteLevel;
+                    
+                    // 2. Normalization: Boost the remaining hue to max brightness
+                    const maxChan = Math.max(avgR, avgG, avgB);
+                    if (maxChan > 10) { // Avoid boosting noise
+                         const norm = 255 / maxChan;
+                         avgR *= norm;
+                         avgG *= norm;
+                         avgB *= norm;
+                         
+                         // 3. Crush Weak Channels: If channel is weak, kill it
+                         if(avgR < 100) avgR = 0;
+                         if(avgG < 100) avgG = 0;
+                         if(avgB < 100) avgB = 0;
+                    }
+
+                    sendR = avgR;
+                    sendG = avgG;
+                    sendB = avgB;
                 } 
-                // Else: Not enough vibrant color -> OFF (Blackout)
                 
                 // Snap to integer
-                sendR = Math.max(0, Math.floor(sendR));
-                sendG = Math.max(0, Math.floor(sendG));
-                sendB = Math.max(0, Math.floor(sendB));
+                sendR = Math.floor(sendR);
+                sendG = Math.floor(sendG);
+                sendB = Math.floor(sendB);
                 
                 // UI Update
                 const prev = document.getElementById('preview');
                 prev.style.background = `rgb(${sendR},${sendG},${sendB})`;
-                prev.innerText = (sendR+sendG+sendB) > 20 ? "ON" : "OFF";
+                prev.innerText = (sendR+sendG+sendB) > 0 ? "ON" : "OFF";
                 prev.style.color = (sendR+sendG+sendB) > 300 ? "black" : "white";
 
                 // Bluetooth Throttle
@@ -303,12 +309,10 @@
             const p = PROTOCOLS[pid];
             try {
                 if (r < 10 && g < 10 && b < 10) {
-                    // Only send OFF if not already OFF
                     if(lastSent.r >= 10 || lastSent.g >= 10 || lastSent.b >= 10) {
                         await characteristic.writeValue(p.off);
                     }
                 } else {
-                    // Auto-Wake if coming from dark
                     if((lastSent.r < 10 && lastSent.g < 10 && lastSent.b < 10) && p.on) {
                          await characteristic.writeValue(p.on);
                     }
