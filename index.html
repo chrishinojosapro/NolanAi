@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v21 (High-Fi Description)</title>
+    <title>AI Vision Scanner v22 (Index Fix)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -105,7 +105,7 @@
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Hi-Fi Detail)</h1>
+    <h1>👁️ Light Scanner (Index Fix)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -387,7 +387,7 @@
             
             const midF = frames[Math.floor(frames.length/2)];
             
-            // 1. Color Analysis (Top, Mid, Bot)
+            // 1. Dominant Color (Middle Frame)
             const topC = getColorName(midF[0].r, midF[0].g, midF[0].b);
             const midC = getColorName(midF[4].r, midF[4].g, midF[4].b);
             const botC = getColorName(midF[9].r, midF[9].g, midF[9].b);
@@ -410,10 +410,20 @@
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
+                if (!prev || !curr) continue; // Safety check
+
                 let diffStatic=0, diffUp=0, diffDown=0;
+                
+                // Static: i vs i
                 for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
-                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(curr[i].r - prev[i-1].r);
-                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
+                
+                // Up: Content moves from i+1 to i (Visual Upward Flow)
+                // Curr[0] matches Prev[1]
+                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
+                
+                // Down: Content moves from i-1 to i (Visual Downward Flow)
+                // Curr[1] matches Prev[0]
+                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
                 totalDiff += diffStatic;
                 if(diffUp < diffStatic) upScore++;
