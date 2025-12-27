@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: Light Performance</title>
+    <title>Carol of the Bells: Master Performance v2</title>
     <style>
         :root {
-            --bg: #050508;
-            --panel: #111118;
-            --crimson: #990000;
-            --emerald: #004d00;
-            --gold: #d4af37;
-            --ice: #e0f2fe;
-            --accent: #3b82f6;
+            --bg: #020617;
+            --panel: #0f172a;
+            --crimson: #ef4444;
+            --emerald: #10b981;
+            --gold: #f59e0b;
+            --ice: #3b82f6;
+            --white: #ffffff;
+            --accent: #8b5cf6;
         }
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg);
-            color: white;
+            color: #f8fafc;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -26,142 +27,191 @@
             justify-content: center;
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
 
         .stage {
             width: 100%;
-            max-width: 500px;
+            max-width: 550px;
             background: var(--panel);
             padding: 40px;
-            border-radius: 30px;
-            border: 1px solid #222;
+            border-radius: 32px;
+            border: 1px solid #1e293b;
             text-align: center;
-            box-shadow: 0 0 80px rgba(0,0,0,0.8);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            position: relative;
         }
 
-        h1 { margin: 0 0 10px 0; font-size: 1.8rem; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; }
-        p { color: #666; font-size: 0.85rem; margin-bottom: 30px; }
+        h1 { margin: 0; font-size: 1.8rem; letter-spacing: -1px; background: linear-gradient(to right, var(--crimson), var(--white), var(--emerald)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; }
+        p { color: #64748b; font-size: 0.85rem; margin-bottom: 30px; }
 
         /* PERFORMANCE HUD */
-        .visual-preview {
-            width: 160px;
-            height: 160px;
+        .preview-orb {
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
             margin: 0 auto 30px;
-            border: 4px solid #222;
+            border: 8px solid #1e293b;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: all 0.1s ease-out;
+            transition: all 0.05s ease-out;
             position: relative;
+            background: #000;
+            overflow: hidden;
         }
-        .visual-preview::after {
-            content: ''; position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px;
-            border-radius: 50%; filter: blur(30px); opacity: 0.4; background: inherit; z-index: -1;
+        .orb-glow {
+            position: absolute; width: 100%; height: 100%;
+            filter: blur(40px); opacity: 0.6; z-index: 0;
         }
 
-        .current-action { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; }
+        .timer { font-family: monospace; font-size: 2.2rem; font-weight: 800; z-index: 2; position: relative; color: white; text-shadow: 0 0 10px black; }
+        .action-label { font-size: 0.7rem; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; z-index: 2; margin-top: 5px; }
 
         /* CONTROLS */
-        .bt-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        select { flex: 1; padding: 12px; background: #000; color: white; border: 1px solid #333; border-radius: 10px; }
+        .ui-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        select { width: 100%; padding: 12px; background: #020617; color: white; border: 1px solid #334155; border-radius: 12px; }
         
         button {
-            width: 100%; padding: 18px; border-radius: 15px; border: none; font-weight: bold;
-            cursor: pointer; font-size: 1.1rem; transition: 0.2s; margin-bottom: 10px;
+            padding: 16px; border-radius: 14px; border: none; font-weight: 800;
+            cursor: pointer; font-size: 1rem; transition: 0.2s;
         }
         .btn-connect { background: var(--accent); color: white; }
-        .btn-start { background: white; color: black; }
-        .btn-start:disabled { opacity: 0.3; cursor: not-allowed; }
-        
-        #audioInput { margin-bottom: 20px; font-size: 0.8rem; color: #888; }
-        
-        .timer { font-family: monospace; font-size: 1.5rem; color: var(--gold); margin-bottom: 10px; }
-        .progress-container { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; margin-bottom: 20px; }
-        #progressBar { width: 0%; height: 100%; background: var(--gold); transition: width 0.1s linear; }
+        .btn-start { background: white; color: black; grid-column: span 2; }
+        .btn-start:disabled { opacity: 0.2; }
+        .connected { background: var(--emerald) !important; }
+
+        .file-zone {
+            border: 2px dashed #334155; padding: 15px; border-radius: 16px; margin-bottom: 20px; font-size: 0.8rem; color: #64748b;
+            cursor: pointer; position: relative;
+        }
+        .file-zone input { position: absolute; opacity: 0; top:0; left:0; width:100%; height:100%; cursor:pointer; }
+        .file-zone.loaded { border-color: var(--emerald); color: var(--emerald); background: rgba(16, 185, 129, 0.05); }
+
+        .progress-bar { width: 100%; height: 4px; background: #1e293b; border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+        #progressFill { width: 0%; height: 100%; background: var(--gold); }
 
     </style>
 </head>
 <body>
 
     <div class="stage">
-        <h1>Carol Performance</h1>
-        <p>The Bells of Christmas Choreography</p>
+        <h1>Carol of the Bells</h1>
+        <p>Advanced Synchronized Choreography</p>
 
-        <div class="visual-preview" id="preview">
-            <div class="timer" id="timer">00:00</div>
-            <div class="current-action" id="actionText">Ready</div>
+        <div class="preview-orb" id="orb">
+            <div class="orb-glow" id="orbGlow"></div>
+            <div class="timer" id="timer">0:00</div>
+            <div class="action-label" id="actionText">Ready</div>
         </div>
 
-        <div class="progress-container"><div id="progressBar"></div></div>
+        <div class="progress-bar"><div id="progressFill"></div></div>
 
-        <div class="bt-group">
+        <div class="file-zone" id="dropZone">
+            <span id="fileName">📁 Click to Load Epic Audio Track</span>
+            <input type="file" accept="audio/*" onchange="loadAudio(this)">
+        </div>
+
+        <div class="ui-grid">
             <select id="protocol">
-                <option value="1">Lotus (Keepsmile)</option>
-                <option value="0">ELK (Standard)</option>
-                <option value="2">Triones</option>
+                <option value="1">Protocol: Lotus (Keepsmile)</option>
+                <option value="0">Protocol: ELK (Standard)</option>
+                <option value="2">Protocol: Triones</option>
             </select>
-            <button class="btn-connect" id="connBtn" onclick="connect()">Connect</button>
+            <button class="btn-connect" id="connBtn" onclick="connect()">Connect Light</button>
+            <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ Begin Performance</button>
         </div>
-
-        <input type="file" id="audioInput" accept="audio/*" onchange="loadAudio(this)">
-        <button class="btn-start" id="startBtn" onclick="toggleShow()" disabled>▶ Start Performance</button>
-        
-        <div id="status" style="font-size:0.7rem; color:#444; margin-top:10px;">Load MP3 to begin...</div>
     </div>
 
-    <audio id="player"></audio>
+    <audio id="audioPlayer"></audio>
 
     <script>
-        // --- PERFORMANCE SCRIPT ---
-        // time: seconds, type: 'color'|'mode'|'off', val: [r,g,b] | modeID, desc: text
+        // --- CHOREOGRAPHY SCRIPT ---
+        // time (seconds), type: 'color'|'mode'|'off', val: [r,g,b] | modeID, desc: text
         const SCRIPT = [
-            { t: 0, type: 'color', val: [0, 50, 0], desc: "Soft Green Intro" },
-            { t: 4.5, type: 'color', val: [80, 0, 0], desc: "Soft Red Pulse" },
-            { t: 9, type: 'color', val: [0, 50, 0], desc: "Alternating..." },
-            { t: 13.5, type: 'color', val: [80, 0, 0], desc: "The Bells Awake" },
+            { t: 0, type: 'off', desc: "Silent Night" },
+            { t: 1.5, type: 'color', val: [0, 40, 0], desc: "Wintry Green Intro" },
+            { t: 4.5, type: 'color', val: [60, 0, 0], desc: "Distant Red Glow" },
+            { t: 9.0, type: 'color', val: [0, 40, 0], desc: "Green Pulse" },
+            { t: 13.5, type: 'color', val: [60, 0, 0], desc: "Red Pulse" },
+
+            // 18.0s: The Motif Begins ("Da-Da-Da-Da")
+            { t: 18.0, type: 'color', val: [0, 255, 0], desc: "EMERALD BELL" },
+            { t: 18.3, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
+            { t: 18.4, type: 'color', val: [255, 0, 0], desc: "CRIMSON BELL" },
+            { t: 18.7, type: 'color', val: [255, 255, 255], desc: "HIGH CHIME" },
             
-            // The Main Theme (Looping interaction)
-            { t: 18.2, type: 'color', val: [255, 255, 255], desc: "BELL HIT" },
-            { t: 18.5, type: 'color', val: [0, 150, 0], desc: "Main Theme: Emerald" },
-            { t: 22.1, type: 'color', val: [255, 255, 255], desc: "BELL HIT" },
-            { t: 22.4, type: 'color', val: [150, 0, 0], desc: "Main Theme: Crimson" },
+            // Accelerated motif
+            { t: 20.0, type: 'color', val: [0, 200, 0], desc: "Emerald" },
+            { t: 20.8, type: 'color', val: [200, 0, 0], desc: "Crimson" },
+            { t: 21.6, type: 'color', val: [0, 200, 0], desc: "Emerald" },
+            { t: 22.4, type: 'color', val: [200, 0, 0], desc: "Crimson" },
+
+            // 27.0s: The First Build
+            { t: 27.0, type: 'mode', val: 38, desc: "Green Stack Climbing" },
+            { t: 31.0, type: 'mode', val: 37, desc: "Red Stack Climbing" },
+            { t: 35.0, type: 'mode', val: 45, desc: "Gradient Lock" },
+
+            // 42.0s: The Frantic Mid-Section
+            { t: 42.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
+            { t: 42.2, type: 'color', val: [0, 0, 255], desc: "Deep Blue Ice" },
+            { t: 43.0, type: 'color', val: [255, 255, 255], desc: "FROST FLASH" },
+            { t: 43.2, type: 'color', val: [255, 0, 255], desc: "Sugar Plum" },
             
-            { t: 26.5, type: 'color', val: [255, 255, 255], desc: "BELL HIT" },
-            { t: 26.8, type: 'color', val: [212, 175, 55], desc: "Main Theme: Gold" },
+            // The "Epic Build-Up" Loop (Fast alternations)
+            { t: 50, type: 'color', val: [255, 0, 0], desc: "RED" },
+            { t: 50.2, type: 'color', val: [0, 255, 0], desc: "GREEN" },
+            { t: 50.4, type: 'color', val: [255, 0, 0], desc: "RED" },
+            { t: 50.6, type: 'color', val: [0, 255, 0], desc: "GREEN" },
+            { t: 50.8, type: 'color', val: [255, 255, 255], desc: "WHITE BURST" },
+
+            // 60.0s: The Crescendo
+            { t: 60.0, type: 'mode', val: 1, desc: "RAINBOW FLOW" },
+            { t: 70.0, type: 'mode', val: 3, desc: "ULTRA FLASH" },
+
+            // 85.0s: The Peak Finale
+            { t: 85.0, type: 'color', val: [255, 255, 255], desc: "GLORY WHITE" },
+            { t: 86.0, type: 'mode', val: 180, desc: "STABLE LIGHT" },
             
-            // Buildup
-            { t: 35, type: 'mode', val: 38, desc: "Green Flow Rising" },
-            { t: 45, type: 'mode', val: 37, desc: "Red Flow Rising" },
-            
-            // The High Section
-            { t: 55, type: 'color', val: [255, 255, 255], desc: "GLORY WHITE" },
-            { t: 55.5, type: 'color', val: [0, 0, 150], desc: "Ice Blue" },
-            { t: 60, type: 'color', val: [255, 255, 255], desc: "GLORY WHITE" },
-            { t: 60.5, type: 'color', val: [150, 0, 150], desc: "Royal Purple" },
-            
-            // Grand Finale
-            { t: 75, type: 'mode', val: 1, desc: "RAINBOW FINALE" },
-            { t: 90, type: 'mode', val: 3, desc: "RAPID FLASH" },
-            { t: 110, type: 'off', desc: "Blackout" }
+            // The Melting Fade
+            { t: 100.0, type: 'mode', val: 165, desc: "Melting Ice..." },
+            { t: 115.0, type: 'off', desc: "Final Blackout" }
         ];
 
         // --- ENGINE ---
-        let characteristic;
+        let device, characteristic;
         let isPlaying = false;
+        let lastCue = -1;
         let animationFrame;
-        let lastStep = -1;
 
         const PROTOCOLS = [
-            { name: "ELK", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
-            { name: "Lotus", write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]), setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) },
-            { name: "Triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), off: new Uint8Array([0xcc, 0x24, 0x33]), on: new Uint8Array([0xcc, 0x23, 0x33]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
+            { 
+                name: "ELK", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
+            },
+            { 
+                name: "Lotus", 
+                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
+                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
+                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
+                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) 
+            },
+            { 
+                name: "Triones", 
+                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), 
+                off: new Uint8Array([0xcc, 0x24, 0x33]), 
+                on: new Uint8Array([0xcc, 0x23, 0x33]),
+                setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) 
+            }
         ];
 
         async function connect() {
             try {
-                const device = await navigator.bluetooth.requestDevice({
+                device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
@@ -172,98 +222,111 @@
                     for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; } }
                     if(characteristic) break;
                 }
-                document.getElementById('connBtn').innerText = "Connected";
-                document.getElementById('connBtn').style.background = "#22c55e";
+                const btn = document.getElementById('connBtn');
+                btn.innerText = "LINKED";
+                btn.classList.add('connected');
+                
                 // Wake
                 const p = PROTOCOLS[document.getElementById('protocol').value];
-                await characteristic.writeValue(p.on);
-            } catch(e) { alert(e.message); }
+                if(p.on) await characteristic.writeValue(p.on);
+            } catch(e) { alert("Connect error: " + e.message); }
         }
 
         function loadAudio(input) {
             const file = input.files[0];
             if(!file) return;
-            document.getElementById('player').src = URL.createObjectURL(file);
+            const player = document.getElementById('audioPlayer');
+            player.src = URL.createObjectURL(file);
             document.getElementById('startBtn').disabled = false;
-            document.getElementById('status').innerText = "Audio Ready. Hit Start!";
+            document.getElementById('fileName').innerText = "✅ " + file.name;
+            document.getElementById('dropZone').classList.add('loaded');
+            document.getElementById('actionText').innerText = "TRACK LOADED";
         }
 
-        function toggleShow() {
+        function togglePlay() {
             if(isPlaying) stop(); else start();
         }
 
         function start() {
-            if(!characteristic) return alert("Connect Bluetooth First!");
+            if(!characteristic) return alert("Connect Light First!");
             isPlaying = true;
-            lastStep = -1;
-            document.getElementById('player').play();
-            document.getElementById('startBtn').innerText = "⏹ Stop Performance";
-            renderLoop();
+            lastCue = -1;
+            document.getElementById('audioPlayer').play();
+            document.getElementById('startBtn').innerText = "⏹ STOP PERFORMANCE";
+            document.getElementById('startBtn').style.background = "#ef4444";
+            document.getElementById('startBtn').style.color = "white";
+            performanceLoop();
         }
 
         function stop() {
             isPlaying = false;
             cancelAnimationFrame(animationFrame);
-            document.getElementById('player').pause();
-            document.getElementById('player').currentTime = 0;
-            document.getElementById('startBtn').innerText = "▶ Start Performance";
+            const player = document.getElementById('audioPlayer');
+            player.pause();
+            player.currentTime = 0;
+            document.getElementById('startBtn').innerText = "▶ BEGIN PERFORMANCE";
+            document.getElementById('startBtn').style.background = "white";
+            document.getElementById('startBtn').style.color = "black";
+            document.getElementById('actionText').innerText = "READY";
             sendOff();
         }
 
         async function sendOff() {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            await characteristic.writeValue(p.off);
+            try { await characteristic.writeValue(p.off); } catch(e){}
         }
 
-        function renderLoop() {
+        function performanceLoop() {
             if(!isPlaying) return;
-            const player = document.getElementById('player');
-            const time = player.currentTime;
+            const player = document.getElementById('audioPlayer');
+            const now = player.currentTime;
             
-            // UI Updates
-            const mins = Math.floor(time / 60);
-            const secs = Math.floor(time % 60).toString().padStart(2, '0');
+            // Update HUD
+            const mins = Math.floor(now / 60);
+            const secs = Math.floor(now % 60).toString().padStart(2, '0');
             document.getElementById('timer').innerText = `${mins}:${secs}`;
-            document.getElementById('progressBar').style.width = (time / player.duration) * 100 + "%";
+            document.getElementById('progressFill').style.width = (now / player.duration) * 100 + "%";
 
-            // Event Triggering
+            // Trigger Cues
             for(let i=0; i<SCRIPT.length; i++) {
-                const event = SCRIPT[i];
-                if(time >= event.t && lastStep < i) {
-                    executeEvent(event);
-                    lastStep = i;
+                const cue = SCRIPT[i];
+                if(now >= cue.t && lastCue < i) {
+                    executeCue(cue);
+                    lastCue = i;
                 }
             }
 
             if(player.ended) stop();
-            else animationFrame = requestAnimationFrame(renderLoop);
+            else animationFrame = requestAnimationFrame(performanceLoop);
         }
 
-        async function executeEvent(ev) {
+        async function executeCue(cue) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            const prev = document.getElementById('preview');
-            const act = document.getElementById('actionText');
+            const orb = document.getElementById('orb');
+            const glow = document.getElementById('orbGlow');
+            const label = document.getElementById('actionText');
             
-            act.innerText = ev.desc;
+            label.innerText = cue.desc;
 
             try {
-                if(ev.type === 'color') {
-                    const [r,g,b] = ev.val;
-                    prev.style.background = `rgb(${r},${g},${b})`;
-                    prev.style.boxShadow = `0 0 40px rgb(${r},${g},${b})`;
+                if(cue.type === 'color') {
+                    const [r,g,b] = cue.val;
+                    const col = `rgb(${r},${g},${b})`;
+                    orb.style.borderColor = col;
+                    glow.style.background = col;
                     await characteristic.writeValue(p.write(r,g,b));
-                } else if(ev.type === 'mode') {
-                    prev.style.background = "var(--gold)";
-                    prev.style.boxShadow = "0 0 40px var(--gold)";
-                    await characteristic.writeValue(p.setMode(ev.val));
-                } else if(ev.type === 'off') {
-                    prev.style.background = "#000";
-                    prev.style.boxShadow = "none";
+                } else if(cue.type === 'mode') {
+                    orb.style.borderColor = "var(--gold)";
+                    glow.style.background = "var(--gold)";
+                    await characteristic.writeValue(p.setMode(cue.val));
+                } else if(cue.type === 'off') {
+                    orb.style.borderColor = "#1e293b";
+                    glow.style.background = "transparent";
                     await characteristic.writeValue(p.off);
                 }
-            } catch(e) {}
+            } catch(e) { console.error("Cue Error", e); }
         }
     </script>
 </body>
