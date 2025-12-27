@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v12 (Saber Priority)</title>
+    <title>Universal LED Controller v13 (Director Mode)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -16,6 +16,7 @@
             --magic-color: #06b6d4;
             --battle-color: #eab308;
             --duel-color: #a855f7;
+            --record-color: #ff0000;
         }
 
         body {
@@ -66,6 +67,10 @@
         .btn-battle { background-color: var(--battle-color); color: black; }
         .btn-small { padding: 8px 12px; font-size: 0.8rem; width: auto; }
         .btn-scan { background-color: #0ea5e9; color: white; font-size: 0.8rem; padding: 10px;}
+        .btn-rec { background-color: #333; color: #aaa; border: 1px solid #555; }
+        .recording { background-color: var(--record-color) !important; color: white !important; animation: pulse-red 1s infinite; }
+
+        @keyframes pulse-red { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
         .hidden { display: none; }
 
@@ -197,21 +202,20 @@
             border-color: var(--duel-color);
             box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
         }
+
+        /* Director Mode */
+        .director-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
         
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .scanning { animation: pulse 1s infinite; background: #eab308; color: black; }
         
-        .quick-jump {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 10px;
-        }
-        .quick-jump button {
-            padding: 5px;
-            font-size: 0.7rem;
-            margin: 0;
-            background: #333;
-        }
+        .quick-jump { display: flex; gap: 5px; margin-bottom: 10px; }
+        .quick-jump button { padding: 5px; font-size: 0.7rem; margin: 0; background: #333; }
     </style>
 </head>
 <body>
@@ -330,16 +334,6 @@
                         
                         <button id="scanBtn" class="btn-scan" onclick="toggleScan()">▶ Auto-Scan Next 20</button>
                         
-                        <div class="slider-row" style="margin-top:10px;">
-                            <span>Chip Speed (1=Fast): <span id="igniteSpeedVal">1</span></span>
-                        </div>
-                        <input type="range" id="igniteSpeedRange" min="1" max="20" value="1" oninput="updateIgniteSettings()">
-
-                        <div class="slider-row">
-                            <span>Lock Time (ms): <span id="igniteTimeVal">1500</span></span>
-                        </div>
-                        <input type="range" id="igniteTimeRange" min="100" max="4000" step="100" value="1500" oninput="updateIgniteSettings()">
-                        
                         <div style="margin-top:10px; border-top:1px solid #444; padding-top:10px;">
                             <label style="font-size:0.8rem; display:flex; align-items:center; gap:5px;">
                                 <input type="checkbox" id="simpleFadeCheck"> 
@@ -347,20 +341,35 @@
                             </label>
                         </div>
                     </div>
-
-                    <!-- Audio Input -->
-                    <p style="margin: 15px 0 5px 0; font-size: 0.8rem;">Upload Soundtrack:</p>
-                    <input type="file" id="battleAudioFile" accept="audio/*">
-                    <audio id="battlePlayer" controls style="width:100%; margin-top:5px;"></audio>
                     
-                    <div class="slider-row" style="margin-top:15px;">
-                        <span>Clash (Bass) Sens.</span>
-                        <input type="range" id="clashSens" min="150" max="250" value="230" style="direction:rtl">
+                    <!-- DIRECTOR MODE -->
+                    <div class="section-box" style="border-color: #555;">
+                        <h3 style="margin:0 0 5px 0; font-size:1rem;">🎬 Director Mode</h3>
+                        <p style="font-size:0.75rem; margin-bottom:10px; color:#aaa;">Record your own light show!</p>
+                        
+                        <input type="file" id="directorAudioFile" accept="audio/*">
+                        <audio id="directorPlayer" controls style="width:100%; margin-top:5px;"></audio>
+
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button id="recBtn" class="btn-rec" onclick="toggleRecord()">🔴 Record</button>
+                            <button id="clearRecBtn" class="btn-secondary" onclick="clearRecording()">Clear</button>
+                        </div>
+                        <p id="recStatus" style="font-size:0.75rem; color:#666; margin:5px 0;">Events: 0</p>
+                        
+                        <div class="director-grid">
+                            <button class="btn-battle" onmousedown="recordEvent('strike')" style="margin:0;">⚔️ Strike</button>
+                            <button class="btn-danger" onmousedown="recordEvent('clash')" style="background:white; color:black; margin:0;">💥 Clash</button>
+                        </div>
+                        <p style="font-size:0.75rem; color:#666; margin-top:5px;">Hit Record -> Play Music -> Tap Buttons</p>
                     </div>
-                    <div class="slider-row">
-                        <span>Strike (Highs) Sens.</span>
-                        <input type="range" id="blasterSens" min="50" max="200" value="90" style="direction:rtl">
+
+                    <!-- AI Audio Input -->
+                    <div style="opacity:0.5; margin-top:10px;">
+                        <h4 style="margin:0; font-size:0.8rem; color:#aaa;">(Or use AI Audio)</h4>
+                        <input type="file" id="battleAudioFile" accept="audio/*">
+                        <audio id="battlePlayer" controls style="width:100%; margin-top:5px;"></audio>
                     </div>
+                    
                 </div>
             </div>
             
@@ -441,6 +450,11 @@
         let igniteMode = 1;
         let igniteDuration = 1500;
         let igniteSpeed = 1;
+
+        // --- DIRECTOR MODE STATE ---
+        let isRecording = false;
+        let recordedEvents = []; // { time: 1.2, type: 'clash' }
+        let lastPlaybackIndex = 0;
 
         // --- UI ELEMENTS ---
         const logBox = document.getElementById('log');
@@ -554,7 +568,7 @@
             }, 100);
         });
 
-        // --- AUDIO ENGINE ---
+        // --- AUDIO ENGINE & DIRECTOR ENGINE ---
         const setupAudioListeners = (inputId, playerId, canvasId) => {
             const input = document.getElementById(inputId);
             const player = document.getElementById(playerId);
@@ -564,13 +578,50 @@
                     const objectUrl = URL.createObjectURL(file);
                     player.src = objectUrl;
                     log(`Audio loaded for ${inputId}.`);
-                    if (!isAudioSetup) setupAudioContext(player, canvasId);
+                    
+                    // Reset Director
+                    lastPlaybackIndex = 0;
+                    
+                    // If this is an AI setup, visualizer
+                    if (inputId !== 'directorAudioFile') {
+                        if (!isAudioSetup) setupAudioContext(player, canvasId);
+                    }
                 }
             });
+            
+            // Add Time Update for Director Playback
+            if(inputId === 'directorAudioFile') {
+                 player.addEventListener('timeupdate', () => {
+                     if (isRecording) return; // Don't playback while recording
+                     
+                     // Playback Logic
+                     const t = player.currentTime;
+                     
+                     // Reset index if we seek backwards
+                     if(recordedEvents.length > 0 && t < recordedEvents[0].time) {
+                         lastPlaybackIndex = 0;
+                     }
+
+                     while(lastPlaybackIndex < recordedEvents.length && recordedEvents[lastPlaybackIndex].time <= t) {
+                         const evt = recordedEvents[lastPlaybackIndex];
+                         // Trigger Event
+                         triggerBattleEvent(evt.type);
+                         lastPlaybackIndex++;
+                     }
+                 });
+                 
+                 player.addEventListener('seeked', () => {
+                     // Find the next event index after current time
+                     const t = player.currentTime;
+                     lastPlaybackIndex = recordedEvents.findIndex(e => e.time > t);
+                     if(lastPlaybackIndex === -1) lastPlaybackIndex = recordedEvents.length;
+                 });
+            }
         };
 
         setupAudioListeners('audioFile', 'audioPlayer', 'visualizer');
         setupAudioListeners('battleAudioFile', 'battlePlayer', 'visualizer');
+        setupAudioListeners('directorAudioFile', 'directorPlayer', null);
 
         function setupAudioContext(playerElement) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -607,7 +658,11 @@
             const now = Date.now();
             const proto = getActiveProtocol();
 
-            if (isBattleActive && proto && characteristic) {
+            // AI BATTLE LOGIC (Only runs if NOT recording and NO director audio playing)
+            const directorPlayer = document.getElementById('directorPlayer');
+            const isDirectorPlaying = !directorPlayer.paused;
+            
+            if (isBattleActive && proto && characteristic && !isRecording && !isDirectorPlaying) {
                 let bassSum = 0; for(let i=0; i<5; i++) bassSum += dataArray[i];
                 let bassAvg = bassSum / 5;
                 let trebleSum = 0; for(let i=80; i<100; i++) trebleSum += dataArray[i];
@@ -616,26 +671,10 @@
                 const clashThresh = document.getElementById('clashSens').value;
                 const blasterThresh = document.getElementById('blasterSens').value;
 
-                // PRIORITY 1: Treble (Strikes/Blasters)
                 if (trebleAvg > blasterThresh && (now - lastBeatTime > 100)) {
-                    const flashColor = isDuelMode ? opponentColor : blasterColor;
-                    send(proto.writeColor(flashColor[0], flashColor[1], flashColor[2]));
-                    lastBeatTime = now + 50; // Add extra delay to prevent bass overlapping immediately
-                    
-                    // Return to saber color after 60ms (Short flash)
-                    setTimeout(() => {
-                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
-                    }, 60);
-
-                // PRIORITY 2: Bass (Clashes/Explosions)
+                    triggerBattleEvent('strike');
                 } else if (bassAvg > clashThresh && (now - lastBeatTime > 150)) {
-                    send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
-                    lastBeatTime = now;
-                    
-                    // Return to saber color after 50ms (Short flash)
-                    setTimeout(() => {
-                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
-                    }, 50);
+                    triggerBattleEvent('clash');
                 }
 
             } else if (!isBattleActive && proto && characteristic) {
@@ -646,6 +685,29 @@
                     beatColorIndex++;
                     lastBeatTime = now;
                 }
+            }
+        }
+        
+        // --- HELPER TO TRIGGER FLASHES ---
+        function triggerBattleEvent(type) {
+            const proto = getActiveProtocol();
+            if(!proto) return;
+            
+            const now = Date.now();
+            
+            if (type === 'strike') {
+                const flashColor = isDuelMode ? opponentColor : blasterColor;
+                send(proto.writeColor(flashColor[0], flashColor[1], flashColor[2]));
+                lastBeatTime = now + 50; 
+                setTimeout(() => {
+                     send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+                }, 60);
+            } else if (type === 'clash') {
+                send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
+                lastBeatTime = now;
+                setTimeout(() => {
+                     send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+                }, 50);
             }
         }
 
@@ -669,6 +731,40 @@
             } else {
                 btn.classList.remove('duel-active');
                 btn.innerText = "⚔️ Mode: Blaster (Orange Flash)";
+            }
+        }
+        
+        // --- DIRECTOR MODE LOGIC ---
+        window.toggleRecord = function() {
+            isRecording = !isRecording;
+            const btn = document.getElementById('recBtn');
+            if(isRecording) {
+                btn.classList.add('recording');
+                btn.innerText = "🔴 Recording...";
+                // Don't clear events, allow adding to existing
+            } else {
+                btn.classList.remove('recording');
+                btn.innerText = "🔴 Record";
+                // Sort events by time just in case
+                recordedEvents.sort((a,b) => a.time - b.time);
+            }
+        }
+        
+        window.clearRecording = function() {
+            recordedEvents = [];
+            document.getElementById('recStatus').innerText = `Events: 0`;
+        }
+        
+        window.recordEvent = function(type) {
+            // Trigger the light immediately so user sees it
+            triggerBattleEvent(type);
+            
+            if(isRecording) {
+                const player = document.getElementById('directorPlayer');
+                if(!player.paused) {
+                    recordedEvents.push({ time: player.currentTime, type: type });
+                    document.getElementById('recStatus').innerText = `Events: ${recordedEvents.length}`;
+                }
             }
         }
 
@@ -738,9 +834,7 @@
                  // Simple Fade-In Fallback
                  send(proto.off);
                  setTimeout(() => {
-                     // Just turning it on usually fades it in on these chips
                      send(proto.on);
-                     // Force color just in case
                      setTimeout(() => {
                          send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
                      }, 200);
