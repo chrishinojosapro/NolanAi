@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v12 (Color Recovery)</title>
+    <title>AI Vision Scanner v13 (Motion Correlation)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -63,11 +63,10 @@
         video {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* Make sure video fills area */
-            opacity: 0.8; /* Dim video slightly to see overlay better */
+            object-fit: cover; 
+            opacity: 0.8;
         }
         
-        /* The drawing canvas sits EXACTLY on top of the video */
         canvas#overlayCanvas {
             position: absolute;
             top: 0; left: 0;
@@ -100,7 +99,6 @@
             box-sizing: border-box;
         }
 
-        /* Ranges */
         .range-wrap { display: flex; flex-direction:column; gap: 5px; font-size: 0.8rem; color: #aaa; background: #111; padding: 10px; border-radius: 6px;}
         .range-row { display: flex; align-items: center; gap: 10px; }
         input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--accent); margin: 0; }
@@ -152,7 +150,7 @@
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner (v12)</h1>
+    <h1>👁️ Vertical Strip Scanner (v13)</h1>
 
     <div class="container">
         <!-- LEFT: CAMERA & VISION -->
@@ -173,7 +171,6 @@
                     <span>Color Booster:</span>
                     <input type="range" id="boostRange" min="1" max="10" step="1" value="3">
                 </div>
-                <div style="font-size:0.7rem; color:#aaa;">Slide Exposure Left to darken. Increase Boost to find colors in white light.</div>
             </div>
 
             <button onclick="startCamera()">📷 Start Camera</button>
@@ -303,15 +300,11 @@
             } catch(e) { console.log("Exposure adjust failed", e); }
         }
 
-        // HSL Conversion
         function rgbToHsl(r, g, b) {
             r /= 255; g /= 255; b /= 255;
             const max = Math.max(r, g, b), min = Math.min(r, g, b);
             let h, s, l = (max + min) / 2;
-
-            if (max === min) {
-                h = s = 0; 
-            } else {
+            if (max === min) { h = s = 0; } else {
                 const d = max - min;
                 s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
                 switch (max) {
@@ -326,37 +319,25 @@
 
         // BOOSTED Color Classifier
         function getColorName(r, g, b) {
-            // 1. Remove Whiteness (De-saturation)
-            // If we have (250, 200, 200), min is 200. 
-            // Result is (50, 0, 0) -> Pure Red.
             const minChannel = Math.min(r, g, b);
-            const boostFactor = document.getElementById('boostRange').value; 
             
-            // Artificial boosting
-            let boostR = r - (minChannel * 0.8); // Leave a little brightness
+            // Saturation Boost for washed out colors
+            let boostR = r - (minChannel * 0.8); 
             let boostG = g - (minChannel * 0.8);
             let boostB = b - (minChannel * 0.8);
             
-            // Re-normalize to 0-255 range if too dark
             const maxBoost = Math.max(boostR, boostG, boostB);
             if (maxBoost > 10) {
                 const multiplier = 255 / maxBoost;
-                boostR *= multiplier;
-                boostG *= multiplier;
-                boostB *= multiplier;
+                boostR *= multiplier; boostG *= multiplier; boostB *= multiplier;
             }
 
             const [h, s, l] = rgbToHsl(boostR, boostG, boostB);
-            const [origH, origS, origL] = rgbToHsl(r, g, b); // Keep original lightness for "Off" check
+            const [origH, origS, origL] = rgbToHsl(r, g, b);
             
-            // Darkness Check (Original L)
             if (origL < 0.1) return "Off";
-            
-            // White Check (Low Saturation on BOOSTED)
-            // Even after boosting, if saturation is low, it really is white
             if (s < 0.15) return "White";
             
-            // Hue Map (Degrees)
             if (h >= 340 || h <= 15) return "Red";
             if (h > 15 && h <= 45) return "Orange";
             if (h > 45 && h <= 75) return "Yellow";
@@ -364,7 +345,6 @@
             if (h > 165 && h <= 200) return "Cyan";
             if (h > 200 && h <= 270) return "Blue";
             if (h > 270 && h <= 340) return "Purple";
-            
             return "Mix";
         }
         
@@ -378,16 +358,13 @@
             const video = document.getElementById('video');
             const procCanvas = document.getElementById('procCanvas');
             const overlayCanvas = document.getElementById('overlayCanvas');
-            
             overlayCanvas.width = video.clientWidth;
             overlayCanvas.height = video.clientHeight;
-            
             const ctx = procCanvas.getContext('2d');
             const overlayCtx = overlayCanvas.getContext('2d');
             
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                procCanvas.width = 160; 
-                procCanvas.height = 120;
+                procCanvas.width = 160; procCanvas.height = 120;
                 ctx.drawImage(video, 0, 0, 160, 120);
                 
                 const stripW = Math.floor(procCanvas.width * 0.1); 
@@ -396,16 +373,15 @@
                 const stripY = Math.floor(procCanvas.height * 0.1);
                 const segmentH = Math.floor(stripH / SEGMENTS);
                 
-                let segmentColors = []; 
-                let rawColors = []; 
-                
+                let segmentColors = []; let rawColors = []; 
                 const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
                 
-                // Clear Overlay
                 overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
                 const scaleX = overlayCanvas.width / 160;
                 const scaleY = overlayCanvas.height / 120;
                 
+                const boost = parseInt(document.getElementById('boostRange').value);
+
                 for(let i=0; i<SEGMENTS; i++) {
                     let rTot=0, gTot=0, bTot=0, count=0;
                     const startY = i * segmentH;
@@ -423,15 +399,15 @@
                         }
                     }
                     
-                    const r = Math.floor(rTot/count) || 0;
-                    const g = Math.floor(gTot/count) || 0;
-                    const b = Math.floor(bTot/count) || 0;
+                    let r = Math.floor(rTot/count) || 0;
+                    let g = Math.floor(gTot/count) || 0;
+                    let b = Math.floor(bTot/count) || 0;
                     
+                    // Pre-calc visual boost for overlay only
                     const cName = getColorName(r,g,b);
                     segmentColors.push(cName);
                     rawColors.push({r,g,b});
                     
-                    // DRAW DEBUG OVERLAY
                     const boxX = (stripX + stripX) * scaleX / 2;
                     const boxY = (stripY + i * segmentH) * scaleY;
                     const boxW = stripW * scaleX;
@@ -446,7 +422,6 @@
                 }
                 
                 if(isScanning) frameBuffer.push(rawColors);
-                
                 const txt = document.getElementById('analysisText');
                 txt.innerText = `Top: ${segmentColors[0]} (${rawColors[0].r},${rawColors[0].g},${rawColors[0].b})\nMid: ${segmentColors[4]}\nBot: ${segmentColors[9]}`;
             }
@@ -464,7 +439,6 @@
             } else {
                 if(!characteristic) return alert("Connect light first!");
                 if(!stream) return alert("Start camera first!");
-                
                 isScanning = true;
                 const btn = document.getElementById('scanBtn');
                 btn.innerText = "⏹ STOP SCAN";
@@ -497,66 +471,81 @@
             }, speed);
         }
         
-        // --- DEEP ANALYSIS ---
+        // --- MOTION CORRELATION ANALYSIS ---
         async function analyzeBuffer(frames) {
             if(frames.length < 5) return "No Data";
             
-            const startF = frames[0];
-            const endF = frames[frames.length-1];
+            // 1. Color Identification
             const midF = frames[Math.floor(frames.length/2)];
+            const uniqueColors = new Set();
+            midF.forEach(p => { 
+                const n = getColorName(p.r,p.g,p.b); 
+                if(n!=='Off') uniqueColors.add(n); 
+            });
+            const colors = Array.from(uniqueColors).sort().join("/");
             
-            const getColors = (f) => {
-                const s = new Set();
-                f.forEach(p => { 
-                    const n = getColorName(p.r,p.g,p.b); 
-                    if(n!=='Off') s.add(n); 
-                });
-                return Array.from(s);
-            };
-            
-            const colors = getColors(midF);
-            const mainColorStr = colors.join("/");
-            
-            // Motion Tracking (Sensitive Threshold)
-            let totalDiff = 0;
+            // 2. Motion Direction (Pixel Shift Correlation)
             let upScore = 0;
             let downScore = 0;
+            let staticScore = 0;
+            let totalMotion = 0;
             
             for(let t=1; t<frames.length; t++) {
                 const prev = frames[t-1];
                 const curr = frames[t];
                 
+                // Compare: Curr[i] vs Prev[i] (Static)
                 let diffStatic = 0;
-                for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(prev[i].r - curr[i].r);
-                totalDiff += diffStatic;
+                for(let i=0; i<SEGMENTS; i++) diffStatic += Math.abs(curr[i].r - prev[i].r);
                 
+                // Compare: Curr[i] vs Prev[i+1] (Moved UP)
+                // If light moves UP, index 9 moves to 8. So Curr[8] should look like Prev[9].
+                // Generally: Curr[i] ~ Prev[i+1]
                 let diffUp = 0;
-                for(let i=1; i<SEGMENTS; i++) diffUp += Math.abs(prev[i].r - curr[i-1].r);
+                for(let i=0; i<SEGMENTS-1; i++) diffUp += Math.abs(curr[i].r - prev[i+1].r);
                 
+                // Compare: Curr[i] vs Prev[i-1] (Moved DOWN)
+                // If light moves DOWN, index 0 moves to 1. So Curr[1] should look like Prev[0].
+                // Generally: Curr[i] ~ Prev[i-1]
                 let diffDown = 0;
-                for(let i=0; i<SEGMENTS-1; i++) diffDown += Math.abs(prev[i].r - curr[i+1].r);
+                for(let i=1; i<SEGMENTS; i++) diffDown += Math.abs(curr[i].r - prev[i-1].r);
                 
-                if (diffUp < diffStatic) upScore++;
-                if (diffDown < diffStatic) downScore++;
+                totalMotion += diffStatic;
+                
+                // Vote
+                const minDiff = Math.min(diffStatic, diffUp, diffDown);
+                
+                // Only vote if there is significant change to analyze
+                if (diffStatic > 100) {
+                    if (minDiff === diffUp) upScore++;
+                    else if (minDiff === diffDown) downScore++;
+                    else staticScore++;
+                } else {
+                    staticScore++; // No motion is static
+                }
             }
             
             let motion = "Static";
-            const litStart = countLitPixels(frames[0]);
-            const litEnd = countLitPixels(frames[frames.length-1]);
+            const totalFrames = frames.length - 1;
             
-            // Check Filling First (Distinct from chasing)
-            if (litEnd > litStart + 2) motion = "Filling Up";
-            else if (litEnd < litStart - 2) motion = "Draining";
-            else if (totalDiff > 500) { // Lowered threshold
-                if (upScore > downScore && upScore > (frames.length/4)) motion = "Chase UP ⬆️";
-                else if (downScore > upScore && downScore > (frames.length/4)) motion = "Chase DOWN ⬇️";
+            // Fill detection logic override (Dark -> Lit)
+            const startLit = countLitPixels(frames[0]);
+            const endLit = countLitPixels(frames[frames.length-1]);
+            
+            if (endLit > startLit + 2) {
+                motion = "Fill/Stacking";
+            } else if (totalMotion > 1000) {
+                // If mostly UP votes
+                if (upScore > downScore && upScore > totalFrames * 0.3) motion = "Flow UP ⬆️";
+                // If mostly DOWN votes
+                else if (downScore > upScore && downScore > totalFrames * 0.3) motion = "Flow DOWN ⬇️";
+                // If lots of motion but no clear direction
                 else motion = "Random/Flash ✨";
             }
             
-            let desc = `${mainColorStr} ${motion}`;
-            if(!mainColorStr) desc = "Off/Black";
+            let desc = `${colors} ${motion}`;
+            if(colors.length === 0) desc = "Off/Black";
 
-            // AI Override
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
             if(useAi && apiKey) desc = await getAiDescription(frames, apiKey);
@@ -575,7 +564,7 @@
                 const f = frames[Math.floor(p * (frames.length-1))];
                 return f.map(px => getColorName(px.r,px.g,px.b)[0]).join("");
             });
-            const prompt = `LED Strip (10 Segs, Top=0). T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe motion/texture (e.g. Red Chase Up, Multi Random).`;
+            const prompt = `LED Strip (10 Segs, Top=0, Bot=9). T1:${snap[0]} T2:${snap[1]} T3:${snap[2]}. R,G,B,Y,C,P,W,O(Off). Describe motion/texture (e.g. Red Chase Up, Multi Random).`;
             try {
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
