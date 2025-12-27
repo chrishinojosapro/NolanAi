@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Show Studio</title>
+    <title>Light Show Studio v2</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -58,6 +58,7 @@
         button.primary { background: var(--accent-color); color: white; }
         button.danger { background: #ef4444; color: white; }
         button.success { background: #22c55e; color: white; }
+        button.battle { background: #eab308; color: black; } /* Yellow for Battle Gen */
         
         /* --- WORKSPACE --- */
         .workspace {
@@ -191,8 +192,8 @@
             <span id="connectionStatus" class="connection-status">Disconnected</span>
         </div>
         <div style="display:flex; gap:10px;">
-            <button onclick="saveProject()">💾 Save Show</button>
-            <button onclick="document.getElementById('loadInput').click()">📂 Load Show</button>
+            <button onclick="saveProject()">💾 Save</button>
+            <button onclick="document.getElementById('loadInput').click()">📂 Load</button>
             <input type="file" id="loadInput" accept=".json" style="display:none" onchange="loadProject(this)">
             
             <select id="protocolSelect" style="background:#333; color:white; border:none; padding:8px; border-radius:6px;">
@@ -226,6 +227,7 @@
             
             <div class="tool-group">
                 <button class="tool-btn active" id="tool-select" onclick="setTool('select')" title="Select/Move/Delete (Backspace)">✋</button>
+                <button class="tool-btn" onclick="selectAll()" title="Select All Events (Ctrl+A)">Select All</button>
             </div>
 
             <div class="tool-group">
@@ -238,8 +240,12 @@
                 <button class="tool-btn" id="tool-clash" onclick="setTool('clash')" style="color:white;" title="Clash Event (Click)">💥</button>
                 <button class="tool-btn" id="tool-off" onclick="setTool('off')" style="color:gray;" title="Turn Off Block (Drag)">⚫</button>
             </div>
+
+            <div class="tool-group" style="border:none;">
+                <button class="battle" onclick="generateBattleSequence()">⚡ Auto-Gen Battle</button>
+            </div>
             
-            <div class="help-text" id="toolHelp">Select Tool: Click to move events</div>
+            <div class="help-text" id="toolHelp">Generate a full Red/Blue fight instantly</div>
         </div>
 
         <!-- TIMELINE -->
@@ -268,9 +274,8 @@
         const TRACK_HEIGHT = 150;
         
         // --- STATE ---
-        let events = []; // Array of { id, type, start, duration, color }
+        let events = []; // Array of { id, type, start, duration, color, selected: boolean }
         let currentTool = 'select';
-        let selectedEventId = null;
         let isPlaying = false;
         let audioDuration = 60; // Default until loaded
         let waveformData = null; // Uint8Array of peaks
@@ -328,17 +333,96 @@
             currentProtocolIndex = parseInt(e.target.value);
         });
 
+        // --- BATTLE GENERATOR ---
+        window.generateBattleSequence = function() {
+            if(!confirm("This will clear current timeline and generate a new battle. Proceed?")) return;
+            
+            events = []; // Clear
+            const duration = Math.min(audioDuration, 180); // Cap at 3 mins
+            
+            let time = 0;
+            
+            // 1. Generate Base Layer (Momentum Shifts Red <-> Blue)
+            while(time < duration) {
+                const isVader = Math.random() > 0.5;
+                const color = isVader ? "#ff0000" : "#0000ff";
+                const length = 2 + Math.random() * 4; // 2 to 6 seconds per side
+                
+                events.push({
+                    id: Date.now() + Math.random(),
+                    type: 'color',
+                    start: time,
+                    duration: length,
+                    color: color,
+                    selected: false
+                });
+                
+                time += length;
+            }
+            
+            // 2. Overlay Strikes (Flashes)
+            // High intensity sections
+            let t = 0;
+            while (t < duration) {
+                // Randomly decide if this is a "Clash Flurry" section
+                if (Math.random() > 0.6) {
+                    // Flurry!
+                    const flurryLen = 1 + Math.random() * 3;
+                    const flurryEnd = t + flurryLen;
+                    while (t < flurryEnd) {
+                        events.push({
+                            id: Date.now() + Math.random(),
+                            type: 'flash', // Yellow
+                            start: t,
+                            duration: 0.1,
+                            color: '#ffff00',
+                            selected: false
+                        });
+                        t += 0.15 + (Math.random() * 0.3); // Very fast
+                    }
+                } else {
+                    // Calm(er) period
+                    t += 1 + Math.random() * 3;
+                }
+            }
+            
+            // 3. Overlay Heavy Clashes (White)
+            t = 2; 
+            while(t < duration) {
+                if(Math.random() > 0.8) {
+                    events.push({
+                        id: Date.now() + Math.random(),
+                        type: 'clash',
+                        start: t,
+                        duration: 0.2,
+                        color: '#ffffff',
+                        selected: false
+                    });
+                }
+                t += 2 + Math.random() * 5;
+            }
+            
+            drawTimeline();
+            alert("Battle Generated! Use 'Select All' to drag blocks to match your music start.");
+        };
+
+        window.selectAll = function() {
+            events.forEach(ev => ev.selected = true);
+            drawTimeline();
+        }
+
         // --- TOOL LOGIC ---
         window.setTool = function(tool) {
             currentTool = tool;
             
             // UI Updates
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tool-'+tool).classList.add('active');
+            const btn = document.getElementById('tool-'+tool);
+            if(btn) btn.classList.add('active');
             
             // Help Text
             const help = {
-                'select': 'Click to Select. Drag to Move. Edge to Resize. Backspace to Delete.',
+                'select': 'Click to Select. Drag to Move. Ctrl+Click Multi. Backspace to Delete.',
                 'paint': 'Click & Drag on timeline to create a COLOR block.',
                 'flash': 'Click to insert a short FLASH (Strike).',
                 'clash': 'Click to insert a CLASH (White explosion).',
@@ -382,8 +466,8 @@
         // --- CANVAS INTERACTION ---
         let isDragging = false;
         let dragStartTime = 0;
-        let dragEvent = null;
         let dragAction = null; // 'move', 'resize-left', 'resize-right', 'create'
+        let dragTarget = null; // Single event for resize, or null for group move
 
         canvas.addEventListener('mousedown', (e) => {
             const rect = canvas.getBoundingClientRect();
@@ -392,29 +476,41 @@
             
             if (currentTool === 'select') {
                 // Check for click on event
+                // If clicking an unselected event without Ctrl, deselect others
                 const clickedEvent = events.find(ev => time >= ev.start && time <= ev.start + ev.duration);
                 
                 if (clickedEvent) {
-                    selectedEventId = clickedEvent.id;
+                    if (!e.ctrlKey && !clickedEvent.selected) {
+                        events.forEach(ev => ev.selected = false);
+                    }
+                    clickedEvent.selected = true;
+                    
                     isDragging = true;
-                    dragEvent = clickedEvent;
-                    
-                    // Check edges for resize
-                    const edgeThreshold = 5 / PX_PER_SEC; // 5 pixels
-                    if (Math.abs(time - clickedEvent.start) < edgeThreshold) dragAction = 'resize-left';
-                    else if (Math.abs(time - (clickedEvent.start + clickedEvent.duration)) < edgeThreshold) dragAction = 'resize-right';
-                    else dragAction = 'move';
-                    
+                    dragAction = 'move';
                     dragStartTime = time;
+                    dragTarget = clickedEvent; // For checking edges
+                    
+                    // Check edges for resize (only if single selection)
+                    const selectedCount = events.filter(ev => ev.selected).length;
+                    if (selectedCount === 1) {
+                        const edgeThreshold = 5 / PX_PER_SEC; 
+                        if (Math.abs(time - clickedEvent.start) < edgeThreshold) dragAction = 'resize-left';
+                        else if (Math.abs(time - (clickedEvent.start + clickedEvent.duration)) < edgeThreshold) dragAction = 'resize-right';
+                    }
+                    
                 } else {
-                    // Clicked empty space - move playhead (preview)
-                    audioPlayer.currentTime = time;
-                    updatePlayhead();
-                    selectedEventId = null;
+                    // Clicked empty space
+                    if (!e.ctrlKey) {
+                        events.forEach(ev => ev.selected = false);
+                        // Move playhead
+                        audioPlayer.currentTime = time;
+                        updatePlayhead();
+                    }
                 }
             } 
             else if (['paint', 'off'].includes(currentTool)) {
                 // CREATE BLOCK
+                events.forEach(ev => ev.selected = false);
                 isDragging = true;
                 dragAction = 'create';
                 dragStartTime = time;
@@ -424,24 +520,23 @@
                     type: currentTool === 'paint' ? 'color' : 'off',
                     start: time,
                     duration: 0.5, // Default width
-                    color: currentTool === 'paint' ? document.getElementById('toolColor').value : '#000000'
+                    color: currentTool === 'paint' ? document.getElementById('toolColor').value : '#000000',
+                    selected: true
                 };
                 events.push(newEvent);
-                selectedEventId = newEvent.id;
-                dragEvent = newEvent;
+                dragTarget = newEvent;
             }
             else if (['flash', 'clash'].includes(currentTool)) {
-                // CREATE INSTANT
+                events.forEach(ev => ev.selected = false);
                 const newEvent = {
                     id: Date.now(),
                     type: currentTool,
                     start: time,
-                    duration: 0.15, // Short fixed duration
-                    color: currentTool === 'flash' ? '#ffff00' : '#ffffff'
+                    duration: 0.15, 
+                    color: currentTool === 'flash' ? '#ffff00' : '#ffffff',
+                    selected: true
                 };
                 events.push(newEvent);
-                selectedEventId = newEvent.id;
-                drawTimeline();
             }
             
             drawTimeline();
@@ -451,26 +546,29 @@
             if (!isDragging) return;
             const rect = canvas.getBoundingClientRect();
             let x = e.clientX - rect.left;
-            // Constrain x within canvas
             if (x < 0) x = 0; 
             const time = Math.max(0, x / PX_PER_SEC);
             
+            const dt = time - dragStartTime;
+            
             if (dragAction === 'move') {
-                const dt = time - dragStartTime;
-                dragEvent.start += dt;
+                // Move ALL selected events
+                events.forEach(ev => {
+                    if (ev.selected) ev.start += dt;
+                });
                 dragStartTime = time;
             } 
             else if (dragAction === 'resize-right' || dragAction === 'create') {
-                let newDur = time - dragEvent.start;
+                let newDur = time - dragTarget.start;
                 if(newDur < 0.1) newDur = 0.1;
-                dragEvent.duration = newDur;
+                dragTarget.duration = newDur;
             }
             else if (dragAction === 'resize-left') {
-                const end = dragEvent.start + dragEvent.duration;
+                const end = dragTarget.start + dragTarget.duration;
                 let newStart = time;
                 if (newStart > end - 0.1) newStart = end - 0.1;
-                dragEvent.duration = end - newStart;
-                dragEvent.start = newStart;
+                dragTarget.duration = end - newStart;
+                dragTarget.start = newStart;
             }
             
             drawTimeline();
@@ -478,21 +576,22 @@
 
         window.addEventListener('mouseup', () => {
             isDragging = false;
-            dragEvent = null;
+            dragTarget = null;
             dragAction = null;
         });
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Backspace' || e.key === 'Delete') {
-                if (selectedEventId) {
-                    events = events.filter(ev => ev.id !== selectedEventId);
-                    selectedEventId = null;
-                    drawTimeline();
-                }
+                events = events.filter(ev => !ev.selected);
+                drawTimeline();
             }
             if (e.code === 'Space') {
                 e.preventDefault();
                 togglePlayback();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+                e.preventDefault();
+                selectAll();
             }
         });
 
@@ -502,7 +601,7 @@
             ctx.fillStyle = '#222';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 1. Draw Audio Waveform (Background)
+            // 1. Draw Audio Waveform
             if (waveformData) {
                 ctx.fillStyle = '#333';
                 const step = canvas.width / waveformData.length;
@@ -518,7 +617,7 @@
                 ctx.fill();
             }
 
-            // 2. Draw Grid (Seconds)
+            // 2. Draw Grid
             ctx.strokeStyle = '#444';
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -538,31 +637,28 @@
                 const y = 30;
                 const h = 80;
 
-                // Block Body
+                // Color Logic
                 ctx.fillStyle = ev.color;
                 
-                // Visual tweaks for types
                 if (ev.type === 'off') {
-                    ctx.fillStyle = '#111'; // Black block
+                    ctx.fillStyle = '#111';
                     ctx.strokeStyle = '#555';
                     ctx.setLineDash([5, 5]);
                     ctx.strokeRect(x, y, w, h);
                     ctx.setLineDash([]);
                     ctx.fillRect(x, y, w, h);
                 } else if (ev.type === 'flash' || ev.type === 'clash') {
-                    // Gradient for impulse events
                     const grad = ctx.createLinearGradient(x, y, x, y+h);
                     grad.addColorStop(0, '#fff');
                     grad.addColorStop(1, ev.color);
                     ctx.fillStyle = grad;
                     ctx.fillRect(x, y, w, h);
                 } else {
-                    // Standard Color Block
                     ctx.fillRect(x, y, w, h);
                 }
 
                 // Selection Border
-                if (ev.id === selectedEventId) {
+                if (ev.selected) {
                     ctx.strokeStyle = 'white';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(x, y, w, h);
@@ -594,7 +690,7 @@
             audioPlayer.pause();
             document.getElementById('playBtn').innerText = '▶ Play';
             
-            // Optional: Send OFF when stopping
+            // Send OFF
             if(characteristic) {
                 const p = PROTOCOLS[currentProtocolIndex];
                 characteristic.writeValue(p.off).catch(e=>{});
@@ -609,22 +705,25 @@
             const t = audioPlayer.currentTime;
             updatePlayhead();
             
-            // Check for events at this time
-            // Find the event that should be active NOW
-            // We sort by start time to prioritize layering if needed, but here simple find is ok
-            const activeEvent = events.find(ev => t >= ev.start && t < (ev.start + ev.duration));
+            // Find active event
+            // Find ALL events that overlap current time, take the one that started latest (layers) or just one
+            // We'll prioritize 'flash'/'clash' over 'color'
+            const activeEvents = events.filter(ev => t >= ev.start && t < (ev.start + ev.duration));
+            
+            let eventToSend = null;
+            if(activeEvents.length > 0) {
+                // Priority: Flash/Clash > Off > Color
+                const priority = { 'clash': 3, 'flash': 2, 'off': 1, 'color': 0 };
+                activeEvents.sort((a,b) => priority[b.type] - priority[a.type]);
+                eventToSend = activeEvents[0];
+            }
 
-            if (activeEvent) {
-                // Optimization: Only send bluetooth command if event CHANGED
-                if (activeEvent.id !== lastEventSent) {
-                    sendEvent(activeEvent);
-                    lastEventSent = activeEvent.id;
+            if (eventToSend) {
+                if (eventToSend.id !== lastEventSent) {
+                    sendEvent(eventToSend);
+                    lastEventSent = eventToSend.id;
                 }
             } else {
-                // No event currently active? 
-                // Do we want default behavior? Maybe last known color?
-                // For now, if we leave an event, we don't necessarily send OFF unless an OFF block exists.
-                // Reset tracker so next event triggers
                 if (lastEventSent !== null) lastEventSent = null; 
             }
 
@@ -636,14 +735,12 @@
             const x = t * PX_PER_SEC;
             playhead.style.transform = `translateX(${x}px)`;
             
-            // Auto scroll if playhead goes off screen
             const scrollL = container.scrollLeft;
             const width = container.clientWidth;
             if (x > scrollL + width * 0.8) {
                 container.scrollLeft = x - width * 0.2;
             }
             
-            // Time display
             const mins = Math.floor(t / 60);
             const secs = Math.floor(t % 60).toString().padStart(2, '0');
             const ms = Math.floor((t % 1) * 10);
@@ -659,12 +756,8 @@
             if (ev.type === 'off') {
                 try {
                     await characteristic.writeValue(p.off);
-                    console.log("Sent OFF");
-                } catch(e) { console.log(e); }
+                } catch(e) {}
             } else {
-                // It's a color/flash/clash event. 
-                // Ensure ON first, then Color.
-                // We construct the color payload
                 const hex = ev.color;
                 const r = parseInt(hex.substring(1, 3), 16);
                 const g = parseInt(hex.substring(3, 5), 16);
@@ -672,25 +765,14 @@
                 const colorData = p.write(r, g, b);
 
                 try {
-                    // Send ON first to ensure it wakes up
-                    // Some chips ignore color commands if in 'soft off' state
-                    if (p.on) {
-                        await characteristic.writeValue(p.on);
-                        // Small delay might be needed for the chip to process, 
-                        // but JS execution usually provides enough gap or the BLE stack handles the queue.
-                        // To be safe, we can just await.
-                    }
-                    
+                    // AUTO-WAKE FIX: Send ON before color to ensure light wakes up
+                    if(p.on) await characteristic.writeValue(p.on);
                     // Send Color
                     await characteristic.writeValue(colorData);
-                    console.log(`Sent RGB: ${r},${g},${b}`);
-                } catch (err) {
-                    console.log("BT Error", err);
-                }
+                } catch (err) {}
             }
         }
         
-        // Manual controls logic
         document.getElementById('manualOffBtn').addEventListener('click', () => {
              if(characteristic) {
                  const p = PROTOCOLS[currentProtocolIndex];
@@ -708,8 +790,7 @@
         document.getElementById('connectBtn').addEventListener('click', async () => {
             const status = document.getElementById('connectionStatus');
             try {
-                if (!navigator.bluetooth) throw new Error("Browser not supported. Use Bluefy (iOS) or Chrome (Desktop).");
-                
+                if (!navigator.bluetooth) throw new Error("Browser not supported.");
                 status.innerText = "Scanning...";
                 
                 device = await navigator.bluetooth.requestDevice({
@@ -723,8 +804,6 @@
 
                 const server = await device.gatt.connect();
                 
-                // Try to find the right service based on standard UUIDs
-                // This is a simplified scanner logic from before
                 const uuids = [
                     '0000ffd5-0000-1000-8000-00805f9b34fb', 
                     '0000ffe5-0000-1000-8000-00805f9b34fb',
@@ -748,11 +827,9 @@
                 }
                 
                 if (characteristic) {
-                    status.innerText = "Connected: " + device.name;
+                    status.innerText = "Connected";
                     status.classList.add('connected');
                     document.getElementById('connectBtn').style.display = 'none';
-                } else {
-                    throw new Error("Characteristic not found");
                 }
 
             } catch (err) {
@@ -768,7 +845,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'lightshow.json';
+            a.download = 'battle_show.json';
             a.click();
         };
 
@@ -785,7 +862,6 @@
             reader.readAsText(file);
         };
 
-        // Initial Draw
         resizeCanvas();
 
     </script>
