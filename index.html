@@ -43,7 +43,7 @@
         .subtitle { font-size: 0.7rem; color: #8b949e; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 4px; font-weight: 700;}
         
         /* THE VISUALIZER */
-        .stage-container {
+        .stage-view {
             position: relative;
             width: 250px;
             height: 250px;
@@ -179,7 +179,7 @@
                 name: "Lotus", 
                 write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
-                on: new Uint8Array([0x7e, 0x04, 0x04, f0, 0x00, 0x01, 0xff, 0x00, 0xef]),
+                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x04, 0xff, 0xff, 0x00, 0xef]) 
             }
         ];
