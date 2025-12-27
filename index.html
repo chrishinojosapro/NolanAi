@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Show Studio v4 (AI Edition)</title>
+    <title>Light Show Studio v7 (DeepSeek + Mode Library)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -233,16 +233,16 @@
     <!-- AI Choreographer Modal -->
     <div id="aiModal" class="modal-overlay">
         <div class="modal">
-            <h3 style="margin-top:0; color:var(--ai-color);">🤖 AI Choreographer</h3>
+            <h3 style="margin-top:0; color:var(--ai-color);">🤖 AI Choreographer (DeepSeek)</h3>
             
             <div style="text-align:left; margin-bottom:5px;">
-                <label style="font-size:0.8rem; color:#aaa;">OpenAI API Key:</label>
-                <input type="password" id="apiKey" placeholder="sk-..." onchange="saveKey()">
+                <label style="font-size:0.8rem; color:#aaa;">OpenRouter API Key:</label>
+                <input type="password" id="apiKey" placeholder="sk-or-v1-..." onchange="saveKey()">
             </div>
 
             <div style="text-align:left;">
                 <label style="font-size:0.8rem; color:#aaa;">Describe the Show:</label>
-                <textarea id="aiPrompt" placeholder="Example: Create a Star Wars battle. Starts with silence for 10s, then a blue hum. At 30s intense fighting between Red and Blue. Lots of white clashes. End at 2:00."></textarea>
+                <textarea id="aiPrompt" placeholder="Example: Create a Star Wars battle. Starts with silence for 10s, then ignite the Red Saber (Mode 37). At 30s intense fighting between Red and Blue. End with Fire mode (Mode 80)."></textarea>
             </div>
 
             <div style="display:flex; justify-content:space-between; margin-top:10px;">
@@ -424,13 +424,13 @@
         // --- AI CHOREOGRAPHER ---
         window.openAiModal = function() {
             document.getElementById('aiModal').style.display = 'flex';
-            document.getElementById('apiKey').value = localStorage.getItem('openai_key') || '';
+            document.getElementById('apiKey').value = localStorage.getItem('openrouter_key') || '';
         }
         window.closeAiModal = function() {
             document.getElementById('aiModal').style.display = 'none';
         }
         window.saveKey = function() {
-            localStorage.setItem('openai_key', document.getElementById('apiKey').value);
+            localStorage.setItem('openrouter_key', document.getElementById('apiKey').value);
         }
 
         window.runAiGen = async function() {
@@ -441,30 +441,73 @@
             if(!key) return alert("API Key required");
             if(!userPrompt) return alert("Please describe the scene");
             
-            status.innerText = "Sending to OpenAI (this may take a few seconds)...";
+            status.innerText = "Sending to DeepSeek (via OpenRouter)...";
             
             const systemPrompt = `
-            You are a Lighting Designer for a smart LED strip.
+            You are a Professional Lighting Designer for a smart LED strip.
             Audio Length: ${audioDuration} seconds.
             Output: ONLY valid JSON array of event objects. No markdown, no text.
-            Schema: { id: number, type: 'color'|'flash'|'clash'|'off', start: number (seconds), duration: number, color: '#hex' }.
+            
+            Event Types & Schema:
+            1. COLOR: { id: number, type: 'color', start: number, duration: number, color: '#hex' }
+            2. FLASH (Strike): { id: number, type: 'flash', start: number, duration: 0.1, color: '#ffff00' }
+            3. CLASH (Explosion): { id: number, type: 'clash', start: number, duration: 0.2, color: '#ffffff' }
+            4. OFF (Blackout): { id: number, type: 'off', start: number, duration: number, color: '#000000' }
+            5. MAGIC (Pattern): { id: number, type: 'magic', start: number, duration: number, mode: number, speed: number, color: '#8b5cf6' }
+
+            *** BUILT-IN CHIP MODE LIBRARY (Use these IDs for 'magic' events) ***
+            
+            -- STATIC/BASE EFFECTS --
+            Mode 1: Rainbow Cycle (Multicolor)
+            Mode 8: Rainbow Breathing
+            Mode 95: White Strobe (Flashing)
+            
+            -- FLOWING/MOVING EFFECTS (Good for ambiance) --
+            Mode 21: Red Flow/Water
+            Mode 22: Green Flow/Water
+            Mode 23: Blue Flow/Water
+            Mode 24: Yellow Flow/Water
+            Mode 25: Cyan Flow/Water
+            Mode 26: Purple Flow/Water
+            Mode 27: White Flow/Water
+            
+            -- STACKING/IGNITION EFFECTS (Good for Saber ON/Grow) --
+            Mode 37: Red Stacking (Sith Ignition)
+            Mode 38: Green Stacking (Yoda Ignition)
+            Mode 39: Blue Stacking (Jedi Ignition)
+            Mode 181: Red Fill (Alternate Sith)
+            Mode 182: Green Fill (Alternate Yoda)
+            Mode 183: Blue Fill (Alternate Jedi)
+            
+            -- FIRE & SPECIAL --
+            Mode 80: Red/Orange Pulsing (Fire/Lava)
+            Mode 90: Random Bursts (Explosions)
+            Mode 45: Red/Blue Cross-Fade (Duel Ambiance)
+            
+            -- WIPES (Good for transitions) --
+            Mode 160: Red Wipe
+            Mode 161: Green Wipe
+            Mode 162: Blue Wipe
+
             Rules:
-            - 'flash' is for quick strikes (duration ~0.1s, usually #ffff00).
-            - 'clash' is for explosions (duration ~0.2s, usually #ffffff).
-            - 'color' is for main ambient state (duration variable).
-            - 'off' turns light off.
-            - Ensure events cover the requested time.
+            - Speed range for magic is 1 (Fast) to 20 (Slow). Default 3.
+            - Ensure events cover the requested time without gaps.
+            - For Star Wars battles: Use 'color' events for the main saber colors (Red #ff0000, Blue #0000ff). Use 'flash' (#ffff00) for grazing hits and 'clash' (#ffffff) for strong hits.
+            - Use 'magic' modes (like 181/183) specifically when the user asks for "ignition" or "turn on".
+            - Use 'magic' mode 80 if the user asks for fire or lava.
             `;
 
             try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`
+                        'Authorization': `Bearer ${key}`,
+                        'HTTP-Referer': window.location.href, // Optional, for OpenRouter rankings
+                        'X-Title': 'Light Show Studio'
                     },
                     body: JSON.stringify({
-                        model: "gpt-3.5-turbo",
+                        model: "deepseek/deepseek-chat", // DeepSeek V3 via OpenRouter
                         messages: [
                             {role: "system", content: systemPrompt},
                             {role: "user", content: userPrompt}
@@ -474,7 +517,7 @@
                 });
 
                 const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
+                if(data.error) throw new Error(data.error.message || JSON.stringify(data.error));
                 
                 const content = data.choices[0].message.content;
                 // Parse JSON (handle potential markdown wrapping)
@@ -684,7 +727,12 @@
         });
 
         window.addEventListener('mouseup', () => { isDragging = false; dragTarget = null; dragAction = null; });
+        
         window.addEventListener('keydown', (e) => {
+            // IGNORE SPACEBAR IF TYPING
+            const tag = e.target.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') return;
+
             if (e.key === 'Backspace' || e.key === 'Delete') { events = events.filter(ev => !ev.selected); drawTimeline(); }
             if (e.code === 'Space') { e.preventDefault(); togglePlayback(); }
             if ((e.ctrlKey || e.metaKey) && e.key === 'a') { e.preventDefault(); selectAll(); }
