@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touch Sync Bridge v2.4 (Training Engine)</title>
+    <title>Touch Sync Bridge v2.5 (Color Precision)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -47,7 +47,7 @@
         #sensorArea {
             position: absolute; top: 30%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 160px; height: 160px;
+            width: 180px; height: 180px;
             border: 4px dashed var(--ai-purp);
             border-radius: 20px;
             pointer-events: none;
@@ -62,17 +62,18 @@
 
         .thinking { color: #f59e0b; font-weight: bold; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        .color-preview-bar { height: 10px; width: 100%; background: #000; margin-top: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
 
     <div id="setup">
-        <h1>AI Training Bridge v2.4</h1>
-        <p style="color: #71717a;">Map and describe LED animations for future light shows.</p>
+        <h1>AI Color Training v2.5</h1>
+        <p style="color: #71717a;">High-precision color mapping for light show orchestration.</p>
         <button class="btn-big btn-host" onclick="initHost()">💻 Start Training Host</button>
     </div>
 
-    <!-- HOST INTERFACE -->
     <div id="hostUI">
         <div class="grid">
             <div class="card">
@@ -88,30 +89,32 @@
                 
                 <div style="text-align:center;">
                     <div id="qrbox"></div>
-                    <p id="connStatus" style="color:#ef4444; font-size:0.8rem; font-weight:bold;">Waiting for iPhone...</p>
+                    <p id="connStatus" style="color:#ef4444; font-size:0.8rem; font-weight:bold;">Awaiting iPhone Stream...</p>
                 </div>
             </div>
 
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h2 style="margin:0; font-size:1rem;">2. Choreography Metadata</h2>
-                    <button onclick="downloadLog()" style="font-size:0.7rem; background:#333; color:white; padding:5px 10px; border-radius:5px;">💾 Download Training Data</button>
+                    <h2 style="margin:0; font-size:1rem;">2. Precision Color Metadata</h2>
+                    <button onclick="downloadLog()" style="font-size:0.7rem; background:#333; color:white; padding:5px 10px; border-radius:5px;">💾 Export Training Data</button>
                 </div>
-                <textarea id="aiLog" readonly>// Awaiting AI insights...</textarea>
-                <div id="hostStatus" style="font-size:0.7rem; color:#666; margin-top:10px;">Idle.</div>
+                <textarea id="aiLog" readonly>// DeepSeek AI will map exact colors and movements here...</textarea>
+                <div id="hostStatus" style="font-size:0.7rem; color:#666; margin-top:10px;">System Online.</div>
             </div>
         </div>
     </div>
 
-    <!-- CLIENT INTERFACE -->
     <div id="clientUI">
         <video id="video" autoplay playsinline muted></video>
         <div id="sensorArea"></div>
         <div class="client-controls">
-            <div class="ai-status" id="clientStatus">Hardware Link Required</div>
-            <div id="modeHud" style="font-size:1.8rem; font-weight:900; color:var(--accent);">MODE: --</div>
-            <button class="btn-big" id="scanBtn" onclick="toggleAutoScan()" style="background:var(--ai-purp); color:white;">🤖 Start Training Loop</button>
-            <p style="font-size:0.7rem; color:#888;">AI will observe color flow over 4 seconds for maximum sync accuracy.</p>
+            <div class="ai-status" id="clientStatus">Link Required</div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div id="modeHud" style="font-size:1.8rem; font-weight:900; color:var(--accent);">MODE: --</div>
+                <div id="colorIndicator" style="width:40px; height:40px; border-radius:50%; background:#000; border:2px solid #fff;"></div>
+            </div>
+            <button class="btn-big" id="scanBtn" onclick="toggleAutoScan()" style="background:var(--ai-purp); color:white;">🤖 Start Color Mapping</button>
+            <p style="font-size:0.7rem; color:#888;">Precision sampling: DeepSeek will identify specific color transitions.</p>
         </div>
     </div>
 
@@ -143,7 +146,7 @@
             });
             peer.on('connection', (c) => {
                 conn = c;
-                document.getElementById('connStatus').innerText = "📱 SENSOR LINKED";
+                document.getElementById('connStatus').innerText = "📱 IPHONE SYNCED";
                 document.getElementById('connStatus').style.color = "#22c55e";
                 setupDataListener();
             });
@@ -162,7 +165,7 @@
                     for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { bleChar = c; break; } }
                 }
                 if(bleChar) {
-                    document.getElementById('btBtn').innerText = "LIGHT ONLINE";
+                    document.getElementById('btBtn').innerText = "BT HARDWARE READY";
                     document.getElementById('btBtn').style.background = "#22c55e";
                     const p = PROTOCOLS[document.getElementById('protocol').value];
                     await bleChar.writeValue(new Uint8Array(p.on));
@@ -188,28 +191,29 @@
         async function analyzeWithAI(data) {
             const key = document.getElementById('apiKey').value;
             const statusEl = document.getElementById('hostStatus');
-            if(!key) { logToLibrary(data.mode, "Error", "No API Key."); return; }
+            if(!key) { logToLibrary(data.mode, "Error", {error:"Missing Key"}); return; }
 
-            statusEl.innerHTML = `<span class="thinking">DEEPSEEK GENERATING TRAINING DATA FOR MODE ${data.mode}...</span>`;
+            statusEl.innerHTML = `<span class="thinking">DEEPSEEK MAPPING COLORS FOR MODE ${data.mode}...</span>`;
 
-            // We provide a temporal sequence to the AI to describe movement accurately
-            const prompt = `LED Lighting Engineer Task:
-            Data for Hardware Mode #${data.mode}:
-            Sequence Observed (Temporal): [${data.temporal.join(" -> ")}]
-            Detected Motion Character: ${data.motion}
+            // Prompt strictly enforces listing all colors observed in the temporal flow
+            const prompt = `LED Vision Analysis Task:
+            Mode Index: ${data.mode}
+            Observed Temporal Color Sequence: [${data.temporal.join(" -> ")}]
+            Detected Movement Physics: ${data.motion}
             
-            Analyze the animation. Return exactly this JSON structure:
+            Instruction: Identify the specific set of colors used in this mode. Do NOT use generic terms like "Multiple Colors". List every unique hue found in the sequence (e.g., "Red, Orange, and Green").
+            
+            Return ONLY a valid JSON object:
             {
                 "mode": ${data.mode},
-                "colors": "list of colors",
-                "animation_type": "Chase/Stack/Pulse/Breathe/Strobe/etc",
-                "direction": "Up/Down/Static/Random",
-                "rhythm": "Fast/Medium/Slow",
-                "choreography_note": "A highly detailed sentence on how to use this mode for a music-synced light show."
+                "identified_colors": "List specific colors found",
+                "animation_type": "Chase/Breathe/Strobe/etc",
+                "direction": "Up/Down/Center/Random",
+                "choreography_note": "A technical description of the color movement and timing for a professional light show."
             }`;
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 40000); 
+            const timeoutId = setTimeout(() => controller.abort(), 45000); 
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -218,7 +222,7 @@
                         "Authorization": `Bearer ${key}`,
                         "Content-Type": "application/json",
                         "HTTP-Referer": window.location.href,
-                        "X-Title": "LED Training Studio"
+                        "X-Title": "LED Color Training v2.5"
                     },
                     body: JSON.stringify({
                         model: "deepseek/deepseek-chat",
@@ -234,19 +238,16 @@
                 if (result.choices && result.choices.length > 0) {
                     const aiResult = JSON.parse(result.choices[0].message.content.match(/\{[\s\S]*\}/)[0]);
                     logToLibrary(data.mode, data.motion, aiResult);
-                } else {
-                    logToLibrary(data.mode, data.motion, "AI Processing Error.");
                 }
-
             } catch(e) {
-                logToLibrary(data.mode, data.motion, "System Failure: " + e.message);
+                logToLibrary(data.mode, data.motion, { error: e.message });
             }
         }
 
         function logToLibrary(mode, motion, aiObj) {
-            library.push({ ...aiObj, raw_motion: motion, timestamp: new Date().toLocaleTimeString() });
+            library.push({ ...aiObj, raw_physics: motion, timestamp: new Date().toLocaleTimeString() });
             document.getElementById('aiLog').value = JSON.stringify(library, null, 2);
-            document.getElementById('hostStatus').innerText = `Finished Mode ${mode}. Awaiting next sample...`;
+            document.getElementById('hostStatus').innerText = `Logged Mode ${mode}. Waiting for sampling...`;
             conn.send({ type: 'ACK_AI' });
         }
 
@@ -254,7 +255,7 @@
             const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'choreography_training_data.json'; a.click();
+            a.href = url; a.download = 'color_choreography_map.json'; a.click();
         }
 
         // --- CLIENT LOGIC (iPhone) ---
@@ -265,13 +266,13 @@
             peer.on('open', () => {
                 conn = peer.connect(hostId);
                 conn.on('open', () => {
-                    document.getElementById('clientStatus').innerText = "LINKED TO HOST";
+                    document.getElementById('clientStatus').innerText = "CONNECTED TO COMMAND CENTER";
                     startVision();
                 });
                 conn.on('data', (data) => {
                     if(data.type === 'MODE_SYNC') {
                         currentMode = data.val;
-                        document.getElementById('modeHud').innerText = "TRAINING: " + currentMode;
+                        document.getElementById('modeHud').innerText = "MAPPING: " + currentMode;
                         startSampling();
                     }
                     if(data.type === 'ACK_AI') { if(isScanning) conn.send({ type: 'REQUEST_NEXT' }); }
@@ -289,19 +290,19 @@
 
         function toggleAutoScan() {
             isScanning = !isScanning;
-            document.getElementById('scanBtn').innerText = isScanning ? "⏹ Stop Training" : "🤖 Start Training Loop";
+            document.getElementById('scanBtn').innerText = isScanning ? "⏹ Stop Mapping" : "🤖 Start Color Mapping";
             if(isScanning) conn.send({ type: 'REQUEST_NEXT' });
         }
 
         function startSampling() {
             temporalBuffer = [];
-            document.getElementById('clientStatus').innerText = "WATCHING ANIMATION FLOW...";
+            document.getElementById('clientStatus').innerText = "EXTRACTING COLOR DNA...";
             
-            // Observe for 4 seconds for better temporal mapping
+            // Higher resolution sampling (every 200ms) for 4 seconds
             const sampleInt = setInterval(() => {
-                const col = getCurrentColor();
-                temporalBuffer.push(col);
-            }, 250); // Sample every 250ms
+                const col = lastDetectedColorName;
+                if(col !== "Black/Off") temporalBuffer.push(col);
+            }, 200);
 
             setTimeout(() => {
                 clearInterval(sampleInt);
@@ -312,12 +313,11 @@
                     temporal: temporalBuffer, 
                     motion: motionSummary 
                 });
-                document.getElementById('clientStatus').innerText = "PROCESSING...";
+                document.getElementById('clientStatus').innerText = "AI PROCESSING...";
             }, 4000);
         }
 
-        let lastColor = "Off";
-        function getCurrentColor() { return lastColor; }
+        let lastDetectedColorName = "Black/Off";
 
         function visionLoop() {
             const video = document.getElementById('video');
@@ -325,35 +325,43 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.width = 50; canvas.height = 50;
-                ctx.drawImage(video, (video.videoWidth/2)-80, (video.videoHeight/2)-80, 160, 160, 0, 0, 50, 50);
+                ctx.drawImage(video, (video.videoWidth/2)-90, (video.videoHeight/2)-90, 180, 180, 0, 0, 50, 50);
                 const data = ctx.getImageData(0,0,50,50).data;
                 let r=0, g=0, b=0;
                 for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
                 r = Math.floor(r/(50*50)); g = Math.floor(g/(50*50)); b = Math.floor(b/(50*50));
-                lastColor = getColorName(r,g,b);
+                
+                lastDetectedColorName = getColorName(r,g,b);
+                document.getElementById('colorIndicator').style.background = `rgb(${r},${g},${b})`;
             }
             requestAnimationFrame(visionLoop);
         }
 
         function getColorName(r, g, b) {
             const max = Math.max(r, g, b);
-            if (max < 40) return "Black/Off";
-            if (r > g*1.8 && r > b*1.8) return "Red";
-            if (g > r*1.8 && g > b*1.8) return "Green";
-            if (b > r*1.8 && b > g*1.8) return "Blue";
-            if (r > 160 && g > 160 && b < 100) return "Yellow";
-            if (r > 160 && b > 160 && g < 100) return "Purple";
+            if (max < 35) return "Black/Off";
+            
+            // Refined Color Matching Logic for secondary hues
             if (r > 200 && g > 200 && b > 200) return "White";
-            return "Multi";
+            if (r > 200 && g > 120 && b < 80) return "Orange";
+            if (r > 200 && g < 100 && b > 150) return "Magenta/Pink";
+            if (r < 100 && g > 200 && b > 180) return "Cyan/Ice";
+            if (r > 180 && g > 180 && b < 80) return "Yellow";
+            
+            if (r > g*1.5 && r > b*1.5) return "Red";
+            if (g > r*1.5 && g > b*1.5) return "Green";
+            if (b > r*1.5 && b > g*1.5) return "Blue";
+            
+            return "Mixed/Blend";
         }
 
         function detectMotion(buffer) {
             let changes = 0;
             for(let i=1; i<buffer.length; i++) if(buffer[i] !== buffer[i-1]) changes++;
-            if(changes > 10) return "High-Speed Dynamic";
-            if(changes > 3) return "Sequential Flow";
-            if(changes > 0) return "Slow Transition";
-            return "Static";
+            if(changes > 12) return "High-Speed Flickering/Strobe";
+            if(changes > 4) return "Sequential Color Chase";
+            if(changes > 0) return "Gradual Color Fade/Pulse";
+            return "Static Solid State";
         }
     </script>
 </body>
