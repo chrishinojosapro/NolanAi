@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v6 (Battle Edition)</title>
+    <title>Universal LED Controller v7 (Saber Ignition)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -63,6 +63,7 @@
         .btn-music { background-color: var(--music-color); color: white; }
         .btn-magic { background-color: var(--magic-color); color: white; }
         .btn-battle { background-color: var(--battle-color); color: black; }
+        .btn-small { padding: 8px 12px; font-size: 0.8rem; width: auto; }
 
         .hidden { display: none; }
 
@@ -169,6 +170,14 @@
             border-color: white;
             color: white;
         }
+        
+        .tuning-panel {
+            background: #222;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-top: 1px solid #444;
+        }
     </style>
 </head>
 <body>
@@ -258,10 +267,30 @@
                         <button class="saber-btn" id="saber-green" style="background:#008800;" onclick="setSaber('green')">Yoda</button>
                     </div>
 
-                    <button id="igniteBtn" class="btn-battle">🔥 Ignite Saber</button>
+                    <button id="igniteBtn" class="btn-battle" style="font-size: 1.2rem; padding: 20px;">🔥 Ignite Saber</button>
+
+                    <!-- Ignition Tuner -->
+                    <div class="tuning-panel">
+                        <h4 style="margin:0 0 10px 0; font-size:0.8rem; color:#aaa;">Ignition Tuning (Find 'Stacking' Mode)</h4>
+                        
+                        <div class="slider-row">
+                            <span>Ignition Mode: <span id="igniteModeVal">1</span></span>
+                        </div>
+                        <input type="range" id="igniteModeRange" min="1" max="200" value="15" oninput="updateIgniteSettings()">
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                             <button class="btn-secondary btn-small" onclick="testIgnitionMode()">Test Mode</button>
+                             <span style="font-size:0.7rem; color:#666;">(Try 15, 26, 100)</span>
+                        </div>
+
+                        <div class="slider-row">
+                            <span>Fill Time (ms): <span id="igniteTimeVal">1500</span></span>
+                        </div>
+                        <input type="range" id="igniteTimeRange" min="100" max="4000" step="100" value="1500" oninput="updateIgniteSettings()">
+                    </div>
 
                     <!-- Audio Input for Battle -->
-                    <p style="margin: 10px 0 5px 0; font-size: 0.8rem;">Upload Soundtrack:</p>
+                    <p style="margin: 15px 0 5px 0; font-size: 0.8rem;">Upload Soundtrack:</p>
                     <input type="file" id="battleAudioFile" accept="audio/*">
                     <audio id="battlePlayer" controls style="width:100%; margin-top:5px;"></audio>
                     
@@ -273,8 +302,6 @@
                         <span>Blaster Sensitivity</span>
                         <input type="range" id="blasterSens" min="50" max="200" value="120" style="direction:rtl">
                     </div>
-                    
-                    <p style="font-size:0.75rem; color:#666; margin-top:5px;">Adjust sliders until flashes match the sound.</p>
                 </div>
             </div>
             
@@ -297,6 +324,7 @@
             {
                 name: "Lotus/Keepsmile (0x7E)",
                 writeColor: (r, g, b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
+                // Protocol 2 specific mode setting
                 setMode: (mode, speed) => new Uint8Array([0x7e, 0x05, 0x03, mode, 0x03, 0xff, 0xff, 0x00, 0xef]),
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef])
@@ -346,9 +374,11 @@
 
         // --- BATTLE STATE ---
         let isBattleActive = false;
-        let saberColor = [255, 0, 0]; // Default Sith
-        let clashColor = [255, 255, 255]; // White
-        let blasterColor = [255, 150, 0]; // Orange/Yellow
+        let saberColor = [255, 0, 0]; 
+        let clashColor = [255, 255, 255]; 
+        let blasterColor = [255, 150, 0];
+        let igniteMode = 15;
+        let igniteDuration = 1500;
 
         // --- UI ELEMENTS ---
         const logBox = document.getElementById('log');
@@ -369,11 +399,7 @@
             document.getElementById('tab-' + tabName).style.opacity = '1.0';
             document.getElementById('tab-' + tabName).classList.add('active-tab');
             
-            // Activate Battle Mode logic only on battle tab
             isBattleActive = (tabName === 'battle');
-            if(!isBattleActive && isAudioSetup) {
-                // Return to normal mode if leaving battle
-            }
         }
 
         // --- CONNECTION LOGIC ---
@@ -476,7 +502,6 @@
         });
 
         // --- AUDIO ENGINE ---
-        // We use one audio context for both Music tab and Battle tab
         const setupAudioListeners = (inputId, playerId, canvasId) => {
             const input = document.getElementById(inputId);
             const player = document.getElementById(playerId);
@@ -493,7 +518,7 @@
         };
 
         setupAudioListeners('audioFile', 'audioPlayer', 'visualizer');
-        setupAudioListeners('battleAudioFile', 'battlePlayer', 'visualizer'); // Re-use logic, specific canvas not critical here
+        setupAudioListeners('battleAudioFile', 'battlePlayer', 'visualizer');
 
         function setupAudioContext(playerElement) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -501,22 +526,17 @@
             const source = audioCtx.createMediaElementSource(playerElement);
             source.connect(analyser);
             analyser.connect(audioCtx.destination);
-            
             analyser.fftSize = 256;
-            const bufferLength = analyser.frequencyBinCount;
-            dataArray = new Uint8Array(bufferLength);
-            
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
             isAudioSetup = true;
             visualize();
         }
 
-        // --- VISUALIZER & LOGIC ---
+        // --- VISUALIZER ---
         function visualize() {
             requestAnimationFrame(visualize);
-            
             analyser.getByteFrequencyData(dataArray);
 
-            // 1. Draw Visualizer (Only if Music tab is active)
             if (!isBattleActive) {
                 const canvas = document.getElementById('visualizer');
                 const ctx = canvas.getContext('2d');
@@ -535,53 +555,29 @@
             const now = Date.now();
             const proto = getActiveProtocol();
 
-            // --- 2. BATTLE MODE LOGIC ---
             if (isBattleActive && proto && characteristic) {
-                // Analysis
-                // Bass: bins 0-5
-                let bassSum = 0;
-                for(let i=0; i<5; i++) bassSum += dataArray[i];
+                let bassSum = 0; for(let i=0; i<5; i++) bassSum += dataArray[i];
                 let bassAvg = bassSum / 5;
-
-                // Treble: bins 80-100 (approx high freq)
-                let trebleSum = 0;
-                for(let i=80; i<100; i++) trebleSum += dataArray[i];
+                let trebleSum = 0; for(let i=80; i<100; i++) trebleSum += dataArray[i];
                 let trebleAvg = trebleSum / 20;
 
                 const clashThresh = document.getElementById('clashSens').value;
                 const blasterThresh = document.getElementById('blasterSens').value;
 
-                // Logic
                 if (bassAvg > clashThresh && (now - lastBeatTime > 150)) {
-                    // CLASH! (Bass/Explosion)
                     send(proto.writeColor(clashColor[0], clashColor[1], clashColor[2]));
                     lastBeatTime = now;
-                    // Reset to saber color after 100ms
-                    setTimeout(() => {
-                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
-                    }, 100);
+                    setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 100);
 
                 } else if (trebleAvg > blasterThresh && (now - lastBeatTime > 100)) {
-                    // BLASTER! (High Freq)
                     send(proto.writeColor(blasterColor[0], blasterColor[1], blasterColor[2]));
                     lastBeatTime = now;
-                    setTimeout(() => {
-                         send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
-                    }, 80);
-                } else {
-                    // Idle Hum (Only send occasionally to keep connection alive or change saber color)
-                    // We don't flood the chip here, we assume it holds the last color.
+                    setTimeout(() => send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2])), 80);
                 }
 
-            } 
-            // --- 3. STANDARD MUSIC MODE LOGIC ---
-            else if (!isBattleActive && proto && characteristic) {
-                // Simple Bass Beat Detection
-                let bassTotal = 0;
-                for(let i = 0; i < 10; i++) bassTotal += dataArray[i];
-                const bassLevel = bassTotal / 10;
-
-                if (bassLevel > 180 && (now - lastBeatTime > 150)) {
+            } else if (!isBattleActive && proto && characteristic) {
+                let bassTotal = 0; for(let i = 0; i < 10; i++) bassTotal += dataArray[i];
+                if ((bassTotal/10) > 180 && (now - lastBeatTime > 150)) {
                     const col = beatColors[beatColorIndex % beatColors.length];
                     send(proto.writeColor(col[0], col[1], col[2]));
                     beatColorIndex++;
@@ -595,49 +591,67 @@
             document.querySelectorAll('.saber-btn').forEach(b => b.classList.remove('selected'));
             document.getElementById('saber-'+type).classList.add('selected');
 
-            if (type === 'jedi') saberColor = [0, 0, 255]; // Blue
-            else if (type === 'sith') saberColor = [255, 0, 0]; // Red
-            else if (type === 'green') saberColor = [0, 255, 0]; // Green
+            if (type === 'jedi') saberColor = [0, 0, 255]; 
+            else if (type === 'sith') saberColor = [255, 0, 0]; 
+            else if (type === 'green') saberColor = [0, 255, 0]; 
             
-            // Send immediately
             const proto = getActiveProtocol();
             send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
         }
 
+        // Ignition Settings Updates
+        window.updateIgniteSettings = function() {
+            igniteMode = parseInt(document.getElementById('igniteModeRange').value);
+            igniteDuration = parseInt(document.getElementById('igniteTimeRange').value);
+            document.getElementById('igniteModeVal').innerText = igniteMode;
+            document.getElementById('igniteTimeVal').innerText = igniteDuration;
+        }
+
+        window.testIgnitionMode = function() {
+            const proto = getActiveProtocol();
+            if(proto.setMode) {
+                send(proto.on); // Ensure on
+                setTimeout(() => {
+                    send(proto.setMode(igniteMode, 3)); // Trigger mode
+                }, 100);
+            }
+        }
+
+        // THE MAIN IGNITION SEQUENCE
         document.getElementById('igniteBtn').addEventListener('click', () => {
              const proto = getActiveProtocol();
-             // Send Off
+             
+             // 1. Turn Off (Reset)
              send(proto.off);
+             
              setTimeout(() => {
-                 // Send On + Color to simulate ignition
+                 // 2. Turn On
                  send(proto.on);
+                 
                  setTimeout(() => {
-                    send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
-                 }, 200);
+                    // 3. Trigger "Fill" Mode (The Bottom-Up Effect)
+                    if(proto.setMode) send(proto.setMode(igniteMode, 3));
+
+                    // 4. Wait for fill, then Lock Saber Color
+                    setTimeout(() => {
+                        send(proto.writeColor(saberColor[0], saberColor[1], saberColor[2]));
+                    }, igniteDuration);
+
+                 }, 100);
              }, 300);
         });
 
         // --- LEGACY SHOWS ---
         const stopBtn = document.getElementById('stopShowBtn');
-        window.stopShow = function() {
-            if (showInterval) { clearInterval(showInterval); showInterval = null; stopBtn.classList.add('hidden'); }
-        };
+        window.stopShow = function() { if (showInterval) { clearInterval(showInterval); showInterval = null; stopBtn.classList.add('hidden'); }};
         stopBtn.addEventListener('click', window.stopShow);
         window.startShow = function(type) {
             stopShow(); stopBtn.classList.remove('hidden');
             const proto = getActiveProtocol();
             let step = 0;
-            const patterns = {
-                'rgb': [[255,0,0],[0,255,0],[0,0,255],[255,255,0],[0,255,255],[255,0,255]],
-                'police': [[255,0,0],[0,0,255]],
-                'strobe': [[255,255,255],[0,0,0]]
-            };
+            const patterns = { 'rgb': [[255,0,0],[0,255,0],[0,0,255],[255,255,0],[0,255,255],[255,0,255]], 'police': [[255,0,0],[0,0,255]], 'strobe': [[255,255,255],[0,0,0]] };
             const sequence = patterns[type];
-            showInterval = setInterval(() => {
-                const color = sequence[step % sequence.length];
-                send(proto.writeColor(color[0], color[1], color[2]));
-                step++;
-            }, 500);
+            showInterval = setInterval(() => { send(proto.writeColor(sequence[step%sequence.length][0], sequence[step%sequence.length][1], sequence[step%sequence.length][2])); step++; }, 500);
         };
     </script>
 </body>
