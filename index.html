@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carol of the Bells: The Orchestrator v9</title>
+    <title>Carol of the Bells: Grand Finale v11</title>
     <style>
         :root {
-            --bg: #020617;
-            --panel: #0f172a;
-            --crimson: #ff0000;
-            --emerald: #00ff00;
-            --ice-blue: #00ccff;
+            --bg: #010409;
+            --panel: #0d1117;
+            --red: #ff0000;
+            --green: #00ff00;
+            --blue: #0088ff;
             --white: #ffffff;
-            --accent: #3b82f6;
+            --accent: #f59e0b;
         }
 
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg);
-            color: #f8fafc;
+            color: #f0f6fc;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -28,143 +28,144 @@
             padding: 20px;
         }
 
-        .orchestra-pit {
+        .maestro-box {
             width: 100%;
             max-width: 600px;
             background: var(--panel);
-            padding: 35px;
-            border-radius: 32px;
-            border: 1px solid #1e293b;
+            padding: 40px;
+            border-radius: 40px;
+            border: 1px solid #30363d;
             text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+            box-shadow: 0 0 100px rgba(0,0,0,0.8);
         }
 
-        h1 { margin: 0; font-size: 1.6rem; letter-spacing: 5px; color: var(--white); text-transform: uppercase; font-weight: 900; }
-        .subtitle { font-size: 0.7rem; color: #64748b; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 3px; font-weight: 600;}
+        h1 { margin: 0; font-size: 1.6rem; letter-spacing: 8px; color: var(--white); text-transform: uppercase; font-weight: 900; }
+        .subtitle { font-size: 0.7rem; color: #8b949e; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 4px; font-weight: 700;}
         
-        /* SYNC VISUALIZER */
-        .baton-container {
+        /* THE VISUALIZER */
+        .stage-container {
             position: relative;
-            width: 220px;
-            height: 220px;
+            width: 250px;
+            height: 250px;
             margin: 0 auto 30px;
         }
         .conductor-ring {
             width: 100%; height: 100%;
             border-radius: 50%;
-            border: 12px solid #1e293b;
+            border: 10px solid #21262d;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             background: #000;
-            transition: all 0.04s ease-out;
+            transition: all 0.04s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 2; position: relative;
+            overflow: hidden;
         }
-        .pulse-halo {
-            position: absolute; width: 140%; height: 140%;
-            top: -20%; left: -20%;
-            border-radius: 50%; filter: blur(50px); opacity: 0;
+        .stage-glow {
+            position: absolute; width: 160%; height: 160%;
+            top: -30%; left: -30%;
+            border-radius: 50%; filter: blur(70px); opacity: 0;
             transition: opacity 0.05s, background 0.05s;
         }
 
-        .timer-hud { font-family: monospace; font-size: 3rem; font-weight: 900; z-index: 3; color: white; text-shadow: 0 0 20px rgba(0,0,0,1);}
-        .movement-tag { font-size: 0.75rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; z-index: 3; margin-top: 5px; background: rgba(0,0,0,0.85); padding: 6px 20px; border-radius: 20px; border: 1px solid #333;}
+        .hud-bpm { font-family: monospace; font-size: 3.5rem; font-weight: 900; z-index: 3; color: white; text-shadow: 0 0 30px rgba(0,0,0,1); }
+        .hud-measure { font-size: 0.8rem; color: #fff; font-weight: 800; text-transform: uppercase; letter-spacing: 3px; z-index: 3; margin-top: 10px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; border: 1px solid #444;}
 
-        /* PERFORMANCE CONTROLS */
-        .control-grid {
-            background: #020617;
-            padding: 20px;
+        /* CONSOLE */
+        .console {
+            background: #010409;
+            padding: 25px;
             border-radius: 24px;
             margin: 20px 0;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            border: 1px solid #334155;
+            gap: 15px;
+            border: 1px solid #30363d;
         }
 
-        .tap-zone {
-            grid-column: span 2;
-            display: flex; gap: 10px;
-        }
         .btn-tap {
-            flex: 2; padding: 20px; background: var(--crimson); color: white; border-radius: 16px; font-size: 1.2rem; font-weight: 900; border: none; cursor: pointer; transition: 0.1s;
+            grid-column: span 2;
+            padding: 24px;
+            background: linear-gradient(135deg, var(--red), #800000);
+            color: white;
+            border-radius: 18px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 40px rgba(255, 0, 0, 0.2);
+            transition: 0.1s;
         }
-        .btn-shift {
-            flex: 1; background: #334155; color: white; border-radius: 16px; border: none; cursor: pointer; font-size: 0.7rem; font-weight: bold;
-        }
-        .btn-tap:active { transform: scale(0.95); filter: brightness(1.4); }
+        .btn-tap:active { transform: scale(0.92); filter: brightness(1.4); }
 
         button {
-            padding: 14px; border-radius: 12px; border: none; font-weight: 800;
-            cursor: pointer; transition: 0.2s;
+            padding: 14px; border-radius: 14px; border: none; font-weight: 800; cursor: pointer; transition: 0.2s;
         }
-        .btn-connect { background: #1e293b; color: white; border: 1px solid #334155; }
-        .btn-start { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.3rem; letter-spacing: 2px; box-shadow: 0 0 30px rgba(255,255,255,0.1); }
-        .connected { background: var(--emerald) !important; color: white !important; }
+        .btn-util { background: #21262d; color: white; border: 1px solid #30363d; }
+        .btn-launch { background: white; color: black; width: 100%; margin-top: 10px; font-size: 1.4rem; letter-spacing: 2px; }
+        .connected { background: var(--green) !important; color: #003300 !important; }
 
-        .slider-box { grid-column: span 2; text-align: left; font-size: 0.7rem; color: #94a3b8; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+        .slider-row { grid-column: span 2; text-align: left; font-size: 0.75rem; color: #8b949e; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
         input[type=range] { width: 100%; accent-color: var(--white); cursor: pointer; }
 
-        .beat-tracker { position: absolute; bottom: 25px; display: flex; gap: 12px; z-index: 3; }
-        .beat-lamp { width: 14px; height: 14px; background: #334155; border-radius: 50%; transition: 0.08s; }
-        .beat-lamp.active { background: var(--white); box-shadow: 0 0 20px var(--white); transform: scale(1.6); }
+        .beat-orbs { position: absolute; bottom: 30px; display: flex; gap: 15px; z-index: 3; }
+        .orb { width: 14px; height: 14px; background: #21262d; border-radius: 50%; transition: 0.08s; border: 1px solid #30363d; }
+        .orb.active { background: var(--white); box-shadow: 0 0 25px var(--white); transform: scale(1.6); }
 
-        input[type="file"] { background: #1e293b; padding: 12px; border-radius: 12px; width: 100%; box-sizing: border-box; font-size: 0.8rem; margin-top: 20px; }
+        input[type="file"] { margin-top: 20px; background: #21262d; border: 2px dashed #30363d; padding: 15px; border-radius: 16px; color: #8b949e; font-size: 0.8rem; width: 100%; box-sizing: border-box;}
     </style>
 </head>
 <body>
 
-    <div class="orchestra-pit">
-        <h1>Bells Orchestrator</h1>
-        <div class="subtitle">Christmas Symphony Engine (v9)</div>
+    <div class="maestro-box">
+        <h1>Christmas Finale</h1>
+        <div class="subtitle">Symphony Engine v11</div>
         
-        <div class="baton-container">
-            <div class="pulse-halo" id="halo"></div>
+        <div class="stage-view">
+            <div class="stage-glow" id="glow"></div>
             <div class="conductor-ring" id="ring">
-                <div class="timer-hud" id="bpmDisplay">160</div>
-                <div class="movement-tag" id="movementText">Standby</div>
-                <div class="beat-tracker">
-                    <div class="beat-lamp" id="lamp-1"></div>
-                    <div class="beat-lamp" id="lamp-2"></div>
-                    <div class="beat-lamp" id="lamp-3"></div>
+                <div class="hud-bpm" id="bpmText">160</div>
+                <div class="hud-measure" id="measureText">Standby</div>
+                <div class="beat-orbs">
+                    <div class="orb" id="orb-1"></div>
+                    <div class="orb" id="orb-2"></div>
+                    <div class="orb" id="orb-3"></div>
                 </div>
             </div>
         </div>
 
-        <div class="control-grid">
-            <div class="tap-zone">
-                <button class="btn-tap" onclick="tapTempo()">TAP BEAT</button>
-                <button class="btn-shift" onclick="shiftBeat()">SHIFT<br>BEAT 1</button>
-            </div>
+        <div class="console">
+            <button class="btn-tap" onclick="tapTempo()">TAP TO SYNC</button>
             
-            <div class="slider-box">
+            <div class="slider-row">
                 <div style="display:flex; justify-content:space-between; font-weight:bold;">
                     <span>BPM: <b id="bpmVal" style="color:var(--white)">160</b></span>
-                    <span>LATENCY: <b id="offVal" style="color:var(--ice-blue)">0ms</b></span>
+                    <span>DELAY COMP: <b id="offVal" style="color:var(--blue)">0ms</b></span>
                 </div>
                 <input type="range" id="bpmSlider" min="100" max="220" value="160" oninput="updateBPM(this.value)">
-                <input type="range" id="offsetSlider" min="-400" max="400" value="0" step="10" oninput="document.getElementById('offVal').innerText=this.value+'ms'">
+                <input type="range" id="offsetSlider" min="-300" max="300" value="0" step="5" oninput="document.getElementById('offVal').innerText=this.value+'ms'">
             </div>
             
-            <select id="protocol" style="background:#1e293b; color:white; border-radius:10px; padding:12px; border:1px solid #334155;">
-                <option value="1">Protocol: Lotus/Keepsmile</option>
+            <select id="protocol" style="background:#21262d; color:white; border-radius:12px; padding:12px; border:1px solid #30363d; font-weight:bold;">
+                <option value="1">Protocol: Lotus (Keepsmile)</option>
                 <option value="0">Protocol: ELK-BLEDOM</option>
             </select>
-            <button class="btn-connect" id="connBtn" onclick="connect()">Connect Light</button>
+            <button class="btn-util" id="connBtn" onclick="connect()">Connect Light</button>
         </div>
 
         <input type="file" id="audioFile" accept="audio/*" onchange="loadAudio(this)">
-        <button class="btn-start" id="startBtn" onclick="togglePlay()" disabled>▶ BEGIN PERFORMANCE</button>
+        <button class="btn-launch" id="startBtn" onclick="togglePlay()" disabled>▶ LAUNCH PERFORMANCE</button>
     </div>
 
     <audio id="audioPlayer"></audio>
 
     <script>
-        // --- CHOREOGRAPHY DATA ---
-        const PALETTE = {
-            RED: [255, 0, 0],
-            GREEN: [0, 255, 0],
-            BLUE: [0, 120, 255],
-            WHITE: [255, 255, 255]
+        // --- PERFORMANCE PALETTE ---
+        const COLORS = {
+            R: [255, 0, 0],
+            G: [0, 255, 0],
+            B: [0, 80, 255],
+            W: [255, 255, 255],
+            OFF: [0,0,0]
         };
 
         const PROTOCOLS = [
@@ -178,28 +179,24 @@
                 name: "Lotus", 
                 write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]), 
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]), 
-                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
-                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x05, 0xff, 0xff, 0x00, 0xef]) 
+                on: new Uint8Array([0x7e, 0x04, 0x04, f0, 0x00, 0x01, 0xff, 0x00, 0xef]),
+                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x04, 0xff, 0xff, 0x00, 0xef]) 
             }
         ];
 
-        // --- STATE ---
+        // --- ENGINE STATE ---
         let device, characteristic;
-        let isPlaying = false;
-        let isLightPoweredOn = false;
+        let isPlaying = false, isLightOn = false;
         let bpm = 160;
-        let lastTap = 0;
-        let tapTimes = [];
+        let lastTap = 0, tapTimes = [];
         let engineLoop;
-        let lastExecutedBeat = -1;
-        let beatCountOffset = 0;
-        
-        // --- TEMPO & SYNC ---
+        let lastBeatIndex = -1;
+
+        // --- TEMPO ---
         function tapTempo() {
             const now = Date.now();
             if (now - lastTap > 2000) tapTimes = [];
-            lastTap = now;
-            tapTimes.push(now);
+            lastTap = now; tapTimes.push(now);
             if (tapTimes.length >= 4) {
                 const diffs = [];
                 for(let i=1; i<tapTimes.length; i++) diffs.push(tapTimes[i] - tapTimes[i-1]);
@@ -207,18 +204,12 @@
                 updateBPM(Math.round(60000 / avg));
             }
         }
-
-        function shiftBeat() {
-            beatCountOffset++;
-        }
-
         function updateBPM(val) {
             bpm = parseInt(val);
-            document.getElementById('bpmDisplay').innerText = bpm;
+            document.getElementById('bpmText').innerText = bpm;
             document.getElementById('bpmVal').innerText = bpm;
             document.getElementById('bpmSlider').value = bpm;
         }
-
         function loadAudio(input) {
             const file = input.files[0];
             if(!file) return;
@@ -226,34 +217,28 @@
             document.getElementById('startBtn').disabled = false;
         }
 
-        // --- PERFORMANCE CORE ---
+        // --- TRANSPORT ---
         function togglePlay() { if(isPlaying) stop(); else start(); }
-
         function start() {
             if(!characteristic) return alert("Connect light first!");
-            isPlaying = true;
-            lastExecutedBeat = -1;
+            isPlaying = true; lastBeatIndex = -1;
             document.getElementById('audioPlayer').play();
-            document.getElementById('startBtn').innerText = "⏹ ABORT PERFORMANCE";
-            document.getElementById('startBtn').style.background = "var(--crimson)";
-            document.getElementById('startBtn').style.color = "white";
+            document.getElementById('startBtn').innerText = "⏹ TERMINATE SHOW";
+            document.getElementById('startBtn').style.background = "var(--red)";
             runEngine();
         }
-
         function stop() {
             isPlaying = false;
             cancelAnimationFrame(engineLoop);
             document.getElementById('audioPlayer').pause();
             document.getElementById('audioPlayer').currentTime = 0;
-            document.getElementById('startBtn').innerText = "▶ BEGIN PERFORMANCE";
+            document.getElementById('startBtn').innerText = "▶ LAUNCH PERFORMANCE";
             document.getElementById('startBtn').style.background = "white";
-            document.getElementById('startBtn').style.color = "black";
             sendOff();
         }
 
         function runEngine() {
             if(!isPlaying) return;
-
             const player = document.getElementById('audioPlayer');
             const time = player.currentTime;
             const latency = parseInt(document.getElementById('offsetSlider').value) / 1000;
@@ -261,87 +246,111 @@
             const adjustedTime = time + latency;
             const msPerBeat = 60 / bpm;
             
-            // Orchestrate the measure based on 3/4 Time
+            // 3/4 Time Signature
             const totalBeats = adjustedTime / msPerBeat;
             const currentBeat = Math.floor(totalBeats);
-            const beatInMeasure = ((currentBeat + beatCountOffset) % 3) + 1; // 1, 2, 3
+            const beatInMeasure = (currentBeat % 3) + 1; 
+            const totalMeasures = Math.floor(totalBeats / 3);
 
-            if (currentBeat !== lastExecutedBeat) {
-                lastExecutedBeat = currentBeat;
-                conduct(beatInMeasure, adjustedTime);
+            if (currentBeat !== lastBeatIndex) {
+                lastBeatIndex = currentBeat;
+                executeMovement(beatInMeasure, totalMeasures, adjustedTime);
             }
 
-            engineLoop = requestAnimationFrame(runEngine);
+            // AUTO-OFF AT END
+            if (player.ended) stop();
+            else engineLoop = requestAnimationFrame(runEngine);
         }
 
-        // --- THE CHOREOGRAPHED MOVEMENTS ---
-        async function conduct(beatNum, time) {
+        // --- THE CHOREOGRAPHY MATRIX ---
+        async function executeMovement(beatNum, measure, time) {
             const ring = document.getElementById('ring');
-            const halo = document.getElementById('halo');
-            const tag = document.getElementById('movementText');
+            const glow = document.getElementById('glow');
+            const hud = document.getElementById('measureText');
             
-            // HUD Visual
-            document.querySelectorAll('.beat-lamp').forEach(l => l.classList.remove('active'));
-            document.getElementById(`lamp-${beatNum}`).classList.add('active');
+            document.querySelectorAll('.orb').forEach(o => o.classList.remove('active'));
+            document.getElementById(`orb-${beatNum}`).classList.add('active');
 
-            // Movement logic based on time segments
-            if (beatNum === 1) {
-                // THE BELL: Every measure starts with a White High-Energy Impact
-                ring.style.borderColor = "white";
-                ring.style.transform = "scale(1.2)";
-                halo.style.background = "white";
-                halo.style.opacity = "1";
-                tag.innerText = "🔔 BELL STRIKE";
-                
-                // Hardware execution
-                if (time > 60) {
-                    sendMode(180); // Peak intensity strobe mode
+            // 1. HARD OFF AT VERY START (Silence)
+            if (time < 1.0) {
+                sendColor(COLORS.OFF);
+                hud.innerText = "SILENCE";
+                return;
+            }
+
+            // 2. MUSICAL PHASING
+            if (measure < 4) {
+                // INTRO: Mysterious Frost
+                hud.innerText = "FROST PULSE";
+                if(beatNum === 1) {
+                    sendColor(COLORS.B);
+                    ring.style.borderColor = "var(--blue)";
+                    glow.style.background = "var(--blue)"; glow.style.opacity = "0.8";
                 } else {
-                    sendColor(PALETTE.WHITE);
+                    sendColor(COLORS.OFF);
+                    glow.style.opacity = "0";
                 }
             } 
-            else {
-                // THE DANCE: Beats 2 and 3 provide the Christmas Vibe
-                ring.style.transform = "scale(1.0)";
-                halo.style.opacity = "0.5";
-
-                if (time < 15) {
-                    // INTRO: Icy Blue Flow
-                    sendColor(PALETTE.BLUE);
-                    ring.style.borderColor = "var(--ice-blue)";
-                    halo.style.background = "var(--ice-blue)";
-                    tag.innerText = "ICE INTRO";
-                } 
-                else if (time >= 15 && time < 80) {
-                    // MAIN MOTIF: Alternate Emerald and Crimson
-                    const isEmerald = (beatNum === 2);
-                    const color = isEmerald ? PALETTE.GREEN : PALETTE.RED;
-                    const css = isEmerald ? "var(--emerald)" : "var(--crimson)";
-                    
-                    // We combine a 'Motion' Mode with a 'Color' Force
-                    // Mode 37/38 are standard Red/Green stack wipes
-                    sendMode(isEmerald ? 38 : 37);
-                    setTimeout(() => sendColor(color), 15);
-                    
-                    ring.style.borderColor = css;
-                    halo.style.background = css;
-                    tag.innerText = isEmerald ? "EMERALD" : "CRIMSON";
+            else if (measure < 12) {
+                // THE GALLOP: Theme Entry
+                hud.innerText = "THE GALLOP";
+                const isRed = (beatNum === 2);
+                const color = (beatNum === 1) ? COLORS.W : (isRed ? COLORS.R : COLORS.G);
+                const css = (beatNum === 1) ? "white" : (isRed ? "var(--red)" : "var(--green)");
+                
+                if(beatNum === 1) {
+                    await sendMode(180); // White Sparkle
+                    ring.style.transform = "scale(1.2)";
+                } else {
+                    await sendColor(color);
+                    ring.style.transform = "scale(1.0)";
                 }
-                else {
-                    // THE FINALE: Chaotic Peak
-                    sendMode(3); // Fast Rainbow Strobe
-                    ring.style.borderColor = "white";
-                    tag.innerText = "GRAND FINALE";
+                ring.style.borderColor = css;
+                glow.style.background = css; glow.style.opacity = "0.6";
+            }
+            else if (measure < 24) {
+                // THE VIOLIN CLIMB: Sub-Beat Variation
+                hud.innerText = "CLIMBING SCALES";
+                // Every beat is a new hardware mode to create chaotic variety
+                const modes = [37, 38, 45, 181];
+                const mode = modes[beatNum % modes.length];
+                const cols = ["var(--red)", "var(--green)", "var(--blue)"];
+                
+                await sendMode(mode);
+                ring.style.borderColor = cols[beatNum-1];
+                glow.style.background = cols[beatNum-1];
+                ring.style.transform = `rotate(${beatNum * 20}deg)`;
+            }
+            else if (measure < 40) {
+                // THE STORM (MAX INTENSITY)
+                hud.innerText = "SYMPHONY STORM";
+                // High speed strobe mode cycle
+                const chaosModes = [1, 3, 80, 161, 182];
+                const m = chaosModes[Math.floor(Math.random() * chaosModes.length)];
+                await sendMode(m);
+                
+                ring.style.borderColor = "white";
+                glow.style.background = "white"; glow.style.opacity = "1";
+                ring.style.transform = "scale(1.3)";
+            }
+            else {
+                // THE FINALE: Melt into Darkness
+                hud.innerText = "FINALE";
+                if(time > audioPlayer.duration - 2) {
+                    sendOff();
+                } else {
+                    sendMode(165); // Falling Blue
+                    ring.style.borderColor = "var(--blue)";
                 }
             }
         }
 
-        // --- BLUETOOTH CORE ---
+        // --- BLUETOOTH HELPERS ---
         async function sendColor(rgb) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
             try {
-                if(!isLightPoweredOn) { await characteristic.writeValue(p.on); isLightPoweredOn = true; await new Promise(r=>setTimeout(r,40)); }
+                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; await new Promise(r=>setTimeout(r,40)); }
                 await characteristic.writeValue(p.write(rgb[0], rgb[1], rgb[2]));
             } catch(e){}
         }
@@ -350,7 +359,7 @@
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
             try {
-                if(!isLightPoweredOn) { await characteristic.writeValue(p.on); isLightPoweredOn = true; }
+                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; }
                 await characteristic.writeValue(p.setMode(m));
             } catch(e){}
         }
@@ -358,7 +367,7 @@
         async function sendOff() {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            try { await characteristic.writeValue(p.off); isLightPoweredOn = false; } catch(e){}
+            try { await characteristic.writeValue(p.off); isLightOn = false; } catch(e){}
         }
 
         async function connect() {
@@ -374,10 +383,9 @@
                     for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; } }
                     if(characteristic) break;
                 }
-                const btn = document.getElementById('connBtn');
-                btn.innerText = "ORCHESTRA READY";
-                btn.classList.add('connected');
-                sendColor(PALETTE.BLUE); // Test Wake
+                document.getElementById('connBtn').innerText = "LINKED";
+                document.getElementById('connBtn').classList.add('connected');
+                sendColor(COLORS.B); 
             } catch(e) { alert(e.message); }
         }
     </script>
