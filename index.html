@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touch Sync Bridge v2 (AI Vision Logger)</title>
+    <title>Touch Sync Bridge v2.2 (Extended Gen)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -12,7 +12,7 @@
             --panel: #18181b;
             --accent: #3b82f6;
             --ai-purp: #8b5cf6;
-            --success: #22c55e;
+            --success: #10b981;
             --text: #f4f4f5;
         }
 
@@ -58,22 +58,23 @@
         }
         
         .client-controls { background: var(--panel); padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-
         .ai-status { font-size: 0.7rem; color: var(--ai-purp); text-transform: uppercase; font-weight: 900; letter-spacing: 2px; }
         
         input[type="password"], input[type="text"] {
             width: 100%; padding: 10px; background: #000; border: 1px solid #333; border-radius: 8px; color: white; margin-bottom: 10px;
         }
+
+        .thinking { color: #f59e0b; font-weight: bold; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <!-- ROLE SELECTION -->
     <div id="setup">
-        <h1>AI Vision Bridge</h1>
+        <h1>AI Vision Bridge v2.2</h1>
         <p style="color: #71717a;">Identify LED modes using DeepSeek & Phone Camera.</p>
         <button class="btn-big btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
-        <p style="font-size: 0.8rem; color: #3f3f46;">Requires Light Connection & OpenRouter API Key.</p>
+        <p style="font-size: 0.8rem; color: #3f3f46;">Point phone camera at strip. Requires OpenRouter API Key.</p>
     </div>
 
     <!-- HOST INTERFACE -->
@@ -101,8 +102,7 @@
                     <h2 style="margin:0; font-size:1rem;">2. AI Mode Log</h2>
                     <button onclick="downloadLog()" style="font-size:0.7rem; background:#333; color:white; padding:5px 10px; border-radius:5px;">💾 Save JSON</button>
                 </div>
-                <textarea id="aiLog" readonly>// DeepSeek AI will analyze each mode here...
-[]</textarea>
+                <textarea id="aiLog" readonly>// Analysis Log starting...</textarea>
                 <div id="hostStatus" style="font-size:0.7rem; color:#666; margin-top:10px;">System Ready.</div>
             </div>
         </div>
@@ -116,7 +116,7 @@
             <div class="ai-status" id="clientStatus">Link Established</div>
             <div id="modeHud" style="font-size:1.5rem; font-weight:900;">MODE: --</div>
             <button class="btn-big btn-client" id="scanBtn" onclick="toggleAutoScan()" style="background:var(--ai-purp)">🤖 Start AI Auto-Scan</button>
-            <p style="font-size:0.7rem; color:#888;">Hold camera still. Points sensor at the light strip.</p>
+            <p style="font-size:0.7rem; color:#888;">Hold camera still. Point sensor at a bright part of the strip.</p>
         </div>
     </div>
 
@@ -129,19 +129,16 @@
             { name: "Lotus", on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef], setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x03, 0xff, 0xff, 0x00, 0xef]) }
         ];
 
-        // --- STATE ---
         let peer, conn, bleChar;
         let isHost = false;
         let currentMode = 1;
         let isScanning = false;
-        let scanBuffer = []; // Holds color strings observed
+        let scanBuffer = [];
         let library = [];
 
-        // --- INITIALIZATION ---
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('host')) initClient(urlParams.get('host'));
 
-        // --- HOST LOGIC ---
         function initHost() {
             isHost = true;
             document.getElementById('setup').style.display = 'none';
@@ -195,27 +192,33 @@
 
         async function advanceMode() {
             currentMode++;
-            if(currentMode > 210) return;
-            
+            if(currentMode > 210) {
+                isScanning = false;
+                document.getElementById('hostStatus').innerText = "Full Scan Complete.";
+                return;
+            }
             const p = PROTOCOLS[document.getElementById('protocol').value];
             if(bleChar) await bleChar.writeValue(p.setMode(currentMode));
-            
             conn.send({ type: 'MODE_SYNC', val: currentMode });
-            document.getElementById('hostStatus').innerText = "Processing Mode " + currentMode + "...";
+            document.getElementById('hostStatus').innerText = "Initializing Mode " + currentMode + "...";
         }
 
         async function analyzeWithAI(data) {
             const key = document.getElementById('apiKey').value;
+            const statusEl = document.getElementById('hostStatus');
+
             if(!key) {
-                logToLibrary(data.mode, "No API Key", "Mode data captured but AI skiped.");
+                logToLibrary(data.mode, data.motion, "Error: Missing API Key.");
                 return;
             }
 
-            const prompt = `Act as an LED Lighting Engineer. I have a sequence of colors detected from an LED bar over 3 seconds: [${data.colors.join(", ")}]. 
-            The motion detected was: ${data.motion}. 
-            Identify the mode. Provide a professional 1-sentence description. 
-            Example: 'A smooth rainbow cycle flowing downwards at medium speed.' 
-            Respond with ONLY the description.`;
+            statusEl.innerHTML = `<span class="thinking">AI GENERATING DESCRIPTION FOR MODE ${data.mode}...</span>`;
+
+            const prompt = `LED lighting analysis: Observed colors [${data.colors.join(", ")}], Motion: ${data.motion}. Mode index: ${data.mode}. Identify the specific behavior (e.g., rainbow chase, red/green stack, white sparkle). Describe exactly what the effect is in one detailed technical sentence.`;
+
+            // Abort controller allows us to timeout if the AI is stuck
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second window
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -229,21 +232,35 @@
                     body: JSON.stringify({
                         model: "deepseek/deepseek-chat",
                         messages: [{ role: "user", content: prompt }]
-                    })
+                    }),
+                    signal: controller.signal
                 });
+
+                clearTimeout(timeoutId);
                 const result = await response.json();
-                const desc = result.choices[0].message.content;
-                logToLibrary(data.mode, data.motion, desc);
+                
+                if (result.choices && result.choices.length > 0) {
+                    const desc = result.choices[0].message.content;
+                    logToLibrary(data.mode, data.motion, desc);
+                } else if (result.error) {
+                    logToLibrary(data.mode, data.motion, `AI Error: ${result.error.message}`);
+                } else {
+                    logToLibrary(data.mode, data.motion, "AI Error: Unexpected response format.");
+                }
+
             } catch(e) {
-                logToLibrary(data.mode, data.motion, "AI Error: " + e.message);
+                if (e.name === 'AbortError') {
+                    logToLibrary(data.mode, data.motion, "AI Error: Request timed out (took longer than 30s).");
+                } else {
+                    logToLibrary(data.mode, data.motion, "System Error: " + e.message);
+                }
             }
         }
 
         function logToLibrary(mode, motion, desc) {
             library.push({ mode, motion, description: desc, timestamp: new Date().toLocaleTimeString() });
             document.getElementById('aiLog').value = JSON.stringify(library, null, 2);
-            document.getElementById('hostStatus').innerText = `Finished Mode ${mode}. Waiting for next...`;
-            // Trigger next scan automatically if still in loop
+            document.getElementById('hostStatus').innerText = `Logged Mode ${mode}. Waiting for sampling loop...`;
             conn.send({ type: 'ACK_AI' });
         }
 
@@ -251,17 +268,13 @@
             const blob = new Blob([JSON.stringify(library, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'led_modes_log.json'; a.click();
+            a.href = url; a.download = 'led_vision_library.json'; a.click();
         }
 
-        // --- CLIENT LOGIC ---
-        let lastScanTime = 0;
-        let prevLum = 0;
-
+        // --- CLIENT LOGIC (Phone) ---
         async function initClient(hostId) {
             document.getElementById('setup').style.display = 'none';
             document.getElementById('clientUI').style.display = 'flex';
-
             peer = new Peer();
             peer.on('open', () => {
                 conn = peer.connect(hostId);
@@ -284,10 +297,12 @@
 
         async function startVision() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: 640, height: 480 } 
+                });
                 document.getElementById('video').srcObject = stream;
                 requestAnimationFrame(visionLoop);
-            } catch(e) { alert(e); }
+            } catch(e) { alert("Camera Permission Required: " + e.message); }
         }
 
         function toggleAutoScan() {
@@ -299,16 +314,17 @@
         function startSampling() {
             scanBuffer = [];
             document.getElementById('clientStatus').innerText = "SAMPLING MODE " + currentMode + "...";
+            // 3 second observation period
             setTimeout(() => {
                 const motion = detectMotion(scanBuffer);
                 const uniqueColors = [...new Set(scanBuffer)];
                 conn.send({ 
                     type: 'SCAN_RESULT', 
                     mode: currentMode, 
-                    colors: uniqueColors.slice(0, 8), // Max 8 for prompt brevity
+                    colors: uniqueColors.slice(0, 10),
                     motion: motion
                 });
-                document.getElementById('clientStatus').innerText = "SENDING TO AI...";
+                document.getElementById('clientStatus').innerText = "UPLOADING TO AI...";
             }, 3000);
         }
 
@@ -316,18 +332,14 @@
             const video = document.getElementById('video');
             const canvas = document.getElementById('procCanvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Focus on center square (sensor area)
                 canvas.width = 50; canvas.height = 50;
+                // Crop center
                 ctx.drawImage(video, (video.videoWidth/2)-75, (video.videoHeight/2)-75, 150, 150, 0, 0, 50, 50);
                 const data = ctx.getImageData(0,0,50,50).data;
-                
-                // Average color in sensor
                 let r=0, g=0, b=0;
                 for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
                 r = Math.floor(r/(50*50)); g = Math.floor(g/(50*50)); b = Math.floor(b/(50*50));
-                
                 const colName = getColorName(r,g,b);
                 if(colName !== "Off") scanBuffer.push(colName);
             }
@@ -337,24 +349,22 @@
         function getColorName(r, g, b) {
             const max = Math.max(r, g, b);
             if (max < 30) return "Off";
-            if (r > g*1.5 && r > b*1.5) return "Red";
-            if (g > r*1.5 && g > b*1.5) return "Green";
-            if (b > r*1.5 && b > g*1.5) return "Blue";
+            if (r > g*1.6 && r > b*1.6) return "Red";
+            if (g > r*1.6 && g > b*1.6) return "Green";
+            if (b > r*1.6 && b > g*1.6) return "Blue";
             if (r > 150 && g > 150 && b < 100) return "Yellow";
             if (r > 150 && b > 150 && g < 100) return "Purple";
             if (r > 200 && g > 200 && b > 200) return "White";
-            return "Mix";
+            return "Mixed/Transitional";
         }
 
         function detectMotion(buffer) {
-            // Check for rapid changes (Flash) vs sequence (Chase)
             let changes = 0;
             for(let i=1; i<buffer.length; i++) if(buffer[i] !== buffer[i-1]) changes++;
-            
-            if(changes > 20) return "Rapid Strobe/Flash";
-            if(changes > 5) return "Color Chase/Flow";
-            if(changes > 0) return "Slow Pulse/Fade";
-            return "Static Solid";
+            if(changes > 25) return "High-Frequency Strobe/Sparkle";
+            if(changes > 8) return "Active Motion (Chase/Flow)";
+            if(changes > 1) return "Slow Gradient/Breathe";
+            return "Static/Constant Color";
         }
     </script>
 </body>
