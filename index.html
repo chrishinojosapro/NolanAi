@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Touch Sync Bridge v2.2 (Extended Gen)</title>
+    <title>Touch Sync Bridge v2.3 (300 Token Limit)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -71,10 +71,10 @@
 <body>
 
     <div id="setup">
-        <h1>AI Vision Bridge v2.2</h1>
+        <h1>AI Vision Bridge v2.3</h1>
         <p style="color: #71717a;">Identify LED modes using DeepSeek & Phone Camera.</p>
         <button class="btn-big btn-host" onclick="initHost()">💻 Start as Host (Laptop)</button>
-        <p style="font-size: 0.8rem; color: #3f3f46;">Point phone camera at strip. Requires OpenRouter API Key.</p>
+        <p style="font-size: 0.8rem; color: #3f3f46;">Point phone camera at strip. Token Limit: 300.</p>
     </div>
 
     <!-- HOST INTERFACE -->
@@ -212,13 +212,20 @@
                 return;
             }
 
-            statusEl.innerHTML = `<span class="thinking">AI GENERATING DESCRIPTION FOR MODE ${data.mode}...</span>`;
+            statusEl.innerHTML = `<span class="thinking">AI ANALYZING MODE ${data.mode}...</span>`;
 
-            const prompt = `LED lighting analysis: Observed colors [${data.colors.join(", ")}], Motion: ${data.motion}. Mode index: ${data.mode}. Identify the specific behavior (e.g., rainbow chase, red/green stack, white sparkle). Describe exactly what the effect is in one detailed technical sentence.`;
+            // Instructions to DeepSeek for a professional detailed response
+            const prompt = `LED lighting technical analysis: 
+            Detected colors: [${data.colors.join(", ")}]
+            Observed motion: ${data.motion}
+            Hardware Mode Index: ${data.mode}
+            
+            Task: Provide a highly detailed technical description of this animation pattern. 
+            Identify if it is a chase, stack, breathe, strobe, or custom flow. 
+            Mention color transitions and physical direction of movement if applicable.`;
 
-            // Abort controller allows us to timeout if the AI is stuck
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second window
+            const timeoutId = setTimeout(() => controller.abort(), 35000); 
 
             try {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -231,7 +238,8 @@
                     },
                     body: JSON.stringify({
                         model: "deepseek/deepseek-chat",
-                        messages: [{ role: "user", content: prompt }]
+                        messages: [{ role: "user", content: prompt }],
+                        max_tokens: 300 // LINKED TO 300 TOKENS PER RESPONSE
                     }),
                     signal: controller.signal
                 });
@@ -250,7 +258,7 @@
 
             } catch(e) {
                 if (e.name === 'AbortError') {
-                    logToLibrary(data.mode, data.motion, "AI Error: Request timed out (took longer than 30s).");
+                    logToLibrary(data.mode, data.motion, "AI Error: Request timed out (took longer than 35s).");
                 } else {
                     logToLibrary(data.mode, data.motion, "System Error: " + e.message);
                 }
@@ -260,7 +268,7 @@
         function logToLibrary(mode, motion, desc) {
             library.push({ mode, motion, description: desc, timestamp: new Date().toLocaleTimeString() });
             document.getElementById('aiLog').value = JSON.stringify(library, null, 2);
-            document.getElementById('hostStatus').innerText = `Logged Mode ${mode}. Waiting for sampling loop...`;
+            document.getElementById('hostStatus').innerText = `Logged Mode ${mode}. Continuing loop...`;
             conn.send({ type: 'ACK_AI' });
         }
 
@@ -324,7 +332,7 @@
                     colors: uniqueColors.slice(0, 10),
                     motion: motion
                 });
-                document.getElementById('clientStatus').innerText = "UPLOADING TO AI...";
+                document.getElementById('clientStatus').innerText = "AI GENERATING...";
             }, 3000);
         }
 
@@ -334,7 +342,6 @@
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.width = 50; canvas.height = 50;
-                // Crop center
                 ctx.drawImage(video, (video.videoWidth/2)-75, (video.videoHeight/2)-75, 150, 150, 0, 0, 50, 50);
                 const data = ctx.getImageData(0,0,50,50).data;
                 let r=0, g=0, b=0;
