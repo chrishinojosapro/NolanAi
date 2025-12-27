@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Show Studio v8 (Optimized AI)</title>
+    <title>Light Show Studio v9 (Token Fix)</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -475,6 +475,8 @@
             if(!key) return alert("API Key required");
             if(!userPrompt) return alert("Please describe the scene");
             
+            if(userPrompt.length > 5000) return alert("Description too long! Keep it under 5000 chars.");
+
             status.innerText = "Generating... (This may take a moment)";
             
             // OPTIMIZED SYSTEM PROMPT (Reduced tokens)
@@ -520,7 +522,8 @@
                         {role: "system", content: systemPrompt},
                         {role: "user", content: userPrompt}
                     ],
-                    temperature: 0.7
+                    temperature: 0.7,
+                    max_tokens: 4000 // Prevent context overflow
                 });
             } else {
                 url = 'https://openrouter.ai/api/v1/chat/completions';
@@ -536,7 +539,8 @@
                         {role: "system", content: systemPrompt},
                         {role: "user", content: userPrompt}
                     ],
-                    temperature: 0.7
+                    temperature: 0.7,
+                    max_tokens: 4000 // Prevent context overflow
                 });
             }
 
