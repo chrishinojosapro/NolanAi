@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner v15 (Hex & Motion)</title>
+    <title>AI Vision Scanner v16 (Crash Protection)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -51,7 +51,6 @@
             gap: 15px;
         }
 
-        /* VIDEO AREA */
         .video-wrapper {
             position: relative;
             width: 100%;
@@ -88,7 +87,6 @@
             z-index: 20;
         }
 
-        /* CONTROLS */
         select, input {
             background: #0f172a;
             color: white;
@@ -119,7 +117,6 @@
         button.danger { background: var(--danger); }
         button.ai { background: var(--ai); color: black; }
 
-        /* LOGGING */
         textarea {
             width: 100%;
             height: 300px;
@@ -140,37 +137,17 @@
         }
         .connected { background: var(--success); box-shadow: 0 0 10px var(--success); }
         
-        .ai-config {
-            border-top: 1px solid #333;
-            padding-top: 15px;
-            margin-top: 10px;
-        }
-
-        /* BT ERROR BANNER */
-        #btError {
-            display: none;
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid var(--danger);
-            color: #fca5a5;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-        #btError strong { color: var(--danger); }
-
+        .ai-config { border-top: 1px solid #333; padding-top: 15px; margin-top: 10px; }
+        #btError { display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5; }
     </style>
 </head>
 <body>
 
-    <h1>👁️ Vertical Strip Scanner (v15)</h1>
+    <h1>👁️ Vertical Strip Scanner (v16)</h1>
 
-    <!-- Browser Support Warning -->
     <div id="btError">
         <strong>⚠️ Bluetooth Not Supported</strong><br>
-        • <strong>iPhone/iPad:</strong> Use <u>Bluefy</u> app.<br>
-        • <strong>Android/PC:</strong> Use Chrome/Edge.
+        Use <u>Bluefy</u> (iOS) or Chrome/Edge (Desktop/Android).
     </div>
 
     <div class="container">
@@ -238,7 +215,7 @@
 
             <button class="success" id="scanBtn" onclick="toggleScan()">🤖 Start Auto-Vision Scan</button>
 
-            <textarea id="log" readonly>// Copy this JSON when done:
+            <textarea id="log" readonly>// JSON Result:
 {
 }</textarea>
             <button onclick="copyLog()">Copy Library JSON</button>
@@ -249,7 +226,6 @@
     <canvas id="procCanvas" style="display:none;"></canvas>
 
     <script>
-        // --- BROWSER CHECK ---
         if (!navigator.bluetooth) {
             document.getElementById('btError').style.display = 'block';
             document.getElementById('connectBtn').disabled = true;
@@ -257,7 +233,6 @@
             document.getElementById('statusText').innerText = "Not Supported";
         }
 
-        // --- CONSTANTS ---
         const SEGMENTS = 10; 
         const PROTOCOLS = [
             { name: "elk", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) },
@@ -265,7 +240,6 @@
             { name: "triones", write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]) }
         ];
 
-        // --- STATE ---
         let device, characteristic;
         let scanInterval = null;
         let currentMode = 1;
@@ -275,28 +249,19 @@
         let detectedLibrary = {};
         let frameBuffer = []; 
 
-        // --- UI INIT ---
         document.getElementById('useAi').addEventListener('change', (e) => {
             document.getElementById('apiKey').style.display = e.target.checked ? 'block' : 'none';
         });
 
-        // --- CAMERA LOGIC ---
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: "environment",
-                        width: { ideal: 640 }, 
-                        height: { ideal: 480 }
-                    } 
+                    video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } } 
                 });
-                
                 const video = document.getElementById('video');
                 video.srcObject = stream;
-                
                 track = stream.getVideoTracks()[0];
                 const caps = track.getCapabilities();
-                
                 const expSlider = document.getElementById('exposureRange');
                 const expVal = document.getElementById('expVal');
                 
@@ -307,28 +272,18 @@
                     expSlider.value = track.getSettings().exposureCompensation || 0;
                     expSlider.disabled = false;
                     expVal.innerText = expSlider.value;
-                } else if (caps.exposureMode) {
-                    track.applyConstraints({ advanced: [{ exposureMode: "manual" }] }).catch(e=>{});
-                    expVal.innerText = "N/A";
                 } else {
                     expVal.innerText = "Locked";
                 }
-
                 requestAnimationFrame(analyzeFrame);
             } catch(e) { alert("Camera error: " + e.message); }
         }
         
         async function updateExposure(val) {
             if(!track) return;
-            try {
-                document.getElementById('expVal').innerText = val;
-                await track.applyConstraints({
-                    advanced: [{ exposureCompensation: parseFloat(val) }]
-                });
-            } catch(e) { console.log("Exposure adjust failed", e); }
+            try { await track.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(val) }] }); document.getElementById('expVal').innerText = val; } catch(e) {}
         }
 
-        // HSL Conversion
         function rgbToHsl(r, g, b) {
             r /= 255; g /= 255; b /= 255;
             const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -346,25 +301,20 @@
             return [h * 360, s, l];
         }
 
-        // BOOSTED Color Classifier
         function getColorName(r, g, b) {
             const minChannel = Math.min(r, g, b);
             let boostR = r - (minChannel * 0.8); 
             let boostG = g - (minChannel * 0.8);
             let boostB = b - (minChannel * 0.8);
-            
             const maxBoost = Math.max(boostR, boostG, boostB);
             if (maxBoost > 10) {
                 const multiplier = 255 / maxBoost;
                 boostR *= multiplier; boostG *= multiplier; boostB *= multiplier;
             }
-
             const [h, s, l] = rgbToHsl(boostR, boostG, boostB);
             const [origH, origS, origL] = rgbToHsl(r, g, b);
-            
             if (origL < 0.1) return "Off";
             if (s < 0.15) return "White";
-            
             if (h >= 340 || h <= 15) return "Red";
             if (h > 15 && h <= 45) return "Orange";
             if (h > 45 && h <= 75) return "Yellow";
@@ -380,7 +330,6 @@
             return map[name] || "#fff";
         }
 
-        // Helper to convert RGB to Hex
         function rgbToHex(r, g, b) {
             return "#" + [r, g, b].map(x => {
                 const hex = x.toString(16);
@@ -393,76 +342,81 @@
             const video = document.getElementById('video');
             const procCanvas = document.getElementById('procCanvas');
             const overlayCanvas = document.getElementById('overlayCanvas');
+            
+            // Safety check for video ready state
+            if (video.readyState < video.HAVE_ENOUGH_DATA) {
+                if(!isScanning || stream) requestAnimationFrame(analyzeFrame);
+                return;
+            }
+
             overlayCanvas.width = video.clientWidth;
             overlayCanvas.height = video.clientHeight;
             const ctx = procCanvas.getContext('2d');
             const overlayCtx = overlayCanvas.getContext('2d');
             
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                procCanvas.width = 160; procCanvas.height = 120;
-                ctx.drawImage(video, 0, 0, 160, 120);
-                
-                const stripW = Math.floor(procCanvas.width * 0.1); 
-                const stripX = Math.floor((procCanvas.width - stripW) / 2);
-                const stripH = Math.floor(procCanvas.height * 0.8);
-                const stripY = Math.floor(procCanvas.height * 0.1);
-                const segmentH = Math.floor(stripH / SEGMENTS);
-                
-                let segmentColors = []; let rawColors = []; 
-                const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
-                
-                overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
-                const scaleX = overlayCanvas.width / 160;
-                const scaleY = overlayCanvas.height / 120;
-                
-                const boost = parseInt(document.getElementById('boostRange').value);
+            procCanvas.width = 160; procCanvas.height = 120;
+            ctx.drawImage(video, 0, 0, 160, 120);
+            
+            const stripW = Math.floor(procCanvas.width * 0.1); 
+            const stripX = Math.floor((procCanvas.width - stripW) / 2);
+            const stripH = Math.floor(procCanvas.height * 0.8);
+            const stripY = Math.floor(procCanvas.height * 0.1);
+            const segmentH = Math.floor(stripH / SEGMENTS);
+            
+            let segmentColors = []; let rawColors = []; 
+            const stripData = ctx.getImageData(stripX, stripY, stripW, stripH);
+            
+            overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+            const scaleX = overlayCanvas.width / 160;
+            const scaleY = overlayCanvas.height / 120;
+            
+            const boost = parseInt(document.getElementById('boostRange').value);
 
-                for(let i=0; i<SEGMENTS; i++) {
-                    let rTot=0, gTot=0, bTot=0, count=0;
-                    const startY = i * segmentH;
-                    const endY = startY + segmentH;
-                    
-                    for(let y=startY; y<endY; y+=2) { 
-                        for(let x=0; x<stripW; x+=2) {
-                            const idx = (y * stripW + x) * 4;
-                            if (idx < stripData.data.length) {
-                                rTot += stripData.data[idx];
-                                gTot += stripData.data[idx+1];
-                                bTot += stripData.data[idx+2];
-                                count++;
-                            }
+            for(let i=0; i<SEGMENTS; i++) {
+                let rTot=0, gTot=0, bTot=0, count=0;
+                const startY = i * segmentH;
+                const endY = startY + segmentH;
+                
+                for(let y=startY; y<endY; y+=2) { 
+                    for(let x=0; x<stripW; x+=2) {
+                        const idx = (y * stripW + x) * 4;
+                        if (idx < stripData.data.length) {
+                            rTot += stripData.data[idx];
+                            gTot += stripData.data[idx+1];
+                            bTot += stripData.data[idx+2];
+                            count++;
                         }
                     }
-                    
-                    let r = Math.floor(rTot/count) || 0;
-                    let g = Math.floor(gTot/count) || 0;
-                    let b = Math.floor(bTot/count) || 0;
-                    
-                    const cName = getColorName(r,g,b);
-                    segmentColors.push(cName);
-                    rawColors.push({r,g,b});
-                    
-                    const boxX = (stripX + stripX) * scaleX / 2;
-                    const boxY = (stripY + i * segmentH) * scaleY;
-                    const boxW = stripW * scaleX;
-                    const boxH = segmentH * scaleY;
-                    
-                    overlayCtx.fillStyle = getCssColor(cName);
-                    overlayCtx.globalAlpha = 0.6;
-                    overlayCtx.fillRect(boxX - (boxW), boxY, boxW*3, boxH-2);
-                    overlayCtx.globalAlpha = 1.0;
-                    overlayCtx.strokeStyle = "rgba(255,255,255,0.8)";
-                    overlayCtx.strokeRect(boxX - (boxW), boxY, boxW*3, boxH-2);
                 }
                 
-                if(isScanning) frameBuffer.push(rawColors);
-                const txt = document.getElementById('analysisText');
-                txt.innerText = `Top: ${segmentColors[0]} (${rawColors[0].r},${rawColors[0].g},${rawColors[0].b})\nMid: ${segmentColors[4]}\nBot: ${segmentColors[9]}`;
+                let r = Math.floor(rTot/count) || 0;
+                let g = Math.floor(gTot/count) || 0;
+                let b = Math.floor(bTot/count) || 0;
+                
+                const cName = getColorName(r,g,b);
+                segmentColors.push(cName);
+                rawColors.push({r,g,b});
+                
+                const boxX = (stripX + stripX) * scaleX / 2;
+                const boxY = (stripY + i * segmentH) * scaleY;
+                const boxW = stripW * scaleX;
+                const boxH = segmentH * scaleY;
+                
+                overlayCtx.fillStyle = getCssColor(cName);
+                overlayCtx.globalAlpha = 0.6;
+                overlayCtx.fillRect(boxX - (boxW), boxY, boxW*3, boxH-2);
+                overlayCtx.globalAlpha = 1.0;
+                overlayCtx.strokeStyle = "rgba(255,255,255,0.8)";
+                overlayCtx.strokeRect(boxX - (boxW), boxY, boxW*3, boxH-2);
             }
+            
+            if(isScanning) frameBuffer.push(rawColors);
+            const txt = document.getElementById('analysisText');
+            txt.innerText = `Top: ${segmentColors[0]}\nMid: ${segmentColors[4]}\nBot: ${segmentColors[9]}`;
+            
             if(!isScanning || stream) requestAnimationFrame(analyzeFrame);
         }
 
-        // --- SCANNER LOGIC ---
         function toggleScan() {
             if (isScanning) {
                 clearInterval(scanInterval);
@@ -473,6 +427,7 @@
             } else {
                 if(!characteristic) return alert("Connect light first!");
                 if(!stream) return alert("Start camera first!");
+                
                 isScanning = true;
                 const btn = document.getElementById('scanBtn');
                 btn.innerText = "⏹ STOP SCAN";
@@ -484,18 +439,29 @@
                 const speed = parseInt(document.getElementById('scanSpeed').value) * 1000;
                 
                 currentMode = start;
-                detectedLibrary = {}; // Reset library
+                detectedLibrary = {}; 
                 performScanStep(end, speed); 
             }
         }
 
         function performScanStep(endMode, speed) {
             frameBuffer = [];
-            testMode(currentMode);
+            // Safe Mode execution
+            try {
+                testMode(currentMode);
+            } catch(e) { console.log("BT Write Error", e); }
+
             setTimeout(async () => {
-                const result = await analyzeBuffer(frameBuffer);
-                detectedLibrary[currentMode] = result;
-                updateLog();
+                // Safe Analysis
+                try {
+                    const result = await analyzeBuffer(frameBuffer);
+                    detectedLibrary[currentMode] = result;
+                    updateLog();
+                } catch(e) {
+                    console.log("Analysis Error", e);
+                    detectedLibrary[currentMode] = { hex: "#000", motion: "ERROR", type: "Error" };
+                }
+                
                 currentMode++;
                 if (currentMode <= endMode && isScanning) {
                     performScanStep(endMode, speed);
@@ -505,35 +471,20 @@
             }, speed);
         }
         
-        // --- DEEP ANALYSIS ---
         async function analyzeBuffer(frames) {
-            if(frames.length < 5) return { hex: "#000000", motion: "NO DATA", type: "Unknown" };
+            if(frames.length < 5) return { hex: "#000000", motion: "NO DATA (Check Camera)", type: "Unknown" };
             
-            // 1. Identify Dominant Hex Color
-            // We look at the middle frame, find the brightest segment, capture its color.
+            const startF = frames[0];
             const midF = frames[Math.floor(frames.length/2)];
-            let maxBright = 0;
-            let bestPixel = {r:0,g:0,b:0};
             
-            // Check all segments in middle frame
+            // 1. Dominant Hex
+            let rSum=0, gSum=0, bSum=0, pixCount=0;
             midF.forEach(p => {
-                const b = p.r + p.g + p.b;
-                if(b > maxBright) { maxBright = b; bestPixel = p; }
+               if (p.r+p.g+p.b > 50) { rSum += p.r; gSum += p.g; bSum += p.b; pixCount++; } 
             });
-            
-            // If completely dark, maybe check other frames?
-            // For now, use that best pixel.
-            const primaryHex = rgbToHex(bestPixel.r, bestPixel.g, bestPixel.b);
-            
-            // 2. Identify Secondary Colors (Multicolor?)
-            const uniqueColors = new Set();
-            midF.forEach(p => { 
-                const n = getColorName(p.r,p.g,p.b); 
-                if(n!=='Off') uniqueColors.add(n); 
-            });
-            const isMulti = uniqueColors.size > 1;
+            const hex = pixCount > 0 ? rgbToHex(Math.floor(rSum/pixCount), Math.floor(gSum/pixCount), Math.floor(bSum/pixCount)) : "#000000";
 
-            // 3. Motion Tracking
+            // 2. Motion Tracking
             let totalDiff = 0;
             let upScore = 0;
             let downScore = 0;
@@ -559,41 +510,24 @@
             let motion = "STATIC";
             let type = "Solid";
             
-            if (isMulti) type = "Multicolor/Gradient";
-            
             const litStart = countLitPixels(frames[0]);
             const litEnd = countLitPixels(frames[frames.length-1]);
             
-            if (litEnd > litStart + 2) {
-                motion = "UP";
-                type = "Filling";
-            } else if (litEnd < litStart - 2) {
-                motion = "DOWN"; // Draining usually looks like down
-                type = "Draining";
-            } else if (totalDiff > 500) { 
-                if (upScore > downScore && upScore > (frames.length/4)) {
-                    motion = "UP";
-                    type = "Chase";
-                }
-                else if (downScore > upScore && downScore > (frames.length/4)) {
-                    motion = "DOWN";
-                    type = "Chase";
-                }
-                else {
-                    motion = "RANDOM";
-                    type = "Flash/Sparkle";
-                }
+            if (litEnd > litStart + 2) { motion = "UP"; type = "Filling"; }
+            else if (litEnd < litStart - 2) { motion = "DOWN"; type = "Draining"; }
+            else if (totalDiff > 500) { 
+                if (upScore > downScore && upScore > (frames.length/4)) { motion = "UP"; type = "Chase"; }
+                else if (downScore > upScore && downScore > (frames.length/4)) { motion = "DOWN"; type = "Chase"; }
+                else { motion = "RANDOM"; type = "Flash/Sparkle"; }
             }
             
-            // AI Override (Optional)
             const useAi = document.getElementById('useAi').checked;
             const apiKey = document.getElementById('apiKey').value;
             let aiDesc = "";
             if(useAi && apiKey) aiDesc = await getAiDescription(frames, apiKey);
             
-            const res = { hex: primaryHex, motion: motion, type: type };
+            const res = { hex: hex, motion: motion, type: type };
             if(aiDesc) res.desc = aiDesc;
-            
             return res;
         }
         
@@ -630,7 +564,6 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        // --- BLUETOOTH ---
         document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
                 device = await navigator.bluetooth.requestDevice({
