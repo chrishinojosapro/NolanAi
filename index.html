@@ -3,277 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Red Beam Hacker v1</title>
+    <title>Pixel Calibration Probe</title>
     <style>
         :root {
-            --bg: #050505;
-            --panel: #111111;
-            --sith-red: #ff0000;
-            --text: #e0e0e0;
-            --border: #333;
+            --bg: #0a0a0c;
+            --panel: #16161d;
+            --accent: #3b82f6;
+            --text: #e0e0e6;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background-color: var(--bg);
+            font-family: -apple-system, system-ui, sans-serif;
+            background: var(--bg);
             color: var(--text);
-            margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            margin: 0;
             padding: 20px;
         }
 
-        .container {
-            width: 100%;
-            max-width: 450px;
+        .card {
             background: var(--panel);
-            padding: 40px;
-            border-radius: 30px;
-            border: 1px solid var(--border);
+            border: 1px solid #333;
+            border-radius: 24px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
             text-align: center;
-            box-shadow: 0 0 100px rgba(255, 0, 0, 0.15);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
         }
 
-        h1 { 
-            margin: 0 0 10px 0; 
-            font-size: 1.5rem; 
-            letter-spacing: 4px; 
-            text-transform: uppercase;
-            background: linear-gradient(to bottom, #fff, var(--sith-red));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+        p { color: #888; font-size: 0.85rem; margin-bottom: 25px; }
 
-        .status-pill {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            background: #222;
-            border: 1px solid #444;
-            color: #666;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .status-pill.online { color: #22c55e; border-color: #22c55e; box-shadow: 0 0 10px rgba(34, 197, 94, 0.2); }
-
-        /* BEAM VISUALIZER */
-        .beam-track {
-            width: 60px;
-            height: 200px;
-            background: #000;
-            margin: 0 auto 30px;
-            border-radius: 10px;
-            border: 2px solid #222;
-            position: relative;
-            overflow: hidden;
-        }
-        .beam-light {
-            position: absolute;
-            bottom: -50px;
-            left: 10%;
-            width: 80%;
-            height: 40px;
-            background: var(--sith-red);
-            filter: blur(10px);
-            box-shadow: 0 0 20px var(--sith-red);
-        }
-        .animate-beam { animation: slideUp var(--dur, 1s) infinite linear; }
-        @keyframes slideUp { 0% { bottom: -50px; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { bottom: 210px; opacity: 0; } }
-
-        /* CONTROLS */
-        .control-group {
+        .led-strip-preview {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        button {
-            padding: 18px;
-            border-radius: 12px;
-            border: none;
-            font-weight: 800;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: 0.2s;
-            text-transform: uppercase;
-        }
-        .btn-connect { background: #222; color: white; border: 1px solid #444; }
-        .btn-activate { background: var(--sith-red); color: white; box-shadow: 0 10px 20px rgba(255,0,0,0.2); }
-        .btn-activate:active { transform: scale(0.96); }
-        .btn-stop { background: #fff; color: #000; }
-
-        .slider-box {
-            text-align: left;
+            gap: 4px;
+            justify-content: center;
+            margin-bottom: 30px;
             background: #000;
-            padding: 20px;
-            border-radius: 16px;
+            padding: 15px;
+            border-radius: 12px;
             border: 1px solid #222;
         }
-        label { display: flex; justify-content: space-between; font-size: 0.7rem; color: #888; margin-bottom: 10px; font-weight: bold; }
-        input[type=range] { width: 100%; accent-color: var(--sith-red); cursor: pointer; }
+        .pixel {
+            width: 12px; height: 12px; background: #222; border-radius: 2px;
+            transition: background 0.1s;
+        }
+        .pixel.active { background: #ff0000; box-shadow: 0 0 8px #ff0000; }
 
-        select {
-            width: 100%; padding: 12px; background: #000; color: white; border: 1px solid #333; border-radius: 8px;
+        .control-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            text-align: left;
+        }
+
+        .slider-box {
+            grid-column: span 2;
+            background: #000;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+        label { display: flex; justify-content: space-between; font-size: 0.7rem; color: #666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
+        
+        button {
+            padding: 15px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.9rem;
+        }
+        .btn-connect { background: #333; color: white; border: 1px solid #444; }
+        .btn-probe { background: var(--accent); color: white; grid-column: span 2; }
+        .btn-stop { background: #ef4444; color: white; grid-column: span 2; }
+
+        #log {
+            font-family: monospace; font-size: 0.75rem; background: #000; padding: 10px; border-radius: 8px; margin-top: 20px;
+            height: 80px; overflow-y: auto; color: #3b82f6; text-align: left; border: 1px solid #222;
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>Red Beam Hacker</h1>
-        <div id="status" class="status-pill">System Offline</div>
+    <div class="card">
+        <h1>Pixel Probe</h1>
+        <p>Testing for Individual LED Addressing</p>
 
-        <div class="beam-track">
-            <div id="visualBeam" class="beam-light"></div>
+        <div class="led-strip-preview" id="stripPreview">
+            <!-- 15 pixels for preview -->
+            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+            <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
         </div>
 
-        <div class="control-group">
-            <div style="display:flex; gap:10px;">
-                <select id="protocol" style="flex:1">
-                    <option value="1">Lotus (Keepsmile)</option>
-                    <option value="0">ELK (Standard)</option>
-                </select>
-                <button class="btn-connect" id="connBtn" onclick="connect()">Connect</button>
-            </div>
+        <div class="control-grid">
+            <select id="protocol" style="background:#000; color:white; border-radius:8px; padding:10px; border:1px solid #333;">
+                <option value="1">Protocol: Lotus (Keepsmile)</option>
+                <option value="0">Protocol: ELK (Standard)</option>
+            </select>
+            <button class="btn-connect" onclick="connect()" id="connBtn">Connect</button>
 
             <div class="slider-box">
-                <label><span>Beam Length (Reset ms)</span> <span id="lenVal">150ms</span></label>
-                <input type="range" id="beamLength" min="50" max="600" value="150" oninput="updateSettings()">
-                
-                <label style="margin-top:20px;"><span>Travel Speed (BPM)</span> <span id="speedVal">120</span></label>
-                <input type="range" id="beamSpeed" min="40" max="200" value="120" oninput="updateSettings()">
+                <label><span>Current Index Target</span> <span id="idxVal">0</span></label>
+                <input type="range" id="indexRange" min="0" max="255" value="0" oninput="manualTarget(this.value)">
             </div>
 
-            <button class="btn-activate" id="actionBtn" onclick="toggleHack()">▶ Activate Beam Hack</button>
+            <button class="btn-probe" id="actionBtn" onclick="toggleProbe()">🔭 Start Auto-Probe</button>
         </div>
+
+        <div id="log">> System Idle...</div>
     </div>
 
     <script>
         const PROTOCOLS = [
-            { 
-                name: "ELK", 
-                on: new Uint8Array([0xcc, 0x23, 0x33]), 
-                off: new Uint8Array([0xcc, 0x24, 0x33]),
-                setMode: (m) => new Uint8Array([0xBB, m, 0x03, 0x44]),
-                write: (r,g,b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa])
-            },
-            { 
-                name: "Lotus", 
-                on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]), 
-                off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef]),
-                setMode: (m) => new Uint8Array([0x7e, 0x05, 0x03, m, 0x01, 0xff, 0xff, 0x00, 0xef]),
-                write: (r,g,b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef])
-            }
+            { name: "ELK", write: (r,g,b,idx) => new Uint8Array([0x56, r, g, b, idx, 0xf0, 0xaa]), on: [0xcc, 0x23, 0x33] },
+            { name: "Lotus", write: (r,g,b,idx) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, idx, 0xef]), on: [0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef] }
         ];
 
         let device, characteristic;
-        let isHacking = false;
-        let hackInterval;
-        let isLightOn = false;
+        let isProbing = false;
+        let probeInterval;
+        let currentIndex = 0;
 
-        function updateSettings() {
-            const len = document.getElementById('beamLength').value;
-            const speed = document.getElementById('beamSpeed').value;
-            document.getElementById('lenVal').innerText = len + "ms";
-            document.getElementById('speedVal').innerText = speed;
-            
-            // Visualizer sync
-            const visual = document.getElementById('visualBeam');
-            const cycleMs = 60000 / speed;
-            visual.style.setProperty('--dur', (cycleMs/1000) + 's');
-            
-            if(isHacking) { restartHack(); }
+        function log(msg) {
+            const l = document.getElementById('log');
+            l.innerHTML = `> ${msg}<br>` + l.innerHTML;
         }
 
         async function connect() {
             try {
                 device = await navigator.bluetooth.requestDevice({
                     acceptAllDevices: true,
-                    optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
+                    optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb']
                 });
                 const server = await device.gatt.connect();
                 const services = await server.getPrimaryServices();
                 for(let s of services) {
                     const chars = await s.getCharacteristics();
-                    for(let c of chars) { if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; } }
+                    for(let c of chars) {
+                        if(c.properties.write || c.properties.writeWithoutResponse) { characteristic = c; break; }
+                    }
                     if(characteristic) break;
                 }
-                const status = document.getElementById('status');
-                status.innerText = "LINKED: " + device.name.toUpperCase();
-                status.classList.add('online');
                 document.getElementById('connBtn').innerText = "LINKED";
-            } catch(e) { alert(e.message); }
+                document.getElementById('connBtn').style.background = "#22c55e";
+                log("Connected to " + device.name);
+                
+                const p = PROTOCOLS[document.getElementById('protocol').value];
+                await characteristic.writeValue(new Uint8Array(p.on));
+            } catch(e) { log("ERR: " + e.message); }
         }
 
-        function toggleHack() {
-            if(isHacking) stopHack(); else startHack();
+        function manualTarget(val) {
+            currentIndex = parseInt(val);
+            document.getElementById('idxVal').innerText = val;
+            updateVisualizer(currentIndex);
+            sendProbe(currentIndex);
         }
 
-        function startHack() {
+        function updateVisualizer(idx) {
+            const pixels = document.querySelectorAll('.pixel');
+            pixels.forEach(p => p.classList.remove('active'));
+            // Maps 0-255 to 15 preview pixels
+            const mappedIdx = Math.floor((idx / 255) * 14);
+            pixels[mappedIdx].classList.add('active');
+        }
+
+        function toggleProbe() {
+            if(isProbing) stopProbe(); else startProbe();
+        }
+
+        function startProbe() {
             if(!characteristic) return alert("Connect light first!");
-            isHacking = true;
-            document.getElementById('actionBtn').innerText = "⏹ Kill Process";
+            isProbing = true;
+            document.getElementById('actionBtn').innerText = "⏹ Stop Probe";
             document.getElementById('actionBtn').className = "btn-stop";
-            document.getElementById('visualBeam').classList.add('animate-beam');
-            restartHack();
-        }
-
-        function stopHack() {
-            isHacking = false;
-            clearInterval(hackInterval);
-            document.getElementById('actionBtn').innerText = "▶ Activate Beam Hack";
-            document.getElementById('actionBtn').className = "btn-activate";
-            document.getElementById('visualBeam').classList.remove('animate-beam');
-            sendOff();
-        }
-
-        function restartHack() {
-            if(!isHacking) return;
-            clearInterval(hackInterval);
+            currentIndex = 0;
             
-            const bpm = document.getElementById('beamSpeed').value;
-            const msPerBeat = 60000 / bpm;
-            
-            hackInterval = setInterval(runBeamSequence, msPerBeat);
-            runBeamSequence(); // Initial fire
+            probeInterval = setInterval(() => {
+                currentIndex++;
+                if(currentIndex > 255) currentIndex = 0;
+                
+                document.getElementById('indexRange').value = currentIndex;
+                document.getElementById('idxVal').innerText = currentIndex;
+                updateVisualizer(currentIndex);
+                sendProbe(currentIndex);
+                
+                if(currentIndex % 10 === 0) log("Probing Index: " + currentIndex);
+            }, 150);
         }
 
-        async function runBeamSequence() {
+        function stopProbe() {
+            isProbing = false;
+            clearInterval(probeInterval);
+            document.getElementById('actionBtn').innerText = "🔭 Start Auto-Probe";
+            document.getElementById('actionBtn').className = "btn-probe";
+            log("Probe Halted at Index: " + currentIndex);
+        }
+
+        async function sendProbe(idx) {
             if(!characteristic) return;
             const p = PROTOCOLS[document.getElementById('protocol').value];
-            const lengthMs = parseInt(document.getElementById('beamLength').value);
-            
+            // Send Red [255,0,0] with the current Index byte
             try {
-                // 1. Wake hardware
-                if(!isLightOn) { await characteristic.writeValue(p.on); isLightOn = true; }
-                
-                // 2. TRIGGER RED STACK (MODE 37)
-                // This starts the red beam climbing on white
-                await characteristic.writeValue(p.setMode(37)); 
-                
-                // 3. WAIT AND KILL BACKGROUND
-                // We send a Blackout command after a tiny delay to leave only the beam
-                setTimeout(async () => {
-                    if(!isHacking) return;
-                    await characteristic.writeValue(p.write(0,0,0));
-                }, lengthMs);
-
-            } catch(e){}
+                await characteristic.writeValue(p.write(255, 0, 0, idx));
+            } catch(e) {}
         }
-
-        async function sendOff() {
-            if(!characteristic) return;
-            const p = PROTOCOLS[document.getElementById('protocol').value];
-            await characteristic.writeValue(p.off);
-            isLightOn = false;
-        }
-
-        updateSettings();
     </script>
 </body>
 </html>
