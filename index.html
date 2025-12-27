@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal LED Controller v2</title>
+    <title>Universal LED Controller v3</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -56,17 +56,67 @@
         .btn-primary { background-color: var(--accent-color); color: white; }
         .btn-danger { background-color: var(--danger-color); color: white; }
         .btn-success { background-color: var(--success-color); color: white; }
+        .btn-secondary { background-color: #444; color: white; }
 
         .hidden { display: none; }
+
+        /* Light Show & Builder Styles */
+        .show-controls {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #333;
+        }
+        
+        .builder-area {
+            background: #252525;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .sequence-display {
+            display: flex;
+            gap: 5px;
+            height: 30px;
+            margin: 10px 0;
+            background: #111;
+            border-radius: 6px;
+            padding: 5px;
+            overflow-x: auto;
+            justify-content: flex-start;
+        }
+
+        .seq-dot {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            border: 1px solid #555;
+            flex-shrink: 0;
+        }
+
+        .speed-control {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        input[type="range"] {
+            width: 100px;
+            accent-color: var(--accent-color);
+        }
 
         input[type="color"] {
             -webkit-appearance: none;
             border: none;
             width: 100%;
-            height: 80px;
+            height: 60px;
             cursor: pointer;
             background: none;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: none; border-radius: 12px; }
@@ -100,7 +150,7 @@
 
     <div class="container">
         <h1>Universal Controller</h1>
-        <p>Supports: ELK, BLEDOM, ZENGGE, TRIONES</p>
+        <p>Protocol 2 Active</p>
 
         <!-- Connect Screen -->
         <div id="connectScreen">
@@ -112,19 +162,54 @@
             <label for="protocolSelect" style="display:block; text-align:left; margin-bottom:5px; color:#aaa; font-size:0.8rem;">Command Protocol:</label>
             <select id="protocolSelect">
                 <option value="0">Protocol 1: Standard (ELK/BLEDOM)</option>
-                <option value="1">Protocol 2: Lotus/Keepsmile (0x7E)</option>
+                <option value="1" selected>Protocol 2: Lotus/Keepsmile (0x7E)</option>
                 <option value="2">Protocol 3: Triones/Zengge</option>
                 <option value="3">Protocol 4: QHM Variant</option>
             </select>
 
             <input type="color" id="colorPicker" value="#ff0000">
             
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <button id="offBtn" class="btn-danger">OFF</button>
                 <button id="onBtn" class="btn-success">ON</button>
             </div>
             
-            <button id="disconnectBtn" style="background: #333; margin-top: 10px;">Disconnect</button>
+            <!-- NEW: Pattern Builder -->
+            <div class="builder-area">
+                <h3 style="margin:0 0 10px 0; font-size:1rem;">🛠 Pattern Builder</h3>
+                <div style="display:flex; gap:10px;">
+                    <button id="addStepBtn" class="btn-secondary" style="font-size:0.9rem;">+ Add Current Color</button>
+                    <button id="clearSeqBtn" class="btn-danger" style="width: 60px;">Clr</button>
+                </div>
+                
+                <div id="sequenceDisplay" class="sequence-display">
+                    <!-- Dots will appear here -->
+                    <span style="color:#555; font-size:0.8rem; width:100%; text-align:center; padding-top:4px;">Empty</span>
+                </div>
+
+                <button id="playCustomBtn" class="btn-primary">▶ Play Custom Pattern</button>
+            </div>
+
+            <!-- Standard Shows -->
+            <div class="show-controls">
+                <h3 style="margin:0 0 10px 0; font-size:1rem;">Presets</h3>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                    <button onclick="startShow('rgb')" style="flex:1; background:#444;">RGB Fade</button>
+                    <button onclick="startShow('police')" style="flex:1; background:#0044cc;">Police</button>
+                    <button onclick="startShow('strobe')" style="flex:1; background:#cccc00; color:black;">Strobe</button>
+                </div>
+                
+                <div class="speed-control">
+                    <span>Fast</span>
+                    <input type="range" id="speedRange" min="100" max="2000" value="500" step="50">
+                    <span>Slow</span>
+                </div>
+
+                <button id="stopShowBtn" class="hidden btn-danger" style="margin-top:10px;">⏹ Stop Show</button>
+            </div>
+            
+            <button id="disconnectBtn" style="background: #333; margin-top: 20px;">Disconnect</button>
+            <p id="protocol-info" style="margin-top:10px; font-size:0.8rem; color: #8b5cf6;"></p>
         </div>
 
         <div id="log">Logs will appear here...</div>
@@ -132,47 +217,41 @@
 
     <script>
         // --- COMMAND PROTOCOLS ---
-        // Different lights use different byte sequences. We define them here.
         const COMMAND_SETS = [
             {
                 name: "Standard (ELK/BLEDOM)",
-                // Common for 0xFFD5/0xFFD9
                 writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
                 on: new Uint8Array([0xcc, 0x23, 0x33]),
                 off: new Uint8Array([0xcc, 0x24, 0x33])
             },
             {
                 name: "Lotus/Keepsmile (0x7E)",
-                // Common for 0xFFF0/0xFFF3 - often found in "Lotus Lantern" apps
                 writeColor: (r, g, b) => new Uint8Array([0x7e, 0x07, 0x05, 0x03, r, g, b, 0x10, 0xef]),
                 on: new Uint8Array([0x7e, 0x04, 0x04, 0xf0, 0x00, 0x01, 0xff, 0x00, 0xef]),
                 off: new Uint8Array([0x7e, 0x04, 0x04, 0x00, 0x00, 0x00, 0xff, 0x00, 0xef])
             },
             {
                 name: "Triones/Zengge",
-                // Sometimes uses no padding or specific checksums
-                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]), // Often same as standard
+                writeColor: (r, g, b) => new Uint8Array([0x56, r, g, b, 0x00, 0xf0, 0xaa]),
                 on: new Uint8Array([0xcc, 0x23, 0x33]),
                 off: new Uint8Array([0xcc, 0x24, 0x33])
             },
             {
                 name: "QHM Variant",
-                // Slightly different padding
                 writeColor: (r, g, b) => new Uint8Array([0x56, 0x00, r, g, b, 0xf0, 0xaa]),
                 on: new Uint8Array([0xcc, 0x23, 0x33]),
                 off: new Uint8Array([0xcc, 0x24, 0x33])
             }
         ];
 
-        // Known Service UUIDs to scan for
+        // Known UUIDs
         const SERVICES = [
-            '0000ffd5-0000-1000-8000-00805f9b34fb', // Standard ELK
-            '0000ffe5-0000-1000-8000-00805f9b34fb', // Zengge
-            '0000fff0-0000-1000-8000-00805f9b34fb', // Triones/Lotus
-            '0000ffe0-0000-1000-8000-00805f9b34fb'  // Generic
+            '0000ffd5-0000-1000-8000-00805f9b34fb',
+            '0000ffe5-0000-1000-8000-00805f9b34fb',
+            '0000fff0-0000-1000-8000-00805f9b34fb',
+            '0000ffe0-0000-1000-8000-00805f9b34fb'
         ];
         
-        // Known Characteristic UUIDs to write to (we try to find one of these)
         const CHARACTERISTICS = [
             '0000ffd9-0000-1000-8000-00805f9b34fb',
             '0000ffe9-0000-1000-8000-00805f9b34fb',
@@ -181,7 +260,9 @@
         ];
 
         // --- STATE ---
-        let device, server, service, characteristic;
+        let device, characteristic;
+        let showInterval = null; 
+        let customSequence = []; // Stores user created pattern
 
         // --- UI ELEMENTS ---
         const logBox = document.getElementById('log');
@@ -195,7 +276,6 @@
         document.getElementById('connectBtn').addEventListener('click', async () => {
             try {
                 if (!navigator.bluetooth) throw new Error("Web Bluetooth not supported (Use Bluefy App)");
-
                 log("Scanning...");
                 
                 device = await navigator.bluetooth.requestDevice({
@@ -211,49 +291,36 @@
                     document.getElementById('controlScreen').classList.add('hidden');
                 });
 
-                server = await device.gatt.connect();
-                log("Connected! Finding Service...");
-
-                // Find the first available service from our list
-                let foundService = null;
+                const server = await device.gatt.connect();
+                
+                // Find valid service
+                let service = null;
                 for (let uuid of SERVICES) {
                     try {
-                        foundService = await server.getPrimaryService(uuid);
-                        log(`Found Service: ...${uuid.substring(4,8)}`);
+                        service = await server.getPrimaryService(uuid);
                         break;
-                    } catch (e) { /* continue */ }
+                    } catch (e) { }
                 }
+                if (!service) throw new Error("No service found.");
 
-                if (!foundService) throw new Error("No compatible service found.");
-                service = foundService;
-
-                // Find the first available characteristic
-                let foundChar = null;
+                // Find valid char
+                let char = null;
                 for (let uuid of CHARACTERISTICS) {
                     try {
-                        foundChar = await service.getCharacteristic(uuid);
-                        log(`Found Char: ...${uuid.substring(4,8)}`);
+                        char = await service.getCharacteristic(uuid);
                         break;
-                    } catch (e) { /* continue */ }
+                    } catch (e) { }
                 }
-
-                if (!foundChar) {
-                     // Fallback: Just get the FIRST characteristic available if unknown
+                if (!char) {
                      const chars = await service.getCharacteristics();
-                     if(chars.length > 0) {
-                        foundChar = chars[0];
-                        log(`Using fallback char: ${foundChar.uuid}`);
-                     } else {
-                        throw new Error("No characteristic found.");
-                     }
+                     if(chars.length > 0) char = chars[0];
+                     else throw new Error("No characteristic found.");
                 }
                 
-                characteristic = foundChar;
-
-                // Success UI
+                characteristic = char;
                 document.getElementById('connectScreen').classList.add('hidden');
                 document.getElementById('controlScreen').classList.remove('hidden');
-                log("Ready! Try changing protocols if color fails.");
+                log("Ready.");
 
             } catch (err) {
                 log("Error: " + err.message);
@@ -269,22 +336,18 @@
             if (!characteristic) return;
             try {
                 await characteristic.writeValue(data);
-                log(`Sent: ${data.length} bytes`);
             } catch (e) {
-                log("Write failed: " + e.message);
+                log("Write error: " + e.message);
             }
         }
 
         function getActiveProtocol() {
-            const index = protocolSelect.value;
-            return COMMAND_SETS[index];
+            return COMMAND_SETS[protocolSelect.value];
         }
 
-        document.getElementById('onBtn').addEventListener('click', () => {
-            send(getActiveProtocol().on);
-        });
-
+        document.getElementById('onBtn').addEventListener('click', () => send(getActiveProtocol().on));
         document.getElementById('offBtn').addEventListener('click', () => {
+            stopShow();
             send(getActiveProtocol().off);
         });
 
@@ -292,17 +355,110 @@
         let debounce;
         
         colorPicker.addEventListener('input', (e) => {
+            stopShow(); 
             clearTimeout(debounce);
             debounce = setTimeout(() => {
                 const hex = e.target.value;
                 const r = parseInt(hex.substring(1, 3), 16);
                 const g = parseInt(hex.substring(3, 5), 16);
                 const b = parseInt(hex.substring(5, 7), 16);
-                
-                const proto = getActiveProtocol();
-                send(proto.writeColor(r, g, b));
+                send(getActiveProtocol().writeColor(r, g, b));
             }, 100);
         });
+
+        // --- PATTERN BUILDER LOGIC ---
+
+        function updateSeqDisplay() {
+            const container = document.getElementById('sequenceDisplay');
+            container.innerHTML = '';
+            if(customSequence.length === 0) {
+                container.innerHTML = '<span style="color:#555; font-size:0.8rem; width:100%; text-align:center; padding-top:4px;">Empty</span>';
+                return;
+            }
+            customSequence.forEach(color => {
+                const dot = document.createElement('div');
+                dot.className = 'seq-dot';
+                dot.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+                container.appendChild(dot);
+            });
+        }
+
+        document.getElementById('addStepBtn').addEventListener('click', () => {
+            const hex = colorPicker.value;
+            const r = parseInt(hex.substring(1, 3), 16);
+            const g = parseInt(hex.substring(3, 5), 16);
+            const b = parseInt(hex.substring(5, 7), 16);
+            customSequence.push([r, g, b]);
+            updateSeqDisplay();
+        });
+
+        document.getElementById('clearSeqBtn').addEventListener('click', () => {
+            customSequence = [];
+            updateSeqDisplay();
+        });
+
+        document.getElementById('playCustomBtn').addEventListener('click', () => {
+            if (customSequence.length === 0) {
+                log("Sequence is empty!");
+                return;
+            }
+            startShow('custom');
+        });
+
+        // --- LIGHT SHOW ENGINE ---
+        
+        const stopBtn = document.getElementById('stopShowBtn');
+        const speedRange = document.getElementById('speedRange');
+
+        window.stopShow = function() {
+            if (showInterval) {
+                clearInterval(showInterval);
+                showInterval = null;
+                stopBtn.classList.add('hidden');
+                log("Show stopped.");
+            }
+        };
+
+        stopBtn.addEventListener('click', window.stopShow);
+
+        window.startShow = function(type) {
+            stopShow();
+            stopBtn.classList.remove('hidden');
+            
+            const proto = getActiveProtocol();
+            if(!proto) { log("Connect first!"); return; }
+
+            const speed = parseInt(speedRange.value);
+            let step = 0;
+            let sequence = [];
+
+            if (type === 'custom') {
+                sequence = customSequence;
+                log(`Playing Custom Pattern (${sequence.length} steps)`);
+            } else {
+                // Preset Patterns
+                const patterns = {
+                    'rgb': [
+                        [255, 0, 0], [0, 255, 0], [0, 0, 255], 
+                        [255, 255, 0], [0, 255, 255], [255, 0, 255]
+                    ],
+                    'police': [
+                        [255, 0, 0], [0, 0, 255], [255, 0, 0], [0, 0, 255]
+                    ],
+                    'strobe': [
+                        [255, 255, 255], [0, 0, 0]
+                    ]
+                };
+                sequence = patterns[type];
+                log(`Starting ${type} show`);
+            }
+
+            showInterval = setInterval(() => {
+                const color = sequence[step % sequence.length];
+                send(proto.writeColor(color[0], color[1], color[2]));
+                step++;
+            }, speed);
+        };
 
     </script>
 </body>
