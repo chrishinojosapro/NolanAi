@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Vision Scanner (Mac/PC)</title>
+    <title>AI Vision Scanner v16 (Crash Protection)</title>
     <style>
         :root {
             --bg: #0f172a;
@@ -101,7 +101,7 @@
 </head>
 <body>
 
-    <h1>👁️ Light Scanner (Mac/PC)</h1>
+    <h1>👁️ Light Scanner (Crash Protected)</h1>
 
     <div class="container">
         <!-- LEFT: VISION -->
@@ -168,7 +168,7 @@
         let isScanning = false;
         let currentMode = 1;
         let frameBuffer = [];
-        let detectedLibrary = {};
+        let detectedLibrary = { modes: {} };
 
         // --- CAMERA ---
         async function startCamera() {
@@ -214,13 +214,12 @@
         }
 
         function getColorName(r,g,b) {
-            // "Boost" saturation for camera readout
             const minC = Math.min(r,g,b);
             let br=r-(minC*0.8), bg=g-(minC*0.8), bb=b-(minC*0.8);
             const [h,s,l] = rgbToHsl(br, bg, bb);
             
             if (l < 0.1) return "Off";
-            if (s < 0.15) return "White"; // Low saturation = white
+            if (s < 0.15) return "White"; 
             
             if (h>=340 || h<=15) return "Red";
             if (h>15 && h<=45) return "Orange";
@@ -248,13 +247,11 @@
             const oCtx = overlayCanvas.getContext('2d');
 
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                // Setup Canvases
                 procCanvas.width = 160; procCanvas.height = 120;
                 overlayCanvas.width = video.clientWidth; overlayCanvas.height = video.clientHeight;
                 ctx.drawImage(video, 0, 0, 160, 120);
                 oCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
 
-                // Define Strip ROI (Center vertical column)
                 const stripW = Math.floor(160 * 0.1); 
                 const stripX = Math.floor((160 - stripW) / 2);
                 const stripH = Math.floor(120 * 0.8);
@@ -273,7 +270,6 @@
                     const startY = i * segH;
                     const endY = startY + segH;
                     
-                    // Sample every 2nd pixel for speed
                     for(let y=startY; y<endY; y+=2) {
                         for(let x=0; x<stripW; x+=2) {
                             const idx = (y * stripW + x) * 4;
@@ -290,10 +286,9 @@
                     rawFrame.push({r,g,b});
                     segColors.push(getColorName(r,g,b));
 
-                    // Draw Overlay
                     const boxX = (stripX + (stripW/2)) * scaleX;
                     const boxY = (stripY + i * segH) * scaleY;
-                    const boxW = stripW * scaleX * 2; // Wider for visibility
+                    const boxW = stripW * scaleX * 2;
                     const boxH = segH * scaleY;
                     
                     oCtx.fillStyle = `rgb(${r},${g},${b})`;
@@ -322,7 +317,7 @@
                 document.getElementById('scanBtn').innerText = "⏹ Stop";
                 document.getElementById('scanBtn').classList.add('danger');
                 currentMode = parseInt(document.getElementById('startMode').value);
-                detectedLibrary = {};
+                detectedLibrary = { modes: {} };
                 performScanStep();
             }
         }
@@ -332,27 +327,46 @@
             const end = parseInt(document.getElementById('endMode').value);
             frameBuffer = [];
             
-            // Set Mode
+            // UI Update
+            document.getElementById('scanBtn').innerText = `Scanning Mode ${currentMode}...`;
+            
+            // Set Mode with Error Handling
             const pid = document.getElementById('protocol').value;
-            characteristic.writeValue(PROTOCOLS[pid].setMode(currentMode)).catch(e=>{});
+            try {
+                characteristic.writeValue(PROTOCOLS[pid].setMode(currentMode)).catch(e => console.log("BT Error:", e));
+            } catch(err) {
+                console.log("Mode Set Error:", err);
+            }
             
             // Wait 3s to capture full loop
             setTimeout(async () => {
-                const desc = await analyzeBuffer(frameBuffer);
-                detectedLibrary[currentMode] = desc;
+                // Safety: Ensure scanning didn't stop during timeout
+                if(!isScanning) return;
                 
-                const log = document.getElementById('log');
-                log.value = JSON.stringify(detectedLibrary, null, 2);
-                log.scrollTop = log.scrollHeight;
-                
+                try {
+                    const desc = await analyzeBuffer(frameBuffer);
+                    detectedLibrary.modes[currentMode] = desc;
+                    
+                    const log = document.getElementById('log');
+                    log.value = JSON.stringify(detectedLibrary, null, 2);
+                    log.scrollTop = log.scrollHeight;
+                } catch(err) {
+                    console.log("Analysis Error:", err);
+                    detectedLibrary.modes[currentMode] = { hex: "#000", motion: "ERROR", type: "Error" };
+                }
+
                 currentMode++;
-                if(currentMode <= end) performScanStep();
-                else toggleScan();
+                if(currentMode <= end) {
+                    performScanStep();
+                } else {
+                    toggleScan();
+                    alert("Scan Complete!");
+                }
             }, 3000);
         }
 
         async function analyzeBuffer(frames) {
-            if(frames.length < 5) return { hex: "#000", desc: "No Data" };
+            if(frames.length < 5) return { hex: "#000", desc: "No Data", type: "Unknown", motion: "NO DATA" };
             
             // 1. Dominant Color (Middle Frame)
             const midF = frames[Math.floor(frames.length/2)];
@@ -386,24 +400,30 @@
                 if(diffDown < diffStatic) downScore++;
             }
             
-            let motion = "Static";
+            let motion = "STATIC";
             const litStart = frames[0].filter(p=>p.r+p.g+p.b>60).length;
             const litEnd = frames[frames.length-1].filter(p=>p.r+p.g+p.b>60).length;
             
-            if (litEnd > litStart + 2) motion = "Filling Up";
-            else if (litEnd < litStart - 2) motion = "Draining";
+            if (litEnd > litStart + 2) motion = "UP (Fill)";
+            else if (litEnd < litStart - 2) motion = "DOWN (Drain)";
             else if (totalDiff > 1000) {
-                if (upScore > downScore && upScore > frames.length/4) motion = "Chase UP";
-                else if (downScore > upScore && downScore > frames.length/4) motion = "Chase DOWN";
-                else motion = "Random/Flash";
+                if (upScore > downScore && upScore > frames.length/4) motion = "UP";
+                else if (downScore > upScore && downScore > frames.length/4) motion = "DOWN";
+                else motion = "RANDOM";
             }
 
             // Description
             let texture = topColors.length > 1 ? "Multicolor" : "Solid";
             if (motion.includes("Flash")) texture = "Sparkle";
             
+            // Simple type classification
+            let type = "Solid";
+            if (motion.includes("UP") || motion.includes("DOWN")) type = "Chase";
+            if (motion.includes("RANDOM")) type = "Flash";
+            if (topColors.length > 1) type = "Multicolor";
+
             const desc = `${mainColor} ${texture} ${motion}`;
-            return { hex: hex, desc: desc };
+            return { hex: hex, desc: desc, type: type, motion: motion };
         }
 
         // --- BLUETOOTH ---
@@ -414,7 +434,6 @@
                     optionalServices: ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb']
                 });
                 const server = await device.gatt.connect();
-                // Find service
                 const uuids = ['0000ffd5-0000-1000-8000-00805f9b34fb', '0000ffe5-0000-1000-8000-00805f9b34fb', '0000fff0-0000-1000-8000-00805f9b34fb'];
                 let service;
                 for(let u of uuids) { try{ service = await server.getPrimaryService(u); break; }catch(e){} }
@@ -425,8 +444,10 @@
                     document.getElementById('status').innerText = "Connected: " + device.name;
                     document.getElementById('status').style.color = "#22c55e";
                     document.getElementById('connectBtn').style.display = 'none';
+                    const pid = document.getElementById('protocol').value;
+                    if(PROTOCOLS[pid].on) characteristic.writeValue(PROTOCOLS[pid].on);
                 }
-            } catch(e) { alert(e.message); }
+            } catch(e) { alert("Error: " + e.message); }
         });
 
         function copyLog() {
